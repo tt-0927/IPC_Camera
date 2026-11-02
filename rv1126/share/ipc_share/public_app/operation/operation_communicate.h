@@ -39,7 +39,12 @@ public:
     void deal_heartbeat(Net::Message_S &stMessage, Net::UserParam_S &stUserParam);
     void deal_status(Net::Message_S &stMessage, Net::UserParam_S &stUserParam);
     void deal_message(Net::Message_S &stMessage, Net::UserParam_S &stUserParam);
+    /* 公共接口保持原有签名，避免影响非蓝牙型号及已有调用方。 */
     void fill_head(std::string &data, int nActionCode);
+#if CAP_BLUETOOTH
+    /* 仅蓝牙配网内部使用：通过 UniqueId 关联异步业务请求和响应。 */
+    void fill_head(std::string &data, int nActionCode, unsigned int nUniqueId);
+#endif
     void fill_returnHead(std::string &data, int nActionCode, int nReturn);
     /**
      * @brief 手动请求登录

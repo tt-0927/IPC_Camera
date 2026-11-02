@@ -191,6 +191,7 @@ namespace Replay
         CLOTHING_COMPLIANCE_TYPE,         /* 穿戴规范 */
         TRAFFIC_BEHAVIOR_MONITORING_TYPE, /* 交通行为监管 */
         ATTRIBUTE_RECOGNITION_TYPE,       /* 属性识别 */
+        ENV_FACILITY_ABNORMAL_TYPE,       /* 环境与设施异常 */
     } SummaryType_E;
 
     /// @brief 回放布局信息

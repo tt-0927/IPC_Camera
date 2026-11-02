@@ -14,6 +14,7 @@
 #include <event2/thread.h>
 
 #include <arpa/inet.h>
+#include <cstring>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <pthread.h>
@@ -227,31 +228,7 @@ void EvwsServer::on_upload_request(struct evhttp_request *pReq, void *pArg)
     {
         return;
     }
-
-    ConnCtx_S *pCtx = new ConnCtx_S();
-    pCtx->pServer = pServer;
-    pCtx->bUpload = true;
-    /* evws_new_session 成功后 request 即被释放，query 必须在升级前提取 */
-    pCtx->mapQuery = WsQuery::parse(WsQuery::extract_query(evhttp_request_get_uri(pReq)));
-
-    struct evws_connection *pEvws = evws_new_session(pReq, EvwsServer::on_ws_msg, pCtx, BEV_OPT_THREADSAFE);
-    if (nullptr == pEvws)
-    {
-        /* 非 WebSocket 升级请求：evws_new_session 已回 400 */
-        dlog_warn("file-upload 升级失败");
-        pServer->release_ctx(pCtx);
-        return;
-    }
-    pCtx->pEvws = pEvws;
-    evws_connection_set_closecb(pEvws, EvwsServer::on_ws_close, pCtx);
-
-    /* 以下对应 lws file-upload 协议的 LWS_CALLBACK_ESTABLISHED */
-#if !CAP_AI_FACE_COMPARE
-    pServer->m_wsUpload.set_file_path(m_filePath);
-#endif
-    pServer->m_wsUpload.parse_param(pCtx, pCtx->mapQuery);
-
-    pServer->register_conn(pEvws, pCtx);
+    pServer->setup_ws_session(pReq, true);
 }
 
 void EvwsServer::on_message_request(struct evhttp_request *pReq, void *pArg)
@@ -262,24 +239,85 @@ void EvwsServer::on_message_request(struct evhttp_request *pReq, void *pArg)
         return;
     }
 
+    /* lws 版按子协议分流上传连接（与 URL 路径无关）：现网页以
+       Sec-WebSocket-Protocol: file-upload 建立上传会话，URL 并非
+       /file-upload，必须在此识别，否则上传数据会被当成普通控制消息丢弃 */
+    pServer->setup_ws_session(pReq, is_file_upload_request(pReq));
+}
+
+bool EvwsServer::is_file_upload_request(struct evhttp_request *pReq)
+{
+    struct evkeyvalq *pInHdrs = evhttp_request_get_input_headers(pReq);
+    if (nullptr == pInHdrs)
+    {
+        return false;
+    }
+    const char *pszProtocols = evhttp_find_header(pInHdrs, "Sec-WebSocket-Protocol");
+    if (nullptr == pszProtocols)
+    {
+        return false;
+    }
+    /* 子协议列表以逗号分隔（RFC6455 4.1），逐项精确比较（协议名大小写敏感） */
+    static const char szUploadProto[] = "file-upload";
+    const size_t nUploadLen = sizeof(szUploadProto) - 1;
+    const char *pszPos = pszProtocols;
+    while (nullptr != pszPos)
+    {
+        while (' ' == *pszPos)
+        {
+            ++pszPos;
+        }
+        const char *pszEnd = strchr(pszPos, ',');
+        size_t nLen = (nullptr != pszEnd) ? (size_t) (pszEnd - pszPos) : strlen(pszPos);
+        while (nLen > 0 && ' ' == pszPos[nLen - 1])
+        {
+            --nLen;
+        }
+        if (nLen == nUploadLen && 0 == strncmp(pszPos, szUploadProto, nLen))
+        {
+            return true;
+        }
+        pszPos = (nullptr != pszEnd) ? pszEnd + 1 : nullptr;
+    }
+    return false;
+}
+
+void EvwsServer::setup_ws_session(struct evhttp_request *pReq, bool bUpload)
+{
     ConnCtx_S *pCtx = new ConnCtx_S();
-    pCtx->pServer = pServer;
+    pCtx->pServer = this;
+    pCtx->bUpload = bUpload;
+    /* evws_new_session 成功后 request 即被释放，query 必须在升级前提取 */
     pCtx->mapQuery = WsQuery::parse(WsQuery::extract_query(evhttp_request_get_uri(pReq)));
 
     struct evws_connection *pEvws = evws_new_session(pReq, EvwsServer::on_ws_msg, pCtx, BEV_OPT_THREADSAFE);
     if (nullptr == pEvws)
     {
-        dlog_warn("websocket 升级失败");
-        pServer->release_ctx(pCtx);
+        /* 非 WebSocket 升级请求：evws_new_session 已回 400 */
+        dlog_warn("%s升级失败", bUpload ? "file-upload" : "websocket");
+        release_ctx(pCtx);
         return;
     }
     pCtx->pEvws = pEvws;
     evws_connection_set_closecb(pEvws, EvwsServer::on_ws_close, pCtx);
 
-    pServer->register_conn(pEvws, pCtx);
+    if (bUpload)
+    {
+        /* 以下对应 lws file-upload 协议的 LWS_CALLBACK_ESTABLISHED */
+#if !CAP_AI_FACE_COMPARE
+        m_wsUpload.set_file_path(m_filePath);
+#endif
+        m_wsUpload.parse_param(pCtx, pCtx->mapQuery);
+        dlog_info("file-upload 会话已建立 conn %p", pCtx);
+    }
 
-    /* 对应 lws http-only 协议的 LWS_CALLBACK_ESTABLISHED：通知业务层新连接 */
-    pServer->emit_status(pCtx, Net::STATUS_SUCCESS);
+    register_conn(pEvws, pCtx);
+
+    if (!bUpload)
+    {
+        /* 对应 lws http-only 协议的 LWS_CALLBACK_ESTABLISHED：通知业务层新连接 */
+        emit_status(pCtx, Net::STATUS_SUCCESS);
+    }
 }
 
 void EvwsServer::register_conn(struct evws_connection *pEvws, ConnCtx_S *pCtx)
@@ -311,14 +349,14 @@ void EvwsServer::register_conn(struct evws_connection *pEvws, ConnCtx_S *pCtx)
     m_connections.insert(pCtx);
 }
 
-void EvwsServer::emit_status(ConnCtx_S *pCtx, Net::Status_E enStatus)
+void EvwsServer::emit_status(ConnCtx_S *pCtx, Net::Status_E enStatus, void *pHandle)
 {
     int nStatus = (int) enStatus;
     Net::Message_S stMessage;
     stMessage.nActionCode = m_stParam.stInitParam.nStatusCode;
     stMessage.pData = &nStatus;
     stMessage.nDataLength = sizeof(nStatus);
-    stMessage.pHandle = pCtx->pEvws;
+    stMessage.pHandle = (nullptr != pHandle) ? pHandle : pCtx->pEvws;
     stMessage.ip = pCtx->strIp;
     if (m_fnMessageCallback)
         m_fnMessageCallback(stMessage, m_stParam.stUserParam);
@@ -446,7 +484,10 @@ void EvwsServer::on_ws_close(struct evws_connection *pConn, void *pArg)
         }
         else
         {
-            pServer->emit_status(pCtx, Net::STATUS_DISCONNECT);
+            /* 断开上报必须携带有效句柄（对齐 lws 以 wsi 上报的行为）：
+               业务层连接表以句柄为 key 移除，句柄为空会导致连接表泄漏、
+               在线用户列表错乱 */
+            pServer->emit_status(pCtx, Net::STATUS_DISCONNECT, pConn);
             dlog_info("客户端[%p]断开连接", pConn);
         }
 
@@ -496,6 +537,8 @@ void EvwsServer::handle_upload_binary(ConnCtx_S *pCtx, const unsigned char *pDat
     if (nRet < 0)
     {
         dlog_error("上传数据写盘失败 conn %p", pCtx);
+        /* 失败原因已记录（空间不足/写错误），经进度通道下发网页 */
+        push_upload_progress(pCtx);
     }
     if (m_wsUpload.is_eof(pCtx))
     {

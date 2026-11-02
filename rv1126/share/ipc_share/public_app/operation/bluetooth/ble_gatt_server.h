@@ -4,7 +4,10 @@
 #include "ble_security.h"
 
 #include <atomic>
+#include <chrono>
 #include <mutex>
+#include <set>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -30,7 +33,7 @@ class BleGattServer
 {
 public:
     /* command 为 BLE 指令码，JSON 为转交给业务层的参数。返回负数表示投递失败。 */
-    typedef std::function<int(uint16_t, const std::string &)> ExternalCommandSender;
+    typedef std::function<int(uint16_t, const std::string &, uint32_t)> ExternalCommandSender;
 
     /** 获取进程内唯一的 BLE GATT 配网服务实例。 */
     static BleGattServer &instance();
@@ -48,7 +51,7 @@ public:
     /** 设置向 operation/control 业务层投递 Wi-Fi、平台任务的回调。 */
     void setExternalCommandSender(const ExternalCommandSender &sender);
     /** 业务任务完成后调用，把异步结果映射为原 command、sequence 的 BLE 响应。 */
-    void onExternalCommandResult(uint16_t command, bool success,
+    void onExternalCommandResult(uint16_t command, uint32_t requestId, bool success,
                                  const std::string &detail);
 
 private:
@@ -93,12 +96,28 @@ private:
     CommandResult handleAuthStatus(const CommandFrame &frame);
     /** 将内部整数状态和文本详情编码为 state=N;detail=... 响应 Data。 */
     std::vector<uint8_t> makeFlowStatusPayload(int state, const std::string &detail) const;
-    /** Wi-Fi和平台均成功后安排3秒定时器，随后关闭 BLE配网服务。 */
-    void scheduleBluetoothShutdown();
+    /** 通知 App 配网完成，并在3秒后只断开当前手机，保持蓝牙服务运行。 */
+    void scheduleClientDisconnect();
+    /** 发送设备主动事件0x0203，提示 App 保存结果并准备处理正常断开。 */
+    void publishProvisioningCompleteEvent();
     /** 启动平台状态初次查询和10秒周期查询定时器。 */
     void startPlatformStatusMonitor();
     /** 在 Wi-Fi已连接时向业务层发送一次平台在线状态查询。 */
     void queryPlatformStatus();
+    /** 定时清理超时业务；超时响应只发送给发起该请求的 BLE sequence。 */
+    void checkPendingTimeouts();
+    /** 生成非零且适合 JSON int 透传的业务请求关联号。 */
+    uint32_t nextRequestId();
+    /** 仅在 BLE 主上下文中执行实际的 GDBus PropertiesChanged 发送。 */
+    void emitResponseOnMainContext(const std::vector<uint8_t> &encoded,
+                                   uint16_t command, uint16_t sequence);
+    /** 清除与当前手机绑定的认证、残包和未完成业务。 */
+    void resetClientSession();
+    /** 校验 BlueZ options 中的 Device 路径，首个写请求会绑定当前会话。 */
+    bool validateClientDevice(GVariant *options, std::string &devicePath);
+    /** 通过 BlueZ 异步断开非活动手机；同一路径重复请求只提交一次。 */
+    void disconnectRejectedClient(const std::string &devicePath,
+                                  const char *reason);
     /** 从设备型号和 CPU Serial生成“型号-序列号”广播名称。 */
     std::string buildAdvertisementName() const;
 
@@ -119,8 +138,24 @@ private:
                                        const char *propertyName,
                                        GError **error,
                                        void *userData);
+    /** 监听绑定手机断开事件，异常断连时也能销毁认证会话和残包。 */
+    static void handleDevicePropertiesChanged(GDBusConnection *connection,
+                                               const char *senderName,
+                                               const char *objectPath,
+                                               const char *interfaceName,
+                                               const char *signalName,
+                                               GVariant *parameters,
+                                               void *userData);
 
 private:
+    struct PendingRequest
+    {
+        bool active = false;
+        uint32_t requestId = 0;
+        CommandFrame frame;
+        std::chrono::steady_clock::time_point deadline;
+    };
+
     std::atomic<bool> m_running;
     std::atomic<bool> m_stopRequested;
     std::thread m_thread;
@@ -132,15 +167,18 @@ private:
     GDBusNodeInfo *m_serviceInfo;
     GDBusNodeInfo *m_characteristicInfo;
     unsigned int m_registrationIds[5];
+    unsigned int m_deviceSignalSubscriptionId;
     bool m_applicationRegistered;
     bool m_advertisementRegistered;
     std::atomic<bool> m_notifying;
     /* BlueZ 从 WriteValue/ReadValue options 上报当前连接协商出的 ATT MTU。 */
     std::atomic<unsigned int> m_attMtu;
-    bool m_powerOffOnStop;
-    std::atomic<bool> m_shutdownScheduled;
+    std::atomic<bool> m_disconnectScheduled;
+    std::atomic<uint32_t> m_nextRequestId;
     /* 防止不同业务线程的响应分片交叉发送。 */
     mutable std::mutex m_publishMutex;
+    /* 保护 context/loop 的跨线程取用；GDBus connection 本身只在 BLE线程使用。 */
+    mutable std::mutex m_lifecycleMutex;
     mutable std::mutex m_responseMutex;
     std::vector<uint8_t> m_lastResponse;
     mutable std::mutex m_flowMutex;
@@ -150,12 +188,16 @@ private:
     std::string m_platformDetail;
     int m_wifiState;
     int m_platformState;
-    CommandFrame m_pendingWifiRequest;
-    CommandFrame m_pendingWifiScanRequest;
-    CommandFrame m_pendingPlatformRequest;
-    bool m_hasPendingWifiRequest;
-    bool m_hasPendingWifiScanRequest;
-    bool m_hasPendingPlatformRequest;
+    /* 仅本 BLE会话提交过0x0201后，平台在线才触发0x0203和延迟断开。 */
+    bool m_provisionCompletionPending;
+    PendingRequest m_pendingWifiRequest;
+    PendingRequest m_pendingWifiScanRequest;
+    PendingRequest m_pendingPlatformRequest;
+    PendingRequest m_pendingPlatformStatusRequest;
+    /* 第一台物理连接的手机独占 GATT；会话绑定在其首次读写时完成。 */
+    std::string m_activeDevicePath;
+    std::string m_boundDevicePath;
+    std::set<std::string> m_rejectedDisconnects;
     std::string m_advertisementName;
     FrameDecoder m_decoder;
     CommandDispatcher m_dispatcher;

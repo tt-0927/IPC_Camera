@@ -367,6 +367,12 @@ namespace Task
         /* 后厨穿戴规范 */
         TaskSubClass(GetKitchenClothingComplianceInfo)
         TaskSubClass(SetKitchenClothingComplianceInfo)
+        /* 打架斗殴检测 */
+        TaskSubClass(GetFightDetectionInfo)
+        TaskSubClass(SetFightDetectionInfo)
+        /* 鼠患识别 */
+        TaskSubClass(GetMouseDetectionInfo)
+        TaskSubClass(SetMouseDetectionInfo)
 #endif
     } /* namespace Event end */
 } /* namespace Task end */

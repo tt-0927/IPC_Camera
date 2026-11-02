@@ -1,0 +1,27 @@
+{
+    "version": "v1.0",
+    "model": "LicensePlateRec",
+    "notes": "车牌号识别",
+    "model_path": "/opt/cam/model/RV1126B_LicensePlateRec_168x48_V1_0.rknn",
+    "pre_process": {
+        "size": [
+            168,
+            48
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [149.94,149.94,149.94],
+        "std": [49.215,49.215,49.215],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "车牌号"
+        ]
+    }
+}

@@ -44,8 +44,6 @@ class CGroup3Detect : public CAlgorithm {
      * @param stAlgoConfig
      */
     void setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig) override;
-    void setAlgoParamCfg(const Alarm::SmokeFireDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::SMOKE_FIRE);
-    void setAlgoParamCfg(const Alarm::OpenFlameDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::OPEN_FLAME);
     void setAlgoParamCfg(const Alarm::GarbageExposureDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::GARBAGE_EXPOSURE);
     void setAlgoParamCfg(const Alarm::GarbageOverflowDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::GARBAGE_OVERFLOW);
     void setAlgoParamCfg(const Alarm::ManholeCoverAbnormalDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::MANHOLE_COVER_ABNORMAL);
@@ -120,10 +118,6 @@ class CGroup3Detect : public CAlgorithm {
     /* 数据获取线程 */
     std::thread m_thread;
 
-    /* 烟雾 识别相关配置 */
-    Alarm::SmokeFireDetection_S m_stAlgoSmokeFireCfg;
-    /* 火焰 识别相关配置 */
-    Alarm::OpenFlameDetection_S m_stAlgoOpenFlameCfg;
     /* 垃圾暴露 识别相关配置 */
     Alarm::GarbageExposureDetection_S m_stAlgoGarbageExposureCfg;
     /* 垃圾满溢 识别相关配置 */
@@ -137,8 +131,6 @@ class CGroup3Detect : public CAlgorithm {
     EventManager m_RecvManager{500};
 
     /* 报警状态管理 */
-    CAlarmStateMachine m_SmokeFireStateMachine;            /* 烟雾 */
-    CAlarmStateMachine m_OpenFlameStateMachine;            /* 火焰 */
     CAlarmStateMachine m_GarbageExposureStateMachine;      /* 垃圾暴露 */
     CAlarmStateMachine m_GarbageOverStateMachine;          /* 垃圾满溢 */
     CAlarmStateMachine m_ManholeCoverAbnormalStateMachine; /* 井盖异常 */

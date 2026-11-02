@@ -95,6 +95,8 @@ const std::map<Event::Type_E, CEventResource::BoolMemberPtr> CEventResource::m_e
     {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, &Event::SmartEventEnableStatus_S::bAccessControlAbnormalPassage},
     {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, &Event::SmartEventEnableStatus_S::bSocialRelationshipAnalysis},
     {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, &Event::SmartEventEnableStatus_S::bKitchenClothingCompliance},
+    {Event::Type_E::FIGHT_DETECTION, &Event::SmartEventEnableStatus_S::bFightDetection},
+    {Event::Type_E::MOUSE_INFESTATION, &Event::SmartEventEnableStatus_S::bMouseDetection},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, &Event::SmartEventEnableStatus_S::bSmokeFire},
@@ -124,11 +126,25 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::INTRUSION, Event::SmartCategory_E::PERIMETER},
     {Event::Type_E::ENTER_REGION, Event::SmartCategory_E::PERIMETER},
     {Event::Type_E::LEAVE_REGION, Event::SmartCategory_E::PERIMETER},
+#ifdef SCENE_INTELLIGENCE
+    /* 平安校园划入周界组的事件 */
+    {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, Event::SmartCategory_E::PERIMETER},
+    {Event::Type_E::DANGER_ZONE_APPROACH, Event::SmartCategory_E::PERIMETER},
+    {Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, Event::SmartCategory_E::PERIMETER},
+    {Event::Type_E::DANGER_ZONE_STAY, Event::SmartCategory_E::PERIMETER},
+    {Event::Type_E::KEY_AREA_ABNORMAL_STAY, Event::SmartCategory_E::PERIMETER},
+    {Event::Type_E::ROOFTOP_STAY, Event::SmartCategory_E::PERIMETER},
+#endif
     /* 行为分析 */
     {Event::Type_E::LOITERING_DETECT, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     {Event::Type_E::CROWD_GATHERING, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     {Event::Type_E::QUEUE_CROWDING, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
     {Event::Type_E::PARKING_DETECT, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
+#ifdef SCENE_INTELLIGENCE
+    /* 平安校园划入行为分析组的事件 */
+    {Event::Type_E::LONG_TIME_STAY, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
+    {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, Event::SmartCategory_E::BEHAVIOURAL_ANALYSIS},
+#endif
     /* 场景检测 */
     {Event::Type_E::AUDIO_ANOMALY, Event::SmartCategory_E::SCENE_DETECTION},
     {Event::Type_E::SCENE_CHANGE, Event::SmartCategory_E::SCENE_DETECTION},
@@ -157,15 +173,19 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::PHONE_USAGE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     // {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::OPEN_FLAME, Event::SmartCategory_E::BEHAVIOR_MONITORING},
-    {Event::Type_E::MANHOLE_COVER_ABNORMAL, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::BARE_SOIL, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::HOLE_PROTECTION_BAR, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::PEDESTRIAN_INTRUSION, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     {Event::Type_E::PERSON_TRIP, Event::SmartCategory_E::BEHAVIOR_MONITORING},
+    /* 平安校园划入行为监管组的事件 */
+    {Event::Type_E::CLIMB_DETECTION, Event::SmartCategory_E::BEHAVIOR_MONITORING},
+    {Event::Type_E::FIGHT_DETECTION, Event::SmartCategory_E::BEHAVIOR_MONITORING},
+    {Event::Type_E::OPEN_FLAME_LEAVE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
     /* 穿戴规范 */
     {Event::Type_E::SAFETY_HELMET, Event::SmartCategory_E::CLOTHING_COMPLIANCE},
     {Event::Type_E::REFLECTIVE_CLOTHING, Event::SmartCategory_E::CLOTHING_COMPLIANCE},
     {Event::Type_E::HIGH_ALTITUDE_SEATBELT, Event::SmartCategory_E::CLOTHING_COMPLIANCE},
+    {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, Event::SmartCategory_E::CLOTHING_COMPLIANCE},
     /* 交通行为监管 */
     {Event::Type_E::CONSTRUCTION_OCCUPY_ROAD, Event::SmartCategory_E::TRAFFIC_BEHAVIOR_MONITORING},
     {Event::Type_E::EMERGENCY_LANE_OCCUPANCY, Event::SmartCategory_E::TRAFFIC_BEHAVIOR_MONITORING},
@@ -180,28 +200,23 @@ const std::map<Event::Type_E, Event::SmartCategory_E> CEventResource::m_event_to
     {Event::Type_E::PEDESTRIAN_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
     {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
     {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, Event::SmartCategory_E::SMART_RECOGNITION},
-    /* 平安校园 */
-    {Event::Type_E::CHANNEL_OCCUPATION, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::CLIMB_DETECTION, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::DANGER_ZONE_APPROACH, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::LONG_TIME_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::DANGER_ZONE_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::KEY_AREA_ABNORMAL_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::ROOFTOP_STAY, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::OPEN_FLAME_LEAVE, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, Event::SmartCategory_E::SAFE_CAMPUS},
-    {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, Event::SmartCategory_E::SAFE_CAMPUS},
+    /* 环境与设施异常 */
+    {Event::Type_E::MANHOLE_COVER_ABNORMAL, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+    {Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+    {Event::Type_E::ROAD_PONDING, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+    {Event::Type_E::CHANNEL_OCCUPATION, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+    {Event::Type_E::MOUSE_INFESTATION, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     {Event::Type_E::SMOKE_FIRE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
 #endif
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
-    /* 垃圾暴露检测 */    
+#ifdef SCENE_INTELLIGENCE
+    /* 垃圾暴露/满溢：场景智能下归环境设施组 */
+    {Event::Type_E::GARBAGE_EXPOSURE, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+    {Event::Type_E::GARBAGE_OVERFLOW, Event::SmartCategory_E::ENV_FACILITY_ABNORMAL},
+#elif CAP_AI_GARBAGE_DETECT
+    /* 独立垃圾能力：保持行为监管组，不影响其他使用方 */
     {Event::Type_E::GARBAGE_EXPOSURE, Event::SmartCategory_E::BEHAVIOR_MONITORING},
-    /* 垃圾满溢识别 */
     {Event::Type_E::GARBAGE_OVERFLOW, Event::SmartCategory_E::BEHAVIOR_MONITORING},
 #endif
 #if CAP_AI_PEOPLE_STATISTICS
@@ -243,6 +258,15 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::INTRUSION,
             Event::Type_E::ENTER_REGION,
             Event::Type_E::LEAVE_REGION,
+#ifdef SCENE_INTELLIGENCE
+            /* 平安校园划入周界组的事件 */
+            Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE,
+            Event::Type_E::DANGER_ZONE_APPROACH,
+            Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY,
+            Event::Type_E::DANGER_ZONE_STAY,
+            Event::Type_E::KEY_AREA_ABNORMAL_STAY,
+            Event::Type_E::ROOFTOP_STAY,
+#endif
         }
     },
     {
@@ -252,7 +276,11 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::CROWD_GATHERING,
             Event::Type_E::QUEUE_CROWDING,
             Event::Type_E::PARKING_DETECT,
-
+#ifdef SCENE_INTELLIGENCE
+            /* 平安校园划入行为分析组的事件 */
+            Event::Type_E::LONG_TIME_STAY,
+            Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS,
+#endif
         }
     },
     {
@@ -303,16 +331,20 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::PHONE_USAGE,
             // Event::Type_E::SMOKE_FIRE,
             Event::Type_E::OPEN_FLAME,
-            Event::Type_E::MANHOLE_COVER_ABNORMAL,
             Event::Type_E::BARE_SOIL,
             Event::Type_E::HOLE_PROTECTION_BAR,
             Event::Type_E::PEDESTRIAN_INTRUSION,
             Event::Type_E::PERSON_TRIP,
+            /* 平安校园划入行为监管组的事件 */
+            Event::Type_E::CLIMB_DETECTION,
+            Event::Type_E::FIGHT_DETECTION,
+            Event::Type_E::OPEN_FLAME_LEAVE,
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
             Event::Type_E::SMOKE_FIRE,
 #endif
-#if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
+#if !defined(SCENE_INTELLIGENCE) && CAP_AI_GARBAGE_DETECT
+            /* 独立垃圾能力：垃圾事件保持行为监管组 */
             Event::Type_E::GARBAGE_EXPOSURE,
             Event::Type_E::GARBAGE_OVERFLOW,
 #endif
@@ -325,6 +357,7 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::SAFETY_HELMET,
             Event::Type_E::REFLECTIVE_CLOTHING,
             Event::Type_E::HIGH_ALTITUDE_SEATBELT,
+            Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE,
         }
     },
     {
@@ -334,7 +367,6 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
             Event::Type_E::EMERGENCY_LANE_OCCUPANCY,
             Event::Type_E::REVERSE_DIRECTION,
             Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION,
-            Event::Type_E::ROAD_PONDING,
             Event::Type_E::CONGESTION,
             Event::Type_E::ILLEGAL_PARKING,
             Event::Type_E::ILLEGAL_LANE_CHANGE,
@@ -374,23 +406,17 @@ const std::map<Event::SmartCategory_E, std::set<Event::Type_E>> CEventResource::
     },
 #endif
 #ifdef SCENE_INTELLIGENCE
-    /* 平安校园：后续平安校园相关事件临时统一归入本组 与其他组互斥 */
+    /* 环境与设施异常 */
     {
-        Event::SmartCategory_E::SAFE_CAMPUS,
+        Event::SmartCategory_E::ENV_FACILITY_ABNORMAL,
         {
-            Event::Type_E::CHANNEL_OCCUPATION,
-            Event::Type_E::CLIMB_DETECTION,
-            Event::Type_E::DANGER_ZONE_APPROACH,
-            Event::Type_E::LONG_TIME_STAY,
-            Event::Type_E::DANGER_ZONE_STAY,
-            Event::Type_E::KEY_AREA_ABNORMAL_STAY,
-            Event::Type_E::ROOFTOP_STAY,
-            Event::Type_E::OPEN_FLAME_LEAVE,
+            Event::Type_E::GARBAGE_EXPOSURE,
+            Event::Type_E::GARBAGE_OVERFLOW,
+            Event::Type_E::MANHOLE_COVER_ABNORMAL,
             Event::Type_E::FIRE_EQUIPMENT_ABNORMAL,
-            Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY,
-            Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE,
-            Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS,
-            Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE,
+            Event::Type_E::ROAD_PONDING,
+            Event::Type_E::CHANNEL_OCCUPATION,
+            Event::Type_E::MOUSE_INFESTATION,
         }
     },
 #endif
@@ -719,6 +745,8 @@ void CEventResource::update_event_configurations_on_disable(const Event::SmartEv
         case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE: disable_specific_config<Alarm::AccessControlAbnormalPassage_S>(); break;
         case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS:   disable_specific_config<Alarm::SocialRelationshipAnalysis_S>(); break;
         case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:    disable_specific_config<Alarm::KitchenClothingCompliance_S>(); break;
+        case Event::Type_E::FIGHT_DETECTION:                disable_specific_config<Alarm::FightDetection_S>(); break;
+        case Event::Type_E::MOUSE_INFESTATION:              disable_specific_config<Alarm::MouseDetection_S>(); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type_E::SMOKE_FIRE:                     disable_specific_config<Alarm::SmokeFireDetection_S>();      break;

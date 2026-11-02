@@ -195,8 +195,10 @@ private:
     std::shared_ptr<CAlgorithm> m_pGroup1Algo;
     /* penson(人)、Car(机动车)、NonCar(非机动车) */
     std::shared_ptr<CAlgorithm> m_pGroup2AndGroup4Algo;
-    /* smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
+    /* Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
     std::shared_ptr<CAlgorithm> m_pGroup3Algo;
+    /* smoke(烟雾)、fire(火焰)（专用 FirePersonDetect 模型：烟雾/火焰/行人） */
+    std::shared_ptr<CAlgorithm> m_pFirePersonAlgoDetect;
     // /* cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中) */
     // std::shared_ptr<CAlgorithm> m_pGroup4Algo;
     /* metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
@@ -209,6 +211,18 @@ private:
     std::shared_ptr<CAlgorithm> m_pPetAlgo;
     /* 音频异常侦测算法句柄*/
     std::shared_ptr<CAlgorithm> m_pAudioAlgo;
+    /* 通道占用检测算法句柄 */
+    std::shared_ptr<CAlgorithm> m_pChannelOccupationAlgo;
+    /* 人车非业务检测算法句柄（攀爬识别/危险区域靠近/区域滞留类/人员徘徊/后厨穿戴规范） */
+    std::shared_ptr<CAlgorithm> m_pPMNMAlgoDetect;
+    /* 门禁异常通行检测算法句柄（攀爬检测模型 + 区域判定） */
+    std::shared_ptr<CAlgorithm> m_pAccessControlPassageAlgo;
+    /* 消防设施异常检测算法句柄 */
+    std::shared_ptr<CAlgorithm> m_pFireEquipmentAlgo;
+    /* 打架斗殴检测算法句柄 */
+    std::shared_ptr<CAlgorithm> m_pFightAlgo;
+    /* 鼠患识别检测算法句柄 */
+    std::shared_ptr<CAlgorithm> m_pMouseAlgoDetect;
 #if CAP_AI_FACE_RECOGNITION
     /* 人脸识别句柄 */
     std::shared_ptr<CAlgorithm> m_pFaceRecognitionAlgo;

@@ -23,6 +23,13 @@
 #include "group2_group4_detect.hpp"
 #include "group3_detect.hpp"
 #include "group5_detect.hpp"
+#include "channel_occupation_detect.hpp"
+#include "pmnm_algo_detect.hpp"
+#include "access_control_passage_detect.hpp"
+#include "fire_person_algo_detect.hpp"
+#include "fire_equipment_detect.hpp"
+#include "fight_algo_detect.hpp"
+#include "mouse_algo_detect.hpp"
 // #include "sleep_detect.hpp"
 // #include "trip_detect.hpp"
 // #include "phoneUsage_detect.hpp"
@@ -78,6 +85,12 @@ void CAlgoStreamDeal::deinit()
 #else
     algos.emplace_back(std::move(m_pFaceDetectAlgo));
 #endif
+    algos.emplace_back(std::move(m_pChannelOccupationAlgo));
+    algos.emplace_back(std::move(m_pPMNMAlgoDetect));
+    algos.emplace_back(std::move(m_pAccessControlPassageAlgo));
+    algos.emplace_back(std::move(m_pFireEquipmentAlgo));
+    algos.emplace_back(std::move(m_pFightAlgo));
+    algos.emplace_back(std::move(m_pMouseAlgoDetect));
 
 #if 0
      algos.emplace_back(std::move(m_pPersonDetectAlgo));
@@ -175,14 +188,16 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
             {stAlgoConfig.nEnSafetyHelmet || stAlgoConfig.nEnReflectiveClothing || stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil, m_pGroup1Algo},
             /* penson(人)、Car(机动车)、NonCar(非机动车) */
             {stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
-                 stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown ||
+                 stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown ||
                  stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator ||
                  stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
                  stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
                  stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
              m_pGroup2AndGroup4Algo},
-            /* smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
-            {stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding, m_pGroup3Algo},
+            /* Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
+            {stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding, m_pGroup3Algo},
+            /* smoke(烟雾)、fire(火焰)（专用 FirePersonDetect 模型） */
+            {stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnOpenFlameLeave, m_pFirePersonAlgoDetect},
             // /* cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中)
             // {stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip, m_pGroup4Algo},
             /* metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
@@ -196,12 +211,30 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
             /* 宠物识别检测 */
             {stAlgoConfig.nEnPetRecognition, m_pPetAlgo},
 #if CAP_AI_FACE_RECOGNITION
-            /* 人脸识别 */
-            {stAlgoConfig.nEnFaceRecognition, m_pFaceRecognitionAlgo},
+            /* 人脸识别/社交关系分析/后厨无关人员进入 */
+            {stAlgoConfig.nEnFaceRecognition || stAlgoConfig.nSocialRelationshipAnalysis ||
+                 stAlgoConfig.nKitchenUnrelatedPersonEntry,
+             m_pFaceRecognitionAlgo},
 #else
             /* 旧人脸侦测、抓拍和属性分析 */
             {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stFaceRecognitionConfig.bAttributeAnalysisEnable, m_pFaceDetectAlgo},
 #endif
+            /* 通道占用检测 */
+            {stAlgoConfig.nChannelOccupation, m_pChannelOccupationAlgo},
+            /* 门禁异常通行检测 */
+            {stAlgoConfig.nAccessControlAbnormalPassage, m_pAccessControlPassageAlgo},
+            /* 人车非业务检测（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范） */
+            {stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
+                stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
+                stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
+                stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding || stAlgoConfig.nKitchenClothingCompliance,
+             m_pPMNMAlgoDetect},
+            /* 消防设施异常检测 */
+            {stAlgoConfig.nEnFireEquipmentAbnormal, m_pFireEquipmentAlgo},
+            /* 打架斗殴检测 */
+            {stAlgoConfig.nEnFight, m_pFightAlgo},
+            /* 鼠患识别检测 */
+            {stAlgoConfig.nMouseDetection, m_pMouseAlgoDetect},
 
 #if 0
          /* 行人检测相关 */
@@ -298,7 +331,7 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
     /* group2：penson(人)、Car(机动车)、NonCar(非机动车)   group4：cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中)*/
     bIsNew += manageSingleAlgorithm(m_pGroup2AndGroup4Algo,
                                     stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
-                                        stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion ||
+                                        stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion ||
                                         stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnEmergencyLaneOccupancy ||
                                         stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator || stAlgoConfig.nEnReverseDirection ||
                                         stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
@@ -306,10 +339,15 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
                                         stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup2_Group4Detect>()); });
 
-    /* group3：smoke(烟雾)、fire(火焰)、Overflow(垃圾满溢)、expose(垃圾暴露)、井盖异常、WaterAccumulation(道路积水) */
+    /* group3：Overflow(垃圾满溢)、expose(垃圾暴露)、井盖异常、WaterAccumulation(道路积水) */
     bIsNew += manageSingleAlgorithm(m_pGroup3Algo,
-                                    stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding,
+                                    stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding,
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup3Detect>()); });
+
+    /* 烟火识别、明火检测、明火离人算法（专用 FirePersonDetect 模型：烟雾/火焰/行人） */
+    bIsNew += manageSingleAlgorithm(m_pFirePersonAlgoDetect,
+                                    stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnOpenFlameLeave,
+                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFirePersonAlgoDetect>()); });
 
     /* group5：metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
     bIsNew += manageSingleAlgorithm(m_pGroup5Algo,
@@ -317,9 +355,10 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
                                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup5Detect>()); });
 
 #if CAP_AI_FACE_RECOGNITION
-    /* 人脸识别算法 */
+    /* 人脸识别/社交关系分析/后厨无关人员进入算法 */
     bIsNew += manageSingleAlgorithm(m_pFaceRecognitionAlgo,
-                                    stAlgoConfig.nEnFaceRecognition,
+                                    stAlgoConfig.nEnFaceRecognition || stAlgoConfig.nSocialRelationshipAnalysis ||
+                                        stAlgoConfig.nKitchenUnrelatedPersonEntry,
                                     []() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceRecognition>()); });
 #else
     /* 旧人脸侦测、抓拍和属性分析算法 */
@@ -351,6 +390,48 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
     bIsNew += manageSingleAlgorithm(m_pAudioAlgo, stAlgoConfig.nEnAudioAnomaly, []() {
         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAudioDetect>());
     });
+
+    /* 通道占用检测算法 */
+    bIsNew += manageSingleAlgorithm(m_pChannelOccupationAlgo, stAlgoConfig.nChannelOccupation, []() {
+        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CChannelOccupationDetect>());
+    });
+
+    /* 门禁异常通行检测算法（攀爬检测模型 + 区域判定） */
+    bIsNew += manageSingleAlgorithm(m_pAccessControlPassageAlgo, stAlgoConfig.nAccessControlAbnormalPassage, []() {
+        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAccessControlPassageDetect>());
+    });
+
+    /* 人车非业务检测算法（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范） */
+    bIsNew += manageSingleAlgorithm(m_pPMNMAlgoDetect,
+                                    stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
+                                        stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
+                                        stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
+                                        stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding ||
+                                        stAlgoConfig.nKitchenClothingCompliance,
+                                    []() {
+                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPMNMAlgoDetect>());
+                                    });
+
+    /* 消防设施异常检测算法 */
+    bIsNew += manageSingleAlgorithm(m_pFireEquipmentAlgo,
+                                    stAlgoConfig.nEnFireEquipmentAbnormal,
+                                    []() {
+                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFireEquipmentDetect>());
+                                    });
+
+    /* 打架斗殴检测算法 */
+    bIsNew += manageSingleAlgorithm(m_pFightAlgo,
+                                    stAlgoConfig.nEnFight,
+                                    []() {
+                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFightAlgoDetect>());
+                                    });
+
+    /* 鼠患识别检测算法 */
+    bIsNew += manageSingleAlgorithm(m_pMouseAlgoDetect,
+                                    stAlgoConfig.nMouseDetection,
+                                    []() {
+                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CMouseAlgoDetect>());
+                                    });
 
 #if 0
      /* 行人区域检测算法 */
@@ -488,6 +569,7 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
         m_pGroup1Algo,
         m_pGroup2AndGroup4Algo,
         m_pGroup3Algo,
+        m_pFirePersonAlgoDetect,
         m_pGroup5Algo,
 #if CAP_AI_FACE_RECOGNITION
         m_pFaceRecognitionAlgo,
@@ -498,7 +580,13 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
         m_pSceneChangeAlgo,
         m_pPetAlgo,
         m_pObjectDetectAlgo,
-        m_pAudioAlgo
+        m_pAudioAlgo,
+        m_pChannelOccupationAlgo,
+        m_pPMNMAlgoDetect,
+        m_pFireEquipmentAlgo,
+        m_pFightAlgo,
+        m_pAccessControlPassageAlgo,
+        m_pMouseAlgoDetect
 
     };
 

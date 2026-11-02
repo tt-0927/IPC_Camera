@@ -44,6 +44,41 @@ inline bool is_alarm_io_supported()
     return false;
 #endif
 }
+
+/**
+ * @brief   : 报警输入/输出默认地址与默认名按设备语言转换展示值（不落盘）
+ * @param    {std::set<T> &} ioInfos 报警输入/输出配置集合
+ * @param    {const char *} pCnPrefix 中文默认名前缀，如"报警输入"
+ * @param    {const char *} pEnPrefix 英文默认名前缀，如"Alarm Input "
+ * @return   {void} 语言跟随4009设备配置；用户自定义名与平台下发地址不匹配默认值时原样保留
+ */
+template <typename T>
+static void localize_alarm_io_display(std::set<T> &ioInfos, const char *pCnPrefix, const char *pEnPrefix)
+{
+    System::DeviceConfig_S stDeviceConfig;
+    SystemManage::instance()->get_device_config(stDeviceConfig);
+    const bool bEnglish = (System::Language_E::ENGLISH == stDeviceConfig.enLanguage);
+
+    std::set<T> localizedInfos;
+    for (const T &info : ioInfos)
+    {
+        T localized = info;
+        /* 地址默认值"本地"/"Local"跟随语言，其余地址原样保留 */
+        if (info.ioAddr.empty() || info.ioAddr == "本地" || info.ioAddr == "Local")
+        {
+            localized.ioAddr = bEnglish ? "Local" : "本地";
+        }
+        /* 默认名（中/英任一语言的默认格式或空）跟随语言重算，用户自定义名保留 */
+        const std::string strCnName = std::string(pCnPrefix) + std::to_string(info.nIoNumer + 1);
+        const std::string strEnName = std::string(pEnPrefix) + std::to_string(info.nIoNumer + 1);
+        if (info.ioName.empty() || info.ioName == strCnName || info.ioName == strEnName)
+        {
+            localized.ioName = bEnglish ? strEnName : strCnName;
+        }
+        localizedInfos.insert(localized);
+    }
+    ioInfos = std::move(localizedInfos);
+}
 } // namespace
 
 CEventAlarm::CEventAlarm()
@@ -188,6 +223,8 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoInputInfo_S> &ioInputInfos)
     }
 
     ioInputInfos = std::move(updatedInfos);
+    /* 默认地址与默认名按设备语言转换后再返回网页 */
+    localize_alarm_io_display(ioInputInfos, "报警输入", "Alarm Input ");
     return 0;
 }
 
@@ -265,6 +302,8 @@ int CEventAlarm::get_alarm(std::set<Alarm::IoOutputInfo_S> &ioOutputInfos)
     }
 
     ioOutputInfos = std::move(updatedInfos);
+    /* 默认地址与默认名按设备语言转换后再返回网页 */
+    localize_alarm_io_display(ioOutputInfos, "报警输出", "Alarm Output ");
     return 0;
 }
 

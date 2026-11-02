@@ -121,6 +121,10 @@ IpcRet_E CCaptureCtrl::init()
     update_captureParam();
 
     m_mapEventCaptureStates.clear();
+    {
+        std::lock_guard<std::mutex> faceLock(m_faceMutex);
+        m_mapFaceCaptureFiles.clear();
+    }
     m_bRun.store(true, std::memory_order_release);
     std::thread tid;
     tid = std::thread(&CCaptureCtrl::run, this);
@@ -228,6 +232,10 @@ void CCaptureCtrl::stop_capture()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_mapEventCaptureStates.clear();
+    {
+        std::lock_guard<std::mutex> faceLock(m_faceMutex);
+        m_mapFaceCaptureFiles.clear();
+    }
     m_TimingCaptureFlag = false;
     return;
 }
@@ -310,9 +318,17 @@ int CCaptureCtrl::set_event_capture(bool bEventEnded, const Event::Info_S &stEve
         {
             /* 使用独立的锁来清空人脸抓拍文件名 */
             std::lock_guard<std::mutex> faceLock(m_faceMutex);
-            m_strFaceCaptureFile = std::string();
+            // m_strFaceCaptureFile = std::string();
+            m_mapFaceCaptureFiles.erase(enEventType);
+
         }
         return OK;
+    }
+    /* 事件开始前清掉本事件上一次的结果，防止 wait 条件直接命中旧路径。 */
+    if (enEventType == Event::Type_E::FACE_CAPTURE || enEventType == Event::Type_E::FACE_COMPARE)
+    {
+        std::lock_guard<std::mutex> faceLock(m_faceMutex);
+        m_mapFaceCaptureFiles.erase(enEventType);
     }
 
     /* 事件开始 */
@@ -609,7 +625,8 @@ void CCaptureCtrl::process_capture_task(unsigned char *pData, int nDataLen)
                 {
                     {
                         std::lock_guard<std::mutex> faceLock(m_faceMutex);
-                        m_strFaceCaptureFile = strFilePath;
+                        // m_strFaceCaptureFile = strFilePath;
+                        m_mapFaceCaptureFiles[snap.enType] = strFilePath;
                     }
                     m_faceCv.notify_one();
                 }
@@ -722,19 +739,26 @@ bool CCaptureCtrl::ensure_directory_exists(const std::string &path)
     return true;
 }
 
-std::string CCaptureCtrl::get_face_capture_file()
+std::string CCaptureCtrl::get_face_capture_file(Event::Type_E enEventType)
 {
+    if (enEventType != Event::Type_E::FACE_CAPTURE && enEventType != Event::Type_E::FACE_COMPARE)
+    {
+        dlog_error("获取人脸事件抓图路径失败，不支持的事件类型[%d]", static_cast<int>(enEventType));
+        return "";
+    }
+
     std::unique_lock<std::mutex> lock(m_faceMutex);
 
     /* 等待指定时间，如果超时返回空字符串 */
     if (m_faceCv.wait_for(lock,
                           std::chrono::seconds(3),
-                          [this]()
+                          [this, enEventType]()
                           {
-                              return !m_strFaceCaptureFile.empty();
+                              const auto it = m_mapFaceCaptureFiles.find(enEventType);
+                              return it != m_mapFaceCaptureFiles.end() && !it->second.empty();
                           }))
     {
-        return m_strFaceCaptureFile;
+        return m_mapFaceCaptureFiles[enEventType];
     }
 
     return "";

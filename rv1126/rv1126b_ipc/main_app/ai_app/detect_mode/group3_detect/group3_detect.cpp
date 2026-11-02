@@ -39,7 +39,7 @@ CGroup3Detect::~CGroup3Detect()
 /* 接受媒体数据 */
 void CGroup3Detect::recvMediaData(MediaData_S stMediaData)
 {
-    if (!m_stAlgoSmokeFireCfg.bEnable && !m_stAlgoOpenFlameCfg.bEnable && !m_stAlgoGarbageExposureCfg.bEnable && !m_stAlgoGarbageOverflowCfg.bEnable && !m_stAlgoManholeCoverAbnormalCfg.bEnable && !m_stAlgoRoadPondingCfg.bEnable)
+    if (!m_stAlgoGarbageExposureCfg.bEnable && !m_stAlgoGarbageOverflowCfg.bEnable && !m_stAlgoManholeCoverAbnormalCfg.bEnable && !m_stAlgoRoadPondingCfg.bEnable)
     {
         dlog_debug("ai_app:  模型组合3识别-开关未启用");
         return;
@@ -127,26 +127,10 @@ bool CGroup3Detect::unInit()
  */
 void CGroup3Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 {
-    m_stAlgoSmokeFireCfg.bEnable            = stAlgoConfig.nEnSmokeFire;
-    m_stAlgoOpenFlameCfg.bEnable            = stAlgoConfig.nEnOpenFlame;
     m_stAlgoGarbageExposureCfg.bEnable      = stAlgoConfig.nEnGarbageExposure;
     m_stAlgoGarbageOverflowCfg.bEnable      = stAlgoConfig.nEnGarbageOverflow;
     m_stAlgoManholeCoverAbnormalCfg.bEnable = stAlgoConfig.nEnManholeCoverAbnormal;
     m_stAlgoRoadPondingCfg.bEnable          = stAlgoConfig.nEnRoadPonding;
-
-    if (m_stAlgoSmokeFireCfg.bEnable)
-    {
-        Alarm::SmokeFireDetection_S stInfo;
-        CEventConfigure::instance()->get_configure(stInfo);
-        setAlgoParamCfg(stInfo);
-    }
-
-    if (m_stAlgoOpenFlameCfg.bEnable)
-    {
-        Alarm::OpenFlameDetection_S stInfo;
-        CEventConfigure::instance()->get_configure(stInfo);
-        setAlgoParamCfg(stInfo);
-    }
 
     if (m_stAlgoGarbageExposureCfg.bEnable)
     {
@@ -179,18 +163,6 @@ void CGroup3Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
     return;
 }
 
-void CGroup3Detect::setAlgoParamCfg(const Alarm::SmokeFireDetection_S &stAlgoCfg, Event::Type_E enType)
-{
-    dlog_debug("ai_app: 设置烟火检测参数");
-    m_stAlgoSmokeFireCfg = stAlgoCfg;
-}
-
-void CGroup3Detect::setAlgoParamCfg(const Alarm::OpenFlameDetection_S &stAlgoCfg, Event::Type_E enType)
-{
-    dlog_debug("ai_app: 设置明火检测参数");
-    m_stAlgoOpenFlameCfg = stAlgoCfg;
-    return;
-}
 void CGroup3Detect::setAlgoParamCfg(const Alarm::GarbageExposureDetection_S &stAlgoCfg, Event::Type_E enType)
 {
     dlog_debug("ai_app: 设置垃圾暴露检测参数");
@@ -286,22 +258,6 @@ void CGroup3Detect::run()
                     cv::imwrite("/opt/algo/Image/group3Detect_debugImage.jpg", stInData.inMat);
                 }
 
-                /* 烟雾 识别 */
-                if (m_stAlgoSmokeFireCfg.bEnable)
-                {
-                    stInData.stParam.stSmokeFireDetectParam.bEnable      = true;
-                    stInData.stParam.stSmokeFireDetectParam.fConfidence  = sensitivityToConfidence(m_stAlgoSmokeFireCfg.stRule.nSensitivity);
-                    stInData.stParam.stSmokeFireDetectParam.nDetectFrame = sensitivityToFrames(m_stAlgoSmokeFireCfg.stRule.nSensitivity);
-                }
-
-                /* 火焰 识别 */
-                if (m_stAlgoOpenFlameCfg.bEnable)
-                {
-                    stInData.stParam.stOpenFlameParam.bEnable      = true;
-                    stInData.stParam.stOpenFlameParam.fConfidence  = sensitivityToConfidence(m_stAlgoOpenFlameCfg.stRule.nSensitivity);
-                    stInData.stParam.stOpenFlameParam.nDetectFrame = sensitivityToFrames(m_stAlgoOpenFlameCfg.stRule.nSensitivity);
-                }
-
                 /* 垃圾暴露 识别 */
                 if (m_stAlgoGarbageExposureCfg.bEnable)
                 {
@@ -379,54 +335,6 @@ int CGroup3Detect::dynamicAnalysis(const std::vector<Group3Detect_NS::Result_S> 
 
 void CGroup3Detect::processGroup3Detect(const Group3Detect_NS::OutData_S &stOutData)
 {
-    if (m_stAlgoSmokeFireCfg.bEnable)
-    {
-        /* 上报事件 */
-#ifdef ENABLE_TVSDK_SRC
-        EventTriggerContext_S stContext;
-        stContext.enEventType = Event::Type_E::SMOKE_FIRE;
-        stContext.nChnId = m_nChannelId;
-        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                   std::chrono::system_clock::now().time_since_epoch())
-                                   .count();
-        if (!m_fullRgbMat.empty())
-        {
-            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
-            {
-                stContext.pTvSdkPayload = pPayload;
-            }
-        }
-        m_SmokeFireStateMachine.handleAlarmState(stOutData.bSmoke, stContext);
-#else
-        m_SmokeFireStateMachine.handleAlarmState(stOutData.bSmoke, Event::Type_E::SMOKE_FIRE);
-#endif
-    }
-    if (m_stAlgoOpenFlameCfg.bEnable)
-    {
-        /* 上报事件 */
-#ifdef ENABLE_TVSDK_SRC
-        EventTriggerContext_S stContext;
-        stContext.enEventType = Event::Type_E::OPEN_FLAME;
-        stContext.nChnId = m_nChannelId;
-        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                   std::chrono::system_clock::now().time_since_epoch())
-                                   .count();
-        if (!m_fullRgbMat.empty())
-        {
-            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
-            {
-                stContext.pTvSdkPayload = pPayload;
-            }
-        }
-        m_OpenFlameStateMachine.handleAlarmState(stOutData.bOpenFire, stContext);
-#else
-        m_OpenFlameStateMachine.handleAlarmState(stOutData.bOpenFire, Event::Type_E::OPEN_FLAME);
-#endif
-    }
     if (m_stAlgoGarbageExposureCfg.bEnable)
     {
         /* 上报事件 */

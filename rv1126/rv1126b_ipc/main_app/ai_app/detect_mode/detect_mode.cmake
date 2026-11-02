@@ -8,13 +8,23 @@ set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/object_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition/processors
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
+    ${CMAKE_CURRENT_LIST_DIR}/channel_occupation_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect
     ${CMAKE_CURRENT_LIST_DIR}/group1_detect
     ${CMAKE_CURRENT_LIST_DIR}/group2_group4_detect
     ${CMAKE_CURRENT_LIST_DIR}/group3_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fire_person_algo_detect
     ${CMAKE_CURRENT_LIST_DIR}/group5_detect
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect/processors
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect/sub_detectors
+    ${CMAKE_CURRENT_LIST_DIR}/access_control_passage_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fire_equipment_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fight_algo_detect
+    ${CMAKE_CURRENT_LIST_DIR}/mouse_algo_detect
     # ${CMAKE_CURRENT_LIST_DIR}/sleep_detect
     # ${CMAKE_CURRENT_LIST_DIR}/trip_detect
     # ${CMAKE_CURRENT_LIST_DIR}/licensePlateCognition_detect
@@ -42,13 +52,23 @@ set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/object_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition/processors
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
+    ${CMAKE_CURRENT_LIST_DIR}/channel_occupation_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition
     ${CMAKE_CURRENT_LIST_DIR}/audio_detect
     ${CMAKE_CURRENT_LIST_DIR}/group1_detect
     ${CMAKE_CURRENT_LIST_DIR}/group2_group4_detect
     ${CMAKE_CURRENT_LIST_DIR}/group3_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fire_person_algo_detect
     ${CMAKE_CURRENT_LIST_DIR}/group5_detect
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect/processors
+    ${CMAKE_CURRENT_LIST_DIR}/pmnm_algo_detect/sub_detectors
+    ${CMAKE_CURRENT_LIST_DIR}/access_control_passage_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fire_equipment_detect
+    ${CMAKE_CURRENT_LIST_DIR}/fight_algo_detect
+    ${CMAKE_CURRENT_LIST_DIR}/mouse_algo_detect
     # ${CMAKE_CURRENT_LIST_DIR}/sleep_detect
     # ${CMAKE_CURRENT_LIST_DIR}/trip_detect
     # ${CMAKE_CURRENT_LIST_DIR}/phoneUsage_detect

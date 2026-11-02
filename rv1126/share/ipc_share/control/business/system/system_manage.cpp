@@ -23,6 +23,7 @@
 #include "system_manage.h"
 
 #include "system_convert.h"
+#include "path_define.h"
 #include "event_configure.h"
 #include "action_code.h"
 #include "network_define.h"
@@ -51,9 +52,7 @@
 #endif
 
 SystemManage::SystemManage()
-    : m_deviceInfoFile(DEVICE_INFO_CONFIG_FILE),
-      m_deviceConfigFile(DEVICE_CONFIG_FILE),
-      m_securityServicesFile(SECURITY_SERVICES_FILE),
+    : m_deviceInfoFile(DEVICE_INFO_CONFIG_FILE), m_deviceConfigFile(DEVICE_CONFIG_FILE), m_securityServicesFile(SECURITY_SERVICES_FILE),
       m_upgradeMaintainFile(UPGRADE_MAINTAIN_FILE)
 {
 }
@@ -124,18 +123,18 @@ IpcRet_E SystemManage::init()
     std::map<int, bool> stListenMap;
 
     std::set<Alarm::IoInputInfo_S> stIoInputInfos;
-    /* 获取所有IO输入信息 */ 
+    /* 获取所有IO输入信息 */
     CEventConfigure::instance()->get_configure(stIoInputInfos);
     // 收集需要启用的IO输入编号
     for (auto &stIOInputInfo : stIoInputInfos)
     {
-        
+
         if (stIOInputInfo.nDealType != 0)
         {
             stListenMap[stIOInputInfo.nIoNumer] = stIOInputInfo.bNormallyOpen;
         }
     }
-    /* 启用收集到的IO输入编号 */ 
+    /* 启用收集到的IO输入编号 */
     enable_ioInputNumber(stListenMap);
 
     /* 操作日志-开机 */
@@ -307,7 +306,7 @@ int SystemManage::system_reset_complete(std::function<void(int)> result)
     {
         /* 网络参数重置 */
         Network::Info_S stNetInfo;
-        CNetworkManage::instance()->set_system_networkInfo(stNetInfo,false);
+        CNetworkManage::instance()->set_system_networkInfo(stNetInfo, false);
 
         /* 删除配置文件 */
         std::string strDeleteAllJson = "rm -f " USER_DATA_PATH "*";
@@ -364,7 +363,7 @@ std::string SystemManage::get_cpu_serialNumber()
 
 bool SystemManage::cron_check(const char *pTask)
 {
-    char achCmd[LENGTH256] = {0};
+    char achCmd[LENGTH256] = { 0 };
     snprintf(achCmd, sizeof(achCmd), CRON_CHECK, pTask);
     if (0 != std::system(achCmd))
     {
@@ -376,7 +375,7 @@ bool SystemManage::cron_check(const char *pTask)
 }
 int SystemManage::cron_add(const char *pTask)
 {
-    char achCmd[LENGTH256] = {0};
+    char achCmd[LENGTH256] = { 0 };
     snprintf(achCmd, sizeof(achCmd), CRON_ADD, pTask);
     if (0 != std::system(achCmd))
     {
@@ -388,7 +387,7 @@ int SystemManage::cron_add(const char *pTask)
 }
 int SystemManage::cron_delete(const char *pTask)
 {
-    char achCmd[LENGTH256] = {0};
+    char achCmd[LENGTH256] = { 0 };
     snprintf(achCmd, sizeof(achCmd), CRON_DELETE, pTask);
     if (0 != std::system(achCmd))
     {
@@ -400,7 +399,7 @@ int SystemManage::cron_delete(const char *pTask)
 }
 
 /* 设置自动维护信息 */
-void SystemManage::get_automatic_maintain_info(System::UpgradeMaintain_S& stInfo)
+void SystemManage::get_automatic_maintain_info(System::UpgradeMaintain_S &stInfo)
 {
     if (Convert::read_file(m_upgradeMaintainFile, stInfo))
     {
@@ -425,7 +424,7 @@ int SystemManage::set_automatic_maintain_info(System::UpgradeMaintain_S stInfo)
     FILE *pFp = popen(CROND_FIND_PID, "r");
     if (nullptr != pFp)
     {
-        char achPid[LENGTH256] = {0};
+        char achPid[LENGTH256] = { 0 };
         if (nullptr != fgets(achPid, sizeof(achPid), pFp))
         {
             std::string strCmd = "kill " + std::string(achPid);
@@ -469,12 +468,8 @@ int SystemManage::set_automatic_maintain_info(System::UpgradeMaintain_S stInfo)
     }
 
     /* 定时任务字符串 */
-    std::string strCronJob = std::to_string(minute) + " " +
-                             std::to_string(hour) + " " +
-                             "* * " +
-                             std::to_string(static_cast<int>(stInfo.enWeek)) +
-                             " " +
-                             REBOOT_CMD;
+    std::string strCronJob = std::to_string(minute) + " " + std::to_string(hour) + " " + "* * " +
+                             std::to_string(static_cast<int>(stInfo.enWeek)) + " " + REBOOT_CMD;
 
     /* 添加任务 */
     if (cron_add(strCronJob.c_str()))
@@ -528,9 +523,7 @@ int SystemManage::set_security_services_info(System::SecurityServices_S stInfo)
     const int nRet = m_sshServiceManager.apply(stInfo, stUpgradeMaintainInfo.bAutoMaintain);
     if (nRet != OK)
     {
-        dlog_error("设置安全服务信息失败，SSH 开关[%d]，端口[%d]",
-                   stInfo.stSshAdmin.bSshEnable,
-                   stInfo.stSshAdmin.nSshPort);
+        dlog_error("设置安全服务信息失败，SSH 开关[%d]，端口[%d]", stInfo.stSshAdmin.bSshEnable, stInfo.stSshAdmin.nSshPort);
         return nRet;
     }
 
@@ -540,9 +533,7 @@ int SystemManage::set_security_services_info(System::SecurityServices_S stInfo)
         return ERR;
     }
 
-    dlog_info("设置安全服务信息成功，SSH 开关[%d]，端口[%d]",
-              stInfo.stSshAdmin.bSshEnable,
-              stInfo.stSshAdmin.nSshPort);
+    dlog_info("设置安全服务信息成功，SSH 开关[%d]，端口[%d]", stInfo.stSshAdmin.bSshEnable, stInfo.stSshAdmin.nSshPort);
     return OK;
 }
 
@@ -557,95 +548,95 @@ int SystemManage::get_countdown(std::string &strCountdown)
 int SystemManage::export_device_param(System::AllDeviceParam_S &stAllDeviceParam)
 {
     /* 预览 */
-    Convert::read_file(PREVIEW_CONFIG_FILE, stAllDeviceParam.stPreviewInfo);                                /* 预览 */
+    Convert::read_file(PREVIEW_CONFIG_FILE, stAllDeviceParam.stPreviewInfo); /* 预览 */
     /* 回放 */
     /* 图片 */
     /* 配置 */
     /* 本地设置 */
-    Convert::read_file(WEB_PLUGIN_CONFIG_FILE, stAllDeviceParam.stParam);                                   /* 本地设置 */
+    Convert::read_file(WEB_PLUGIN_CONFIG_FILE, stAllDeviceParam.stParam); /* 本地设置 */
     /* 系统配置 */
-    Convert::read_file(DEVICE_CONFIG_FILE, stAllDeviceParam.stDeviceConfig);                                /* 系统设置-基本配置 */
-    Convert::read_file(DEVICE_INFO_CONFIG_FILE, stAllDeviceParam.stDeviceInfo);                             /* 系统设置-基本信息 */
-    Convert::read_file(TIME_CONFIG_FILE, stAllDeviceParam.stTimeInfo);                                      /* 系统设置-时间配置 */
-                                                                                                            /* 系统设置-智能资源分配 */
-    Convert::read_file(UPGRADE_MAINTAIN_FILE, stAllDeviceParam.stUpgradeMaintain);                          /* 系统维护-升级维护 */
-    Convert::read_file(LOG_SERVER_INFO_FILE, stAllDeviceParam.stLogServerInfo);                             /* 系统维护-安全审计日志 */
-    Convert::read_file(SECURITY_CERT_CONFIG_FILE, stAllDeviceParam.stSecurityCert);                         /* 安全管理-认证方式 */
-    Convert::read_file(IP_FILTER_CONFIG_FILE, stAllDeviceParam.stIpFilterConfigInfo);                       /* 安全管理-IP地址过滤 */
-    Convert::read_file(SECURITY_SERVICES_FILE, stAllDeviceParam.stSecurityServices);                        /* 安全管理-安全服务 */
-                                                                                                            /* 安全管理-客户端证书 */
-                                                                                                            /* 安全管理-CA证书 */
-    CUserManage::instance()->find(User::Find_S(), stAllDeviceParam.vecUserInfo);                            /* 用户管理-用户管理 */
-                                                                                                            /* 用户管理-在线用户 */
+    Convert::read_file(DEVICE_CONFIG_FILE, stAllDeviceParam.stDeviceConfig);          /* 系统设置-基本配置 */
+    Convert::read_file(DEVICE_INFO_CONFIG_FILE, stAllDeviceParam.stDeviceInfo);       /* 系统设置-基本信息 */
+    Convert::read_file(TIME_CONFIG_FILE, stAllDeviceParam.stTimeInfo);                /* 系统设置-时间配置 */
+                                                                                      /* 系统设置-智能资源分配 */
+    Convert::read_file(UPGRADE_MAINTAIN_FILE, stAllDeviceParam.stUpgradeMaintain);    /* 系统维护-升级维护 */
+    Convert::read_file(LOG_SERVER_INFO_FILE, stAllDeviceParam.stLogServerInfo);       /* 系统维护-安全审计日志 */
+    Convert::read_file(SECURITY_CERT_CONFIG_FILE, stAllDeviceParam.stSecurityCert);   /* 安全管理-认证方式 */
+    Convert::read_file(IP_FILTER_CONFIG_FILE, stAllDeviceParam.stIpFilterConfigInfo); /* 安全管理-IP地址过滤 */
+    Convert::read_file(SECURITY_SERVICES_FILE, stAllDeviceParam.stSecurityServices);  /* 安全管理-安全服务 */
+                                                                                      /* 安全管理-客户端证书 */
+                                                                                      /* 安全管理-CA证书 */
+    CUserManage::instance()->find(User::Find_S(), stAllDeviceParam.vecUserInfo);      /* 用户管理-用户管理 */
+                                                                                      /* 用户管理-在线用户 */
     /* 网络配置 */
-    Convert::read_file(NETWORK_CONFIG_FILE, stAllDeviceParam.stNetInfo);                                    /* 基本配置-TCP/IP */
-    Convert::read_file(PORT_CONFIG_FILE, stAllDeviceParam.stPortConfig);                                    /* 基本配置-端口 */
-    Convert::read_file(UPNP_CONFIG_FILE, stAllDeviceParam.stPortMapConfig);                                 /* 基本配置-端口映射 */
-    Convert::read_file(SNMP_CONFIG_FILE, stAllDeviceParam.stSnmpConfig);                                    /* 高级配置-SNMP */
-    Convert::read_file(EMAIL_CONFIG_FILE, stAllDeviceParam.stEmailInfo);                                    /* 高级配置-Email */
-    Convert::read_file(GB28181_CLIENT_CONFIG_FILE, stAllDeviceParam.stGB28181Client);                       /* 高级配置-平台接入 */
-    Convert::read_file(GM_CERT_INFO_FILE, stAllDeviceParam.stGmCertFileInfo);                               /* 高级配置-国标证书管理 */
-    Convert::read_file(HTTPS_CONFIG_FILE, stAllDeviceParam.stHttpsConfigInfo);                              /* 高级配置-HTTPS */
-    Convert::read_file(QOS_CONFIG_FILE, stAllDeviceParam.stQosConfigInfo);                                  /* 高级配置-Qos */
-    Convert::read_file(ONVIF_CONFIG_FILE, stAllDeviceParam.stOnvifConfigInfo);                              /* 高级配置-集成协议 */
-                                                                                                            /* 高级配置-网络服务 */
+    Convert::read_file(NETWORK_CONFIG_FILE, stAllDeviceParam.stNetInfo);              /* 基本配置-TCP/IP */
+    Convert::read_file(PORT_CONFIG_FILE, stAllDeviceParam.stPortConfig);              /* 基本配置-端口 */
+    Convert::read_file(UPNP_CONFIG_FILE, stAllDeviceParam.stPortMapConfig);           /* 基本配置-端口映射 */
+    Convert::read_file(SNMP_CONFIG_FILE, stAllDeviceParam.stSnmpConfig);              /* 高级配置-SNMP */
+    Convert::read_file(EMAIL_CONFIG_FILE, stAllDeviceParam.stEmailInfo);              /* 高级配置-Email */
+    Convert::read_file(GB28181_CLIENT_CONFIG_FILE, stAllDeviceParam.stGB28181Client); /* 高级配置-平台接入 */
+    Convert::read_file(GM_CERT_INFO_FILE, stAllDeviceParam.stGmCertFileInfo);         /* 高级配置-国标证书管理 */
+    Convert::read_file(HTTPS_CONFIG_FILE, stAllDeviceParam.stHttpsConfigInfo);        /* 高级配置-HTTPS */
+    Convert::read_file(QOS_CONFIG_FILE, stAllDeviceParam.stQosConfigInfo);            /* 高级配置-Qos */
+    Convert::read_file(ONVIF_CONFIG_FILE, stAllDeviceParam.stOnvifConfigInfo);        /* 高级配置-集成协议 */
+                                                                                      /* 高级配置-网络服务 */
     /* 事件配置 */
-    Convert::read_file(EVENT_MOTION_DETECTION_CONFIG_FILE, stAllDeviceParam.stMotionDetection);             /* 普通事件-移动侦测 */
-    Convert::read_file(EVENT_HIDE_ALARM_CONFIG_FILE, stAllDeviceParam.stHideAlarm);                         /* 普通事件-遮挡报警 */
-    Convert::read_file(EVENT_ABNORMAL_ALARM_CONFIG_FILE, stAllDeviceParam.stAbnormalDetection);             /* 普通事件-异常 */
-    Convert::read_file(EVENT_SOUND_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stSoundOutputAlarm);          /* 普通事件-声音报警输出 */
-    Convert::read_file(EVENT_ALARM_INPUT_CONFIG_FILE, stAllDeviceParam.stIoInputInfo);                      /* 普通事件-报警输入 */
-    Convert::read_file(EVENT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stIoOutputInfo);                    /* 普通事件-报警输出 */
-    Convert::read_file(EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stFlashInfo);        /* 普通事件-闪光灯报警输出 */
-    Convert::read_file(EVENT_PIR_ALARM_CONFIG_FILE, stAllDeviceParam.stPirAlarmInfo);                       /* 普通事件-PIR报警 */
-    Convert::read_file(EVENT_LINE_CROSSING_DETECTION_CONFIG_FILE, stAllDeviceParam.stBoundaryDetection);    /* 周界事件-越界侦测 */
-    Convert::read_file(EVENT_REGIONAL_INTRUSION_DETECTION_CONFIG_FILE, stAllDeviceParam.stFieldDetection);  /* 周界事件-区域入侵侦测 */
-    Convert::read_file(EVENT_ENTER_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stEntranceDetection);     /* 周界事件-进入区域侦测 */
-    Convert::read_file(EVENT_LEAVE_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stExitingDetection);      /* 周界事件-离开区域侦测 */
-                                                                                                            /* 场景智能-翻阅围栏识别 */
-                                                                                                            /* 场景智能-离岗识别 */
-                                                                                                            /* 场景智能-违规变道识别 */
-                                                                                                            /* 场景智能-逆行识别 */
-                                                                                                            /* 场景智能-非机动车闯入识别 */
-                                                                                                            /* 场景智能-应急车道占用识别 */
-                                                                                                            /* 场景智能-行人闯入识别 */
-                                                                                                            /* 场景智能-其他智能事件 */
-    Convert::read_file(EVENT_AUDIO_ANOMALY_DETECTION_CONFIG_FILE, stAllDeviceParam.stAudioAnomaly);         /* Smart事件-音频异常侦测 */
-    Convert::read_file(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE, stAllDeviceParam.stSceneChange);           /* Smart事件-场景变更侦测 */
-    Convert::read_file(EVENT_FACE_DETECTION_CONFIG_FILE, stAllDeviceParam.stFaceDetection);                 /* Smart事件-人脸侦测 */
-    Convert::read_file(EVENT_LOITERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stLoiteringDetection);       /* Smart事件-徘徊侦测 */
-    Convert::read_file(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stCrowdGathering);     /* Smart事件-人员聚集侦测 */
-    Convert::read_file(EVENT_PARKING_DETECTION_CONFIG_FILE, stAllDeviceParam.stParkingDetection);           /* Smart事件-停车侦测 */
+    Convert::read_file(EVENT_MOTION_DETECTION_CONFIG_FILE, stAllDeviceParam.stMotionDetection);      /* 普通事件-移动侦测 */
+    Convert::read_file(EVENT_HIDE_ALARM_CONFIG_FILE, stAllDeviceParam.stHideAlarm);                  /* 普通事件-遮挡报警 */
+    Convert::read_file(EVENT_ABNORMAL_ALARM_CONFIG_FILE, stAllDeviceParam.stAbnormalDetection);      /* 普通事件-异常 */
+    Convert::read_file(EVENT_SOUND_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stSoundOutputAlarm);   /* 普通事件-声音报警输出 */
+    Convert::read_file(EVENT_ALARM_INPUT_CONFIG_FILE, stAllDeviceParam.stIoInputInfo);               /* 普通事件-报警输入 */
+    Convert::read_file(EVENT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stIoOutputInfo);             /* 普通事件-报警输出 */
+    Convert::read_file(EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stFlashInfo); /* 普通事件-闪光灯报警输出 */
+    Convert::read_file(EVENT_PIR_ALARM_CONFIG_FILE, stAllDeviceParam.stPirAlarmInfo);                /* 普通事件-PIR报警 */
+    Convert::read_file(EVENT_LINE_CROSSING_DETECTION_CONFIG_FILE, stAllDeviceParam.stBoundaryDetection); /* 周界事件-越界侦测 */
+    Convert::read_file(EVENT_REGIONAL_INTRUSION_DETECTION_CONFIG_FILE, stAllDeviceParam.stFieldDetection); /* 周界事件-区域入侵侦测 */
+    Convert::read_file(EVENT_ENTER_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stEntranceDetection); /* 周界事件-进入区域侦测 */
+    Convert::read_file(EVENT_LEAVE_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stExitingDetection); /* 周界事件-离开区域侦测 */
+                                                                                                       /* 场景智能-翻阅围栏识别 */
+                                                                                                       /* 场景智能-离岗识别 */
+                                                                                                       /* 场景智能-违规变道识别 */
+                                                                                                       /* 场景智能-逆行识别 */
+    /* 场景智能-非机动车闯入识别 */
+    /* 场景智能-应急车道占用识别 */
+    /* 场景智能-行人闯入识别 */
+    /* 场景智能-其他智能事件 */
+    Convert::read_file(EVENT_AUDIO_ANOMALY_DETECTION_CONFIG_FILE, stAllDeviceParam.stAudioAnomaly);     /* Smart事件-音频异常侦测 */
+    Convert::read_file(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE, stAllDeviceParam.stSceneChange);       /* Smart事件-场景变更侦测 */
+    Convert::read_file(EVENT_FACE_DETECTION_CONFIG_FILE, stAllDeviceParam.stFaceDetection);             /* Smart事件-人脸侦测 */
+    Convert::read_file(EVENT_LOITERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stLoiteringDetection);   /* Smart事件-徘徊侦测 */
+    Convert::read_file(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stCrowdGathering); /* Smart事件-人员聚集侦测 */
+    Convert::read_file(EVENT_PARKING_DETECTION_CONFIG_FILE, stAllDeviceParam.stParkingDetection);       /* Smart事件-停车侦测 */
     Convert::read_file(EVENT_UNATTENDED_OBJECT_DETECTION_CONFIG_FILE, stAllDeviceParam.stUnattendedObject); /* Smart事件-物品遗留侦测 */
-    Convert::read_file(EVENT_OBJECT_REMOVAL_DETECTION_CONFIG_FILE, stAllDeviceParam.stObjectRemoval);       /* Smart事件-物品拿取侦测 */
-    Convert::read_file(EVENT_PET_RECOGNITION_CONFIG_FILE, stAllDeviceParam.stPetRecognition);               /* Smart事件-宠物侦测 */
+    Convert::read_file(EVENT_OBJECT_REMOVAL_DETECTION_CONFIG_FILE, stAllDeviceParam.stObjectRemoval); /* Smart事件-物品拿取侦测 */
+    Convert::read_file(EVENT_PET_RECOGNITION_CONFIG_FILE, stAllDeviceParam.stPetRecognition);         /* Smart事件-宠物侦测 */
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
-    Convert::read_file(EVENT_GARBAGE_EXPOSURE_INFO_FILE, stAllDeviceParam.stGarbageExposure);   /* Smart事件-人流统计 */
+    Convert::read_file(EVENT_GARBAGE_EXPOSURE_INFO_FILE, stAllDeviceParam.stGarbageExposure); /* Smart事件-人流统计 */
     Convert::read_file(EVENT_GARBAGE_OVERFLOW_INFO_FILE, stAllDeviceParam.stGarbageOverflow); /* Smart事件-人员密度检测 */
 #endif
 #if CAP_AI_PEOPLE_STATISTICS
-    Convert::read_file(EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE, stAllDeviceParam.stPeopleFlowStatistics);   /* Smart事件-人流统计 */
+    Convert::read_file(EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE, stAllDeviceParam.stPeopleFlowStatistics); /* Smart事件-人流统计 */
     Convert::read_file(EVENT_PEOPLE_DENSITY_DETECTION_CONFIG_FILE, stAllDeviceParam.stPeopleDensityDetection); /* Smart事件-人员密度检测 */
 #endif
 
     /* 存储管理 */
-    Convert::read_file(RECORD_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSchedule);                           /* 计划配置-录像计划 */
-    Convert::read_file(RECORD_ADVANCED_PARAM_CONFIG_FILE, stAllDeviceParam.stAdvancedParamParam);           /* 计划配置-录像计划-录像参数 */
-    Convert::read_file(CAPTURE_PLAN_CONFIG_FILE, stAllDeviceParam.stCapturePlan);                           /* 计划配置-抓图计划 */
-    Convert::read_file(CAPTURE_PARAM_CONFIG_FILE, stAllDeviceParam.stCaptureParam);                         /* 计划配置-抓图计划-抓图参数 */
-    Convert::read_file(STORAGE_MANAGE_CONFIG_FILE, stAllDeviceParam.stStorageManage);                       /* 存储管理-轻存储 */
+    Convert::read_file(RECORD_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSchedule);                 /* 计划配置-录像计划 */
+    Convert::read_file(RECORD_ADVANCED_PARAM_CONFIG_FILE, stAllDeviceParam.stAdvancedParamParam); /* 计划配置-录像计划-录像参数 */
+    Convert::read_file(CAPTURE_PLAN_CONFIG_FILE, stAllDeviceParam.stCapturePlan);                 /* 计划配置-抓图计划 */
+    Convert::read_file(CAPTURE_PARAM_CONFIG_FILE, stAllDeviceParam.stCaptureParam);   /* 计划配置-抓图计划-抓图参数 */
+    Convert::read_file(STORAGE_MANAGE_CONFIG_FILE, stAllDeviceParam.stStorageManage); /* 存储管理-轻存储 */
     /* 视音频 */
-    Convert::read_file(VIDEO_CONFIG_FILE, stAllDeviceParam.vecVideoConfig);                                 /* 视频 */
-    Convert::read_file(AUDIO_CONFIG_FILE, stAllDeviceParam.stAudioConfig);                                  /* 音频 */
-    Convert::read_file(ROI_CONFIG_FILE, stAllDeviceParam.vecVideoRoi);                                      /* ROI */
-    Convert::read_file(AREA_CROP_CONFIG_FILE, stAllDeviceParam.vecAreaCrop);                                /* 区域裁剪 */
+    Convert::read_file(VIDEO_CONFIG_FILE, stAllDeviceParam.vecVideoConfig);  /* 视频 */
+    Convert::read_file(AUDIO_CONFIG_FILE, stAllDeviceParam.stAudioConfig);   /* 音频 */
+    Convert::read_file(ROI_CONFIG_FILE, stAllDeviceParam.vecVideoRoi);       /* ROI */
+    Convert::read_file(AREA_CROP_CONFIG_FILE, stAllDeviceParam.vecAreaCrop); /* 区域裁剪 */
     /* 人脸抓拍 */
-    Convert::read_file(EVENT_FACE_CAPTURE_CONFIG_FILE, stAllDeviceParam.stFaceCapture);                     /* 人脸抓拍 */
+    Convert::read_file(EVENT_FACE_CAPTURE_CONFIG_FILE, stAllDeviceParam.stFaceCapture); /* 人脸抓拍 */
     /* 图像管理 */
-    Convert::read_file(PIC_SCENEPARAM_CONFIG_FILE, stAllDeviceParam.stAllSceneParams);                      /* 显示设置 */
-    Convert::read_file(OSD_CONFIG_FILE, stAllDeviceParam.stOsdConfig);                                      /* OSD设置 */
-    Convert::read_file(COVER_CONFIG_FILE, stAllDeviceParam.stCoverConfig);                                  /* 视频遮盖 */
-    Convert::read_file(IMAGE_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSceneSchedule);                       /* 图像参数切换 */
+    Convert::read_file(PIC_SCENEPARAM_CONFIG_FILE, stAllDeviceParam.stAllSceneParams); /* 显示设置 */
+    Convert::read_file(OSD_CONFIG_FILE, stAllDeviceParam.stOsdConfig);                 /* OSD设置 */
+    Convert::read_file(COVER_CONFIG_FILE, stAllDeviceParam.stCoverConfig);             /* 视频遮盖 */
+    Convert::read_file(IMAGE_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSceneSchedule);  /* 图像参数切换 */
 
     return 0;
 }
@@ -654,98 +645,98 @@ int SystemManage::export_device_param(System::AllDeviceParam_S &stAllDeviceParam
 int SystemManage::import_device_param(System::AllDeviceParam_S &stAllDeviceParam)
 {
     /* 预览 */
-    Convert::write_file(PREVIEW_CONFIG_FILE, stAllDeviceParam.stPreviewInfo);                                /* 预览 */
+    Convert::write_file(PREVIEW_CONFIG_FILE, stAllDeviceParam.stPreviewInfo); /* 预览 */
     /* 回放 */
     /* 图片 */
     /* 配置 */
     /* 本地设置 */
-    Convert::write_file(WEB_PLUGIN_CONFIG_FILE, stAllDeviceParam.stParam);                                   /* 本地设置 */
+    Convert::write_file(WEB_PLUGIN_CONFIG_FILE, stAllDeviceParam.stParam); /* 本地设置 */
     /* 系统配置 */
-    Convert::write_file(DEVICE_CONFIG_FILE, stAllDeviceParam.stDeviceConfig);                                /* 系统设置-基本配置 */
-    Convert::write_file(DEVICE_INFO_CONFIG_FILE, stAllDeviceParam.stDeviceInfo);                             /* 系统设置-基本信息 */
-    Convert::write_file(TIME_CONFIG_FILE, stAllDeviceParam.stTimeInfo);                                      /* 系统设置-时间配置 */
-                                                                                                             /* 系统设置-智能资源分配 */
-    Convert::write_file(UPGRADE_MAINTAIN_FILE, stAllDeviceParam.stUpgradeMaintain);                          /* 系统维护-升级维护 */
-    Convert::write_file(LOG_SERVER_INFO_FILE, stAllDeviceParam.stLogServerInfo);                             /* 系统维护-安全审计日志 */
-    Convert::write_file(SECURITY_CERT_CONFIG_FILE, stAllDeviceParam.stSecurityCert);                         /* 安全管理-认证方式 */
-    Convert::write_file(IP_FILTER_CONFIG_FILE, stAllDeviceParam.stIpFilterConfigInfo);                       /* 安全管理-IP地址过滤 */
-    Convert::write_file(SECURITY_SERVICES_FILE, stAllDeviceParam.stSecurityServices);                        /* 安全管理-安全服务 */
-                                                                                                             /* 安全管理-客户端证书 */
-                                                                                                             /* 安全管理-CA证书 */
+    Convert::write_file(DEVICE_CONFIG_FILE, stAllDeviceParam.stDeviceConfig);          /* 系统设置-基本配置 */
+    Convert::write_file(DEVICE_INFO_CONFIG_FILE, stAllDeviceParam.stDeviceInfo);       /* 系统设置-基本信息 */
+    Convert::write_file(TIME_CONFIG_FILE, stAllDeviceParam.stTimeInfo);                /* 系统设置-时间配置 */
+                                                                                       /* 系统设置-智能资源分配 */
+    Convert::write_file(UPGRADE_MAINTAIN_FILE, stAllDeviceParam.stUpgradeMaintain);    /* 系统维护-升级维护 */
+    Convert::write_file(LOG_SERVER_INFO_FILE, stAllDeviceParam.stLogServerInfo);       /* 系统维护-安全审计日志 */
+    Convert::write_file(SECURITY_CERT_CONFIG_FILE, stAllDeviceParam.stSecurityCert);   /* 安全管理-认证方式 */
+    Convert::write_file(IP_FILTER_CONFIG_FILE, stAllDeviceParam.stIpFilterConfigInfo); /* 安全管理-IP地址过滤 */
+    Convert::write_file(SECURITY_SERVICES_FILE, stAllDeviceParam.stSecurityServices);  /* 安全管理-安全服务 */
+                                                                                       /* 安全管理-客户端证书 */
+                                                                                       /* 安全管理-CA证书 */
     for (auto &userInfo : stAllDeviceParam.vecUserInfo)
     {
-        CUserManage::instance()->add(userInfo,stAllDeviceParam.stSecurityServices);                                                             /* 用户管理-用户管理 */
+        CUserManage::instance()->add(userInfo, stAllDeviceParam.stSecurityServices); /* 用户管理-用户管理 */
     }
-                                                                                                            /* 用户管理-在线用户 */
+    /* 用户管理-在线用户 */
     /* 网络配置 */
-    Convert::write_file(NETWORK_CONFIG_FILE, stAllDeviceParam.stNetInfo);                                    /* 基本配置-TCP/IP */
-    Convert::write_file(PORT_CONFIG_FILE, stAllDeviceParam.stPortConfig);                                    /* 基本配置-端口 */
-    Convert::write_file(UPNP_CONFIG_FILE, stAllDeviceParam.stPortMapConfig);                                 /* 基本配置-端口映射 */
-    Convert::write_file(SNMP_CONFIG_FILE, stAllDeviceParam.stSnmpConfig);                                    /* 高级配置-SNMP */
-    Convert::write_file(EMAIL_CONFIG_FILE, stAllDeviceParam.stEmailInfo);                                    /* 高级配置-Email */
-    Convert::write_file(GB28181_CLIENT_CONFIG_FILE, stAllDeviceParam.stGB28181Client);                       /* 高级配置-平台接入 */
-    Convert::write_file(GM_CERT_INFO_FILE, stAllDeviceParam.stGmCertFileInfo);                               /* 高级配置-国标证书管理 */
-    Convert::write_file(HTTPS_CONFIG_FILE, stAllDeviceParam.stHttpsConfigInfo);                              /* 高级配置-HTTPS */
-    Convert::write_file(QOS_CONFIG_FILE, stAllDeviceParam.stQosConfigInfo);                                  /* 高级配置-Qos */
-    Convert::write_file(ONVIF_CONFIG_FILE, stAllDeviceParam.stOnvifConfigInfo);                              /* 高级配置-集成协议 */
-                                                                                                             /* 高级配置-网络服务 */
+    Convert::write_file(NETWORK_CONFIG_FILE, stAllDeviceParam.stNetInfo);              /* 基本配置-TCP/IP */
+    Convert::write_file(PORT_CONFIG_FILE, stAllDeviceParam.stPortConfig);              /* 基本配置-端口 */
+    Convert::write_file(UPNP_CONFIG_FILE, stAllDeviceParam.stPortMapConfig);           /* 基本配置-端口映射 */
+    Convert::write_file(SNMP_CONFIG_FILE, stAllDeviceParam.stSnmpConfig);              /* 高级配置-SNMP */
+    Convert::write_file(EMAIL_CONFIG_FILE, stAllDeviceParam.stEmailInfo);              /* 高级配置-Email */
+    Convert::write_file(GB28181_CLIENT_CONFIG_FILE, stAllDeviceParam.stGB28181Client); /* 高级配置-平台接入 */
+    Convert::write_file(GM_CERT_INFO_FILE, stAllDeviceParam.stGmCertFileInfo);         /* 高级配置-国标证书管理 */
+    Convert::write_file(HTTPS_CONFIG_FILE, stAllDeviceParam.stHttpsConfigInfo);        /* 高级配置-HTTPS */
+    Convert::write_file(QOS_CONFIG_FILE, stAllDeviceParam.stQosConfigInfo);            /* 高级配置-Qos */
+    Convert::write_file(ONVIF_CONFIG_FILE, stAllDeviceParam.stOnvifConfigInfo);        /* 高级配置-集成协议 */
+                                                                                       /* 高级配置-网络服务 */
     /* 事件配置 */
-    Convert::write_file(EVENT_MOTION_DETECTION_CONFIG_FILE, stAllDeviceParam.stMotionDetection);             /* 普通事件-移动侦测 */
-    Convert::write_file(EVENT_HIDE_ALARM_CONFIG_FILE, stAllDeviceParam.stHideAlarm);                         /* 普通事件-遮挡报警 */
-    Convert::write_file(EVENT_ABNORMAL_ALARM_CONFIG_FILE, stAllDeviceParam.stAbnormalDetection);             /* 普通事件-异常 */
-    Convert::write_file(EVENT_SOUND_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stSoundOutputAlarm);          /* 普通事件-声音报警输出 */
-    Convert::write_file(EVENT_ALARM_INPUT_CONFIG_FILE, stAllDeviceParam.stIoInputInfo);                      /* 普通事件-报警输入 */
-    Convert::write_file(EVENT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stIoOutputInfo);                    /* 普通事件-报警输出 */
-    Convert::write_file(EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stFlashInfo);        /* 普通事件-闪光灯报警输出 */
-    Convert::write_file(EVENT_PIR_ALARM_CONFIG_FILE, stAllDeviceParam.stPirAlarmInfo);                       /* 普通事件-PIR报警 */
-    Convert::write_file(EVENT_LINE_CROSSING_DETECTION_CONFIG_FILE, stAllDeviceParam.stBoundaryDetection);    /* 周界事件-越界侦测 */
-    Convert::write_file(EVENT_REGIONAL_INTRUSION_DETECTION_CONFIG_FILE, stAllDeviceParam.stFieldDetection);  /* 周界事件-区域入侵侦测 */
-    Convert::write_file(EVENT_ENTER_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stEntranceDetection);     /* 周界事件-进入区域侦测 */
-    Convert::write_file(EVENT_LEAVE_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stExitingDetection);      /* 周界事件-离开区域侦测 */
-                                                                                                             /* 场景智能-翻阅围栏识别 */
-                                                                                                             /* 场景智能-离岗识别 */
-                                                                                                             /* 场景智能-违规变道识别 */
-                                                                                                             /* 场景智能-逆行识别 */
-                                                                                                             /* 场景智能-非机动车闯入识别 */
-                                                                                                             /* 场景智能-应急车道占用识别 */
-                                                                                                             /* 场景智能-行人闯入识别 */
-                                                                                                             /* 场景智能-其他智能事件 */
-    Convert::write_file(EVENT_AUDIO_ANOMALY_DETECTION_CONFIG_FILE, stAllDeviceParam.stAudioAnomaly);         /* Smart事件-音频异常侦测 */
-    Convert::write_file(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE, stAllDeviceParam.stSceneChange);           /* Smart事件-场景变更侦测 */
-    Convert::write_file(EVENT_FACE_DETECTION_CONFIG_FILE, stAllDeviceParam.stFaceDetection);                 /* Smart事件-人脸侦测 */
-    Convert::write_file(EVENT_LOITERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stLoiteringDetection);       /* Smart事件-徘徊侦测 */
-    Convert::write_file(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stCrowdGathering);     /* Smart事件-人员聚集侦测 */
-    Convert::write_file(EVENT_PARKING_DETECTION_CONFIG_FILE, stAllDeviceParam.stParkingDetection);           /* Smart事件-停车侦测 */
+    Convert::write_file(EVENT_MOTION_DETECTION_CONFIG_FILE, stAllDeviceParam.stMotionDetection);      /* 普通事件-移动侦测 */
+    Convert::write_file(EVENT_HIDE_ALARM_CONFIG_FILE, stAllDeviceParam.stHideAlarm);                  /* 普通事件-遮挡报警 */
+    Convert::write_file(EVENT_ABNORMAL_ALARM_CONFIG_FILE, stAllDeviceParam.stAbnormalDetection);      /* 普通事件-异常 */
+    Convert::write_file(EVENT_SOUND_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stSoundOutputAlarm);   /* 普通事件-声音报警输出 */
+    Convert::write_file(EVENT_ALARM_INPUT_CONFIG_FILE, stAllDeviceParam.stIoInputInfo);               /* 普通事件-报警输入 */
+    Convert::write_file(EVENT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stIoOutputInfo);             /* 普通事件-报警输出 */
+    Convert::write_file(EVENT_FLASHING_LIGHT_ALARM_OUTPUT_CONFIG_FILE, stAllDeviceParam.stFlashInfo); /* 普通事件-闪光灯报警输出 */
+    Convert::write_file(EVENT_PIR_ALARM_CONFIG_FILE, stAllDeviceParam.stPirAlarmInfo);                /* 普通事件-PIR报警 */
+    Convert::write_file(EVENT_LINE_CROSSING_DETECTION_CONFIG_FILE, stAllDeviceParam.stBoundaryDetection); /* 周界事件-越界侦测 */
+    Convert::write_file(EVENT_REGIONAL_INTRUSION_DETECTION_CONFIG_FILE, stAllDeviceParam.stFieldDetection); /* 周界事件-区域入侵侦测 */
+    Convert::write_file(EVENT_ENTER_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stEntranceDetection); /* 周界事件-进入区域侦测 */
+    Convert::write_file(EVENT_LEAVE_REGION_DETECTION_CONFIG_FILE, stAllDeviceParam.stExitingDetection); /* 周界事件-离开区域侦测 */
+    /* 场景智能-翻阅围栏识别 */
+    /* 场景智能-离岗识别 */
+    /* 场景智能-违规变道识别 */
+    /* 场景智能-逆行识别 */
+    /* 场景智能-非机动车闯入识别 */
+    /* 场景智能-应急车道占用识别 */
+    /* 场景智能-行人闯入识别 */
+    /* 场景智能-其他智能事件 */
+    Convert::write_file(EVENT_AUDIO_ANOMALY_DETECTION_CONFIG_FILE, stAllDeviceParam.stAudioAnomaly);   /* Smart事件-音频异常侦测 */
+    Convert::write_file(EVENT_SCENE_CHANGE_DETECTION_CONFIG_FILE, stAllDeviceParam.stSceneChange);     /* Smart事件-场景变更侦测 */
+    Convert::write_file(EVENT_FACE_DETECTION_CONFIG_FILE, stAllDeviceParam.stFaceDetection);           /* Smart事件-人脸侦测 */
+    Convert::write_file(EVENT_LOITERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stLoiteringDetection); /* Smart事件-徘徊侦测 */
+    Convert::write_file(EVENT_CROWD_GATHERING_DETECTION_CONFIG_FILE, stAllDeviceParam.stCrowdGathering); /* Smart事件-人员聚集侦测 */
+    Convert::write_file(EVENT_PARKING_DETECTION_CONFIG_FILE, stAllDeviceParam.stParkingDetection);       /* Smart事件-停车侦测 */
     Convert::write_file(EVENT_UNATTENDED_OBJECT_DETECTION_CONFIG_FILE, stAllDeviceParam.stUnattendedObject); /* Smart事件-物品遗留侦测 */
-    Convert::write_file(EVENT_OBJECT_REMOVAL_DETECTION_CONFIG_FILE, stAllDeviceParam.stObjectRemoval);       /* Smart事件-物品拿取侦测 */
-    Convert::write_file(EVENT_PET_RECOGNITION_CONFIG_FILE, stAllDeviceParam.stPetRecognition);               /* Smart事件-宠物侦测 */
+    Convert::write_file(EVENT_OBJECT_REMOVAL_DETECTION_CONFIG_FILE, stAllDeviceParam.stObjectRemoval); /* Smart事件-物品拿取侦测 */
+    Convert::write_file(EVENT_PET_RECOGNITION_CONFIG_FILE, stAllDeviceParam.stPetRecognition);         /* Smart事件-宠物侦测 */
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
-    Convert::write_file(EVENT_GARBAGE_EXPOSURE_INFO_FILE, stAllDeviceParam.stGarbageExposure);               /* Smart事件-垃圾暴露识别 */
-    Convert::write_file(EVENT_GARBAGE_OVERFLOW_INFO_FILE, stAllDeviceParam.stGarbageOverflow);               /* Smart事件-垃圾满溢识别 */
+    Convert::write_file(EVENT_GARBAGE_EXPOSURE_INFO_FILE, stAllDeviceParam.stGarbageExposure); /* Smart事件-垃圾暴露识别 */
+    Convert::write_file(EVENT_GARBAGE_OVERFLOW_INFO_FILE, stAllDeviceParam.stGarbageOverflow); /* Smart事件-垃圾满溢识别 */
 #endif
 #if CAP_AI_PEOPLE_STATISTICS
-    Convert::write_file(EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE, stAllDeviceParam.stPeopleFlowStatistics);   /* Smart事件-人流统计 */
+    Convert::write_file(EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE, stAllDeviceParam.stPeopleFlowStatistics); /* Smart事件-人流统计 */
     Convert::write_file(EVENT_PEOPLE_DENSITY_DETECTION_CONFIG_FILE, stAllDeviceParam.stPeopleDensityDetection); /* Smart事件-人员密度检测 */
 #endif
 
     /* 存储管理 */
-    Convert::write_file(RECORD_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSchedule);                           /* 计划配置-录像计划 */
-    Convert::write_file(RECORD_ADVANCED_PARAM_CONFIG_FILE, stAllDeviceParam.stAdvancedParamParam);           /* 计划配置-录像计划-录像参数 */
-    Convert::write_file(CAPTURE_PLAN_CONFIG_FILE, stAllDeviceParam.stCapturePlan);                           /* 计划配置-抓图计划 */
-    Convert::write_file(CAPTURE_PARAM_CONFIG_FILE, stAllDeviceParam.stCaptureParam);                         /* 计划配置-抓图计划-抓图参数 */
-    Convert::write_file(STORAGE_MANAGE_CONFIG_FILE, stAllDeviceParam.stStorageManage);                       /* 存储管理-轻存储 */
+    Convert::write_file(RECORD_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSchedule);                 /* 计划配置-录像计划 */
+    Convert::write_file(RECORD_ADVANCED_PARAM_CONFIG_FILE, stAllDeviceParam.stAdvancedParamParam); /* 计划配置-录像计划-录像参数 */
+    Convert::write_file(CAPTURE_PLAN_CONFIG_FILE, stAllDeviceParam.stCapturePlan);                 /* 计划配置-抓图计划 */
+    Convert::write_file(CAPTURE_PARAM_CONFIG_FILE, stAllDeviceParam.stCaptureParam);   /* 计划配置-抓图计划-抓图参数 */
+    Convert::write_file(STORAGE_MANAGE_CONFIG_FILE, stAllDeviceParam.stStorageManage); /* 存储管理-轻存储 */
     /* 视音频 */
-    Convert::write_file(VIDEO_CONFIG_FILE, stAllDeviceParam.vecVideoConfig);                                 /* 视频 */
-    Convert::write_file(AUDIO_CONFIG_FILE, stAllDeviceParam.stAudioConfig);                                  /* 音频 */
-    Convert::write_file(ROI_CONFIG_FILE, stAllDeviceParam.vecVideoRoi);                                      /* ROI */
-    Convert::write_file(AREA_CROP_CONFIG_FILE, stAllDeviceParam.vecAreaCrop);                                /* 区域裁剪 */
+    Convert::write_file(VIDEO_CONFIG_FILE, stAllDeviceParam.vecVideoConfig);  /* 视频 */
+    Convert::write_file(AUDIO_CONFIG_FILE, stAllDeviceParam.stAudioConfig);   /* 音频 */
+    Convert::write_file(ROI_CONFIG_FILE, stAllDeviceParam.vecVideoRoi);       /* ROI */
+    Convert::write_file(AREA_CROP_CONFIG_FILE, stAllDeviceParam.vecAreaCrop); /* 区域裁剪 */
     /* 人脸抓拍 */
-    Convert::write_file(EVENT_FACE_CAPTURE_CONFIG_FILE, stAllDeviceParam.stFaceCapture);                     /* 人脸抓拍 */
+    Convert::write_file(EVENT_FACE_CAPTURE_CONFIG_FILE, stAllDeviceParam.stFaceCapture); /* 人脸抓拍 */
     /* 图像管理 */
-    Convert::write_file(PIC_SCENEPARAM_CONFIG_FILE, stAllDeviceParam.stAllSceneParams);                      /* 显示设置 */
-    Convert::write_file(OSD_CONFIG_FILE, stAllDeviceParam.stOsdConfig);                                      /* OSD设置 */
-    Convert::write_file(COVER_CONFIG_FILE, stAllDeviceParam.stCoverConfig);                                  /* 视频遮盖 */
-    Convert::write_file(IMAGE_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSceneSchedule);                       /* 图像参数切换 */
+    Convert::write_file(PIC_SCENEPARAM_CONFIG_FILE, stAllDeviceParam.stAllSceneParams); /* 显示设置 */
+    Convert::write_file(OSD_CONFIG_FILE, stAllDeviceParam.stOsdConfig);                 /* OSD设置 */
+    Convert::write_file(COVER_CONFIG_FILE, stAllDeviceParam.stCoverConfig);             /* 视频遮盖 */
+    Convert::write_file(IMAGE_SCHEDULE_CONFIG_FILE, stAllDeviceParam.stSceneSchedule);  /* 图像参数切换 */
 
     return 0;
 }
@@ -759,7 +750,7 @@ void SystemManage::start_logUptime()
     long tempUptime = 0;
 
     /* 读取设备运行时长 */
-    if (in_file.good()) 
+    if (in_file.good())
     {
         dlog_debug("读取到运行时长文件");
         in_file >> tempTotal >> tempUptime;
@@ -779,51 +770,100 @@ void SystemManage::stop_logUptime()
 {
     /* 设置线程退出标志为true */
     m_bLogThreadExitFlag.store(true);
-    
+
     /* 等待线程结束 */
     if (m_logThread.joinable())
     {
         m_logThread.join();
     }
-    
+
     dlog_debug("已停止记录设备使用时长");
+}
+
+/* 清理上传目录中超过 24 小时未消费的遗留文件（网页"传了未导入/未升级"）。
+   上传目录是 /tmp 软链、重启自清，这里只兜运行期间的堆积；
+   .tvsdk_last_upgrade 是升级流程的跨重启标记，不参与清理 */
+static void cleanup_expired_upload_files()
+{
+    const time_t tNow = time(nullptr);
+    const long nExpireSec = 24 * 3600;
+    DIR *pDir = opendir(UPLOAD_PATH);
+    if (nullptr == pDir)
+    {
+        return;
+    }
+    struct dirent *pEntry;
+    while ((pEntry = readdir(pDir)) != nullptr)
+    {
+        const std::string strName = pEntry->d_name;
+        if (strName == "." || strName == ".." || strName == ".tvsdk_last_upgrade")
+        {
+            continue;
+        }
+        const std::string strFull = std::string(UPLOAD_PATH) + strName;
+        struct stat stFile;
+        if (lstat(strFull.c_str(), &stFile) != 0 || !S_ISREG(stFile.st_mode))
+        {
+            continue;
+        }
+        if (tNow - stFile.st_mtime < nExpireSec)
+        {
+            continue;
+        }
+        if (remove(strFull.c_str()) == 0)
+        {
+            dlog_info("清理过期的未使用上传文件：%s（已存放超过24小时）", strName.c_str());
+        }
+    }
+    closedir(pDir);
 }
 
 void SystemManage::update_upTime()
 {
-    auto format = [](long seconds) 
-    {
-        if (seconds < 0) return std::string("0小时0分");
-        int hours = seconds / 3600;
-        int minutes = (seconds % 3600) / 60;
-        return std::to_string(hours) + "小时" + std::to_string(minutes) + "分";
-    };
-
-    while(!m_bLogThreadExitFlag.load())
+    while (!m_bLogThreadExitFlag.load())
     {
         struct sysinfo info;
         sysinfo(&info);
         long lgCurrentuUptime = info.uptime;
-        //log_debug("获取当前设备时长:%s",std::to_string(lgCurrentuUptime).c_str());
+        // log_debug("获取当前设备时长:%s",std::to_string(lgCurrentuUptime).c_str());
 
-        long lgDelta = (lgCurrentuUptime >= m_lgLastsaveduptime.load()) 
-                   ? (lgCurrentuUptime - m_lgLastsaveduptime.load())
-                   : lgCurrentuUptime;
+        long lgDelta = (lgCurrentuUptime >= m_lgLastsaveduptime.load()) ? (lgCurrentuUptime - m_lgLastsaveduptime.load())
+                                                                        : lgCurrentuUptime;
 
         m_lgPersistedTotal += lgDelta;
         m_lgLastsaveduptime.store(lgCurrentuUptime);
 
         std::ofstream out_file(m_UptimeFile);
-        out_file << m_lgPersistedTotal.load() << "\n"
-                    << m_lgLastsaveduptime.load();
+        out_file << m_lgPersistedTotal.load() << "\n" << m_lgLastsaveduptime.load();
         out_file.close();
-        
+
         long lgControlSeconds = get_process_startTime("stream");
-        //log_debug("设备运行时长 第一次开机累计总运行时长:[%s] 上一次保存时的系统运行时间:[%s]"
-        //            ,std::to_string(m_lgPersistedTotal.load()).c_str(),std::to_string(m_lgLastsaveduptime.load()).c_str());
-        std::string strTimeLog = "\n设备运行时长：" + format(m_lgPersistedTotal.load()) +"\n"
-                                + "程序运行时长：" + format(lgControlSeconds)  +"\n";
-        dlog_debug("设备时长日志:%s",strTimeLog.c_str());
+        // log_debug("设备运行时长 第一次开机累计总运行时长:[%s] 上一次保存时的系统运行时间:[%s]"
+        //             ,std::to_string(m_lgPersistedTotal.load()).c_str(),std::to_string(m_lgLastsaveduptime.load()).c_str());
+        /* 运行时长文案中英文，语言跟随设备配置(4009)，切换后下一条小时日志生效 */
+        System::DeviceConfig_S stDeviceConfig;
+        get_device_config(stDeviceConfig);
+        const bool bEnglish = (System::Language_E::ENGLISH == stDeviceConfig.enLanguage);
+        auto format = [bEnglish](long seconds)
+        {
+            if (seconds < 0)
+            {
+                seconds = 0;
+            }
+            int hours = seconds / 3600;
+            int minutes = (seconds % 3600) / 60;
+            return bEnglish ? (std::to_string(hours) + "h " + std::to_string(minutes) + "m")
+                            : (std::to_string(hours) + "小时" + std::to_string(minutes) + "分");
+        };
+        std::string strTimeLog = bEnglish ? "\nDevice uptime: " + format(m_lgPersistedTotal.load()) +
+                                                "\n"
+                                                "Program uptime: " +
+                                                format(lgControlSeconds) + "\n"
+                                          : "\n设备运行时长：" + format(m_lgPersistedTotal.load()) +
+                                                "\n"
+                                                "程序运行时长：" +
+                                                format(lgControlSeconds) + "\n";
+        dlog_debug("设备时长日志:%s", strTimeLog.c_str());
 
         /* 信息日志-设备运行时长 */
         Log::Info_S stLogInfo;
@@ -832,47 +872,56 @@ void SystemManage::update_upTime()
         stLogInfo.context = strTimeLog;
         LogHandler::instance()->write(stLogInfo);
 
+        /* 顺带清理上传目录中"传了未使用"的过期文件（复用本小时线程，
+           不另建线程）：上传目录为 /tmp 软链，重启自清，这里只兜运行
+           期间超过 24 小时未消费的遗留 */
+        cleanup_expired_upload_files();
+
         std::this_thread::sleep_for(std::chrono::hours(1));
     }
-     
 }
 
-long SystemManage::getSystemUptime() 
+long SystemManage::getSystemUptime()
 {
     struct sysinfo info;
     sysinfo(&info);
     return info.uptime;
 }
 
-long SystemManage::get_process_startTime(const std::string& strProcessName)
+long SystemManage::get_process_startTime(const std::string &strProcessName)
 {
-    DIR* dir = opendir("/proc");
-    if (!dir) return -1;
+    DIR *dir = opendir("/proc");
+    if (!dir)
+        return -1;
 
-    struct dirent* entry;
+    struct dirent *entry;
     long clk_tck = sysconf(_SC_CLK_TCK);
     long uptime_seconds = getSystemUptime();
 
-    while ((entry = readdir(dir)) != nullptr) 
+    while ((entry = readdir(dir)) != nullptr)
     {
-        if (entry->d_type != DT_DIR) continue;
+        if (entry->d_type != DT_DIR)
+            continue;
 
         std::string pid_dir = entry->d_name;
-        if (!isdigit(pid_dir[0])) continue;
+        if (!isdigit(pid_dir[0]))
+            continue;
 
         std::string comm_path = "/proc/" + pid_dir + "/comm";
         std::ifstream comm_file(comm_path);
-        if (!comm_file) continue;
+        if (!comm_file)
+            continue;
 
         std::string name;
         getline(comm_file, name);
         comm_file.close();
 
-        if (name == strProcessName) 
+        if (name == strProcessName)
         {
             std::string stat_path = "/proc/" + pid_dir + "/stat";
             std::ifstream stat_file(stat_path);
-            if (!stat_file) continue;
+            if (!stat_file)
+                continue;
 
             std::string line;
             getline(stat_file, line);
@@ -881,12 +930,13 @@ long SystemManage::get_process_startTime(const std::string& strProcessName)
             std::istringstream iss(line);
             std::vector<std::string> fields;
             std::string field;
-            while (iss >> field) 
+            while (iss >> field)
             {
                 fields.push_back(field);
             }
 
-            if (fields.size() < 22) continue;
+            if (fields.size() < 22)
+                continue;
 
             long start_time_ticks = stol(fields[21]);
             long start_time_seconds = start_time_ticks / clk_tck;
@@ -908,7 +958,7 @@ int SystemManage::enable_ioInputNumber(std::map<int, bool> numberSet)
 }
 
 void SystemManage::callback_ioInputEvent(int nNumber)
-{ 
+{
     Event::AlgorithmConfig_S stAlarmInfo;
     Alarm::IoInputInfo_S stIoInputInfo;
     CEventConfigure::instance()->get_configure(stAlarmInfo);
@@ -916,10 +966,9 @@ void SystemManage::callback_ioInputEvent(int nNumber)
     stIoInputInfo.nIoNumer = nNumber;
     CEventConfigure::instance()->get_configure(stIoInputInfo);
 
-    if(stAlarmInfo.nEnAlarmInput && stIoInputInfo.nDealType)
+    if (stAlarmInfo.nEnAlarmInput && stIoInputInfo.nDealType)
     {
         /* 触发对应的报警事件 */
         CEventLinkage::instance()->handleEvent(Event::Type::ALARM_INPUT);
     }
-
 }

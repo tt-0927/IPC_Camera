@@ -348,6 +348,12 @@ void CEventManage::set_event_type(Event::AlgorithmConfig_S &change, Event::Type_
     case Event::Type::FIRE_EQUIPMENT_ABNORMAL: /* 消防设施异常 */
         change.nEnFireEquipmentAbnormal = bEnable;
         break;
+    case Event::Type::FIGHT_DETECTION: /* 打架斗殴检测 */
+        change.nEnFight = bEnable;
+        break;
+    case Event::Type::MOUSE_INFESTATION: /* 鼠患识别 */
+        change.nMouseDetection = bEnable;
+        break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 case Event::Type::SMOKE_FIRE: /* 烟火识别 */

@@ -550,6 +550,13 @@ int LibWSServer::file_upload_callback(struct lws *pWsi, lws_callback_reasons enR
         else
         {
             int nRet = pWsServer->m_wsUpload.write_data(pWsi, reinterpret_cast<const char *>(pIn), nLen);
+            if (nRet < 0)
+            {
+                /* 写盘失败（含空间不足）：触发一次 writable，把错误进度
+                   （Progress:-1）经 get_progressStr 下发网页 */
+                lws_callback_on_writable(pWsi);
+                break;
+            }
             if (lws_remaining_packet_payload(pWsi) != 0)
             {
                 break;

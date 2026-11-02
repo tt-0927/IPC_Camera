@@ -18,3 +18,10 @@
  * @note
  */
 IpcRet_E upgrade_start(UpgradeInfo_S stUpgradeInfo);
+
+/**
+ * @brief 清理升级上传目录遗留文件
+ * @note 进程启动时调用一次，清除上次升级中断（如断电）残留的升级包，
+ *       避免残留包长期占用 flash
+ */
+void upgrade_logic_cleanup_upload_leftover(void);

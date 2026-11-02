@@ -112,6 +112,7 @@ static void helper_convert_to_status(const Event::AlgorithmConfig_S& algo, Event
     status.bAccessControlAbnormalPassage = algo.nAccessControlAbnormalPassage;
     status.bSocialRelationshipAnalysis = algo.nSocialRelationshipAnalysis;
     status.bKitchenClothingCompliance = algo.nKitchenClothingCompliance;
+    status.bMouseDetection = algo.nMouseDetection;
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
     status.bSmokeFire = algo.nEnSmokeFire;
@@ -170,6 +171,7 @@ static const char* get_event_type_name(Event::Type_E type) {
         case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: return "ACCESS_CONTROL_ABNORMAL_PASSAGE";
         case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: return "SOCIAL_RELATIONSHIP_ANALYSIS";
         case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: return "KITCHEN_CLOTHING_COMPLIANCE";
+        case Event::Type::MOUSE_INFESTATION: return "MOUSE_INFESTATION";
         default: return "UNKNOWN";
     }
 }
@@ -270,6 +272,10 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: already_in_target_state = (oldStatus.bAccessControlAbnormalPassage == bEnable); break;
         case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: already_in_target_state = (oldStatus.bSocialRelationshipAnalysis == bEnable); break;
         case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: already_in_target_state = (oldStatus.bKitchenClothingCompliance == bEnable); break;
+        case Event::Type::FIGHT_DETECTION: already_in_target_state = (oldStatus.bFightDetection == bEnable); break;
+        case Event::Type::MOUSE_INFESTATION: already_in_target_state = (oldStatus.bMouseDetection == bEnable); break;
+        case Event::Type::OPEN_FLAME_LEAVE: already_in_target_state = (oldStatus.bOpenFlameLeave == bEnable); break;
+        case Event::Type::FIRE_EQUIPMENT_ABNORMAL: already_in_target_state = (oldStatus.bFireEquipmentAbnormal == bEnable); break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: already_in_target_state = (oldStatus.bSmokeFire == bEnable); break;
@@ -396,6 +402,10 @@ static int check_analytics_resource(const Event::Type_E enable_type, const bool 
         case Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE: newStatus.bAccessControlAbnormalPassage = bEnable; break;
         case Event::Type::SOCIAL_RELATIONSHIP_ANALYSIS: newStatus.bSocialRelationshipAnalysis = bEnable; break;
         case Event::Type::KITCHEN_CLOTHING_COMPLIANCE: newStatus.bKitchenClothingCompliance = bEnable; break;
+        case Event::Type::FIGHT_DETECTION: newStatus.bFightDetection = bEnable; break;
+        case Event::Type::MOUSE_INFESTATION: newStatus.bMouseDetection = bEnable; break;
+        case Event::Type::OPEN_FLAME_LEAVE: newStatus.bOpenFlameLeave = bEnable; break;
+        case Event::Type::FIRE_EQUIPMENT_ABNORMAL: newStatus.bFireEquipmentAbnormal = bEnable; break;
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         case Event::Type::SMOKE_FIRE: newStatus.bSmokeFire = bEnable; break;
@@ -3323,22 +3333,19 @@ void Task::Event::SetQueueCrowdingInfo::handle()
     Alarm::QueueCrowdingDetection_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
 
-    for (auto &rule : stInfo.aRule)
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
     {
-        /* 参数有效性判断 灵敏度[1,100] */
-        if (rule.nSensitivity < 1 || rule.nSensitivity > 100)
-        {
-            dlog_error("设置排队拥堵检测信息参数错误");
-            result(ERR_WEB_PARAM);
-            return;
-        }
-        /* 坐标有效性判断 */
-        if (!rule.stRegion.IsValid())
-        {
-            dlog_error("设置排队拥堵检测信息的区域绘制异常");
-            result(ERR_WEB_REGION);
-            return;
-        }
+        dlog_error("设置排队拥堵检测信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置排队拥堵检测信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
     }
 
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
@@ -4630,23 +4637,19 @@ void Task::Event::SetFireEquipmentAbnormalInfo::handle()
     Alarm::FireEquipmentAbnormalDetection_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
 
-    /* 参数有效性判断 灵敏度[1,100] 时间阈值[0,100]秒 */
-    for (size_t i = 0; i < stInfo.aRule.size(); i++)
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)  
     {
-        if (stInfo.aRule[i].nSensitivity < 1 || stInfo.aRule[i].nSensitivity > 100 ||
-            stInfo.aRule[i].nTimeThreshold > 100)
-        {
-            dlog_error("设置消防设施异常信息参数错误，规则[%zu]", i);
-            result(ERR_WEB_PARAM);
-            return;
-        }
-        /* 坐标有效性判断 */
-        if (!stInfo.aRule[i].stRegion.IsValid())
-        {
-            dlog_error("设置消防设施异常信息的区域绘制异常，规则[%zu]", i);
-            result(ERR_WEB_REGION);
-            return;
-        }
+        dlog_error("设置消防设施异常信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置消防设施异常信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
     }
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
     result(save_scene_event_config(::Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, stInfo));
@@ -4765,4 +4768,70 @@ void Task::Event::SetKitchenClothingComplianceInfo::handle()
     /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
     result(save_scene_event_config(::Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, stInfo));
 }
+/* 获取打架斗殴检测信息 */
+void Task::Event::GetFightDetectionInfo::handle()
+{
+    Alarm::FightDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置打架斗殴检测信息 */
+void Task::Event::SetFightDetectionInfo::handle()
+{
+    Alarm::FightDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置打架斗殴信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 参数有效性判断 灵敏度[1,100] */
+    
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置打架斗殴规范信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::FIGHT_DETECTION, stInfo));
+}
+
+/* 获取鼠患识别信息 */
+void Task::Event::GetMouseDetectionInfo::handle()
+{
+    Alarm::MouseDetection_S stInfo;
+    CEventConfigure::instance()->get_configure(stInfo);
+    result(Convert::to_string(stInfo));
+}
+
+/* 设置鼠患识别信息 */
+void Task::Event::SetMouseDetectionInfo::handle()
+{
+    Alarm::MouseDetection_S stInfo;
+    Convert::to_struct(m_taskData, stInfo);
+
+    /* 参数有效性判断 灵敏度[1,100] */
+    if (stInfo.stRule.nSensitivity < 1 || stInfo.stRule.nSensitivity > 100)
+    {
+        dlog_error("设置鼠患识别信息参数错误");
+        result(ERR_WEB_PARAM);
+        return;
+    }
+    /* 坐标有效性判断 */
+    if (!stInfo.stRule.stRegion.IsValid())
+    {
+        dlog_error("设置鼠患识别信息的区域绘制异常");
+        result(ERR_WEB_REGION);
+        return;
+    }
+    /* 参数校验完成后，统一保存并同步智能事件总览状态。 */
+    result(save_scene_event_config(::Event::Type_E::MOUSE_INFESTATION, stInfo));
+}
+
 #endif

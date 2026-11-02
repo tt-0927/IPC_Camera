@@ -1,0 +1,40 @@
+{
+    "version": "v1.0.1",
+    "model": "Yolov8n",
+    "notes": "后厨检测模型",
+    "model_path": "/opt/cam/model/kitchen_class14_yolov8n_640_v1_rv1126b.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "cockroach",
+            "hairnet",
+            "no_gloves",
+            "no_hat",
+            "rat" ,
+            "with_mask",
+            "without_mask",
+            "smoke",
+            "phone",
+            "overflow",
+            "garbage",
+            "garbage_bin",
+            "chef_uniform",
+            "chef_hat"
+        ]
+    }
+}

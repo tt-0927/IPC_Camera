@@ -244,6 +244,7 @@ void FillKeyAreaAbnormalStayInfo(const Alarm::KeyAreaAbnormalStayDetection_S &sr
 void ToKeyAreaAbnormalStay(const NET_KeyAreaAbnormalStayInfo_S &src, Alarm::KeyAreaAbnormalStayDetection_S &dst);
 void FillOpenFlameLeaveInfo(const Alarm::OpenFlameLeaveDetection_S &src, NET_OpenFlameLeaveInfo_S &dst);
 void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeaveDetection_S &dst);
+
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

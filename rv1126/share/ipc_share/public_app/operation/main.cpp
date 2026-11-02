@@ -91,7 +91,8 @@ int main(int argc, char const *argv[])
 #if CAP_BLUETOOTH
     /* D-Bus 与 bluetoothd 已由 S81appinit 先行启动。蓝牙初始化失败不影响运维主业务。 */
     BleProvisioning::BleGattServer &bleServer = BleProvisioning::BleGattServer::instance();
-    bleServer.setExternalCommandSender([](uint16_t command, const std::string &payload) -> int {
+    bleServer.setExternalCommandSender([](uint16_t command, const std::string &payload,
+                                          uint32_t requestId) -> int {
         int actionCode = 0;
         if (command == BleProvisioning::CMD_WIFI_CONNECT)
             actionCode = AC_CONNECT_WIFI_STA;
@@ -101,11 +102,13 @@ int main(int argc, char const *argv[])
             actionCode = AC_PLATFORM_GETINFO;
         else if (command == BleProvisioning::CMD_WIFI_SCAN)
             actionCode = AC_SCAN_WIFI_STA;
+        else if (command == BleProvisioning::CMD_INTERNAL_RELEASE_PROVISIONING)
+            actionCode = AC_RELEASE_BLE_PROVISIONING;
         else
             return -1;
 
         std::string message = payload.empty() ? "{}" : payload;
-        OperationServer::instance()->fill_head(message, actionCode);
+        OperationServer::instance()->fill_head(message, actionCode, requestId);
         return OperationServer::instance()->send(message, actionCode);
     });
     if (!bleServer.start())

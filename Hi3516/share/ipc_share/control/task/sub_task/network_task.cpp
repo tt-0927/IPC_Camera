@@ -44,6 +44,43 @@
 #include <map>
 namespace
 {
+    #if CAP_NETWORK_WIFI && CAP_BLUETOOTH
+    /* BLE内部请求使用保留的高位UniqueId；网页请求不携带该范围的ID。 */
+    static ::Network::WifiProvisioningOwner provisioningOwnerFromRequest(
+        const std::string &request, bool fromOperation)
+    {
+        unsigned int uniqueId = 0;
+        Json::Object *root = Json::init(request.c_str());
+        if (root)
+        {
+            Json::get(root, "UniqueId", uniqueId);
+            Json::deinit(root);
+        }
+        return fromOperation && uniqueId >= 0x40000000U
+                   ? ::Network::WIFI_PROVISIONING_BLE
+                   : ::Network::WIFI_PROVISIONING_WEB;
+    }
+    
+    class ProvisioningOperationGuard
+    {
+    public:
+        explicit ProvisioningOperationGuard(::Network::WifiProvisioningOwner owner)
+            : m_owner(owner), m_locked(
+                  CWifiManager::instance()->beginProvisioningOperation(owner)) {}
+        ~ProvisioningOperationGuard()
+        {
+            if (m_locked)
+                CWifiManager::instance()->endProvisioningOperation(
+                    m_owner, m_owner == ::Network::WIFI_PROVISIONING_BLE);
+        }
+        bool locked() const { return m_locked; }
+    
+    private:
+        ::Network::WifiProvisioningOwner m_owner;
+        bool m_locked;
+    };
+    #endif
+
 /*
  * 统一处理网络任务输入 JSON。
  * param [in] strSourceJson 输入的网络配置对象或包含 Data 节点的统一响应对象。
@@ -1076,6 +1113,16 @@ void Task::Network::GetWifiStaInfo::handle()
 
 void Task::Network::ScanWifiSta::handle()
 {
+#if CAP_BLUETOOTH
+    const ::Network::WifiProvisioningOwner owner = provisioningOwnerFromRequest(
+        m_data, verify_requester(Common::REQUESTER_OPERATION));
+    ProvisioningOperationGuard provisioningGuard(owner);
+    if (!provisioningGuard.locked())
+    {
+        result("{\"status\":\"provisioning_busy\"}", -1);
+        return;
+    }
+#endif
     CWifiManager *wifiManager = CWifiManager::instance();
     if (wifiManager->init() < OK)
     {
@@ -1145,6 +1192,15 @@ void Task::Network::ScanWifiSta::handle()
 
 void Task::Network::SetWifiStaInfo::handle()
 {
+#if CAP_BLUETOOTH
+    ProvisioningOperationGuard provisioningGuard(
+        ::Network::WIFI_PROVISIONING_WEB);
+    if (!provisioningGuard.locked())
+    {
+        result(-1);
+        return;
+    }
+#endif
     ::Network::WifiStaInfo_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
     
@@ -1244,6 +1300,18 @@ void Task::Network::SetWifiStaInfo::handle()
 
 void Task::Network::ConnectWifiSta::handle()
 {
+#if CAP_BLUETOOTH
+    const ::Network::WifiProvisioningOwner owner = provisioningOwnerFromRequest(
+        m_data, verify_requester(Common::REQUESTER_OPERATION));
+    ProvisioningOperationGuard provisioningGuard(owner);
+    if (!provisioningGuard.locked())
+    {
+        ::Network::WifiConnectResult busyResult;
+        busyResult.error_code = ::Network::WIFI_CONNECT_BUSY;
+        result(Convert::to_string(busyResult), -1);
+        return;
+    }
+#endif
     ::Network::WifiStaConncet_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
     
@@ -1253,6 +1321,15 @@ void Task::Network::ConnectWifiSta::handle()
 
 void Task::Network::DisconnectWifiSta::handle()
 {
+#if CAP_BLUETOOTH
+    ProvisioningOperationGuard provisioningGuard(
+        ::Network::WIFI_PROVISIONING_WEB);
+    if (!provisioningGuard.locked())
+    {
+        result(-1);
+        return;
+    }
+#endif
     bool nRet = CWifiManager::instance()-> disconnectWifi();
     if(nRet)
     {
@@ -1261,6 +1338,15 @@ void Task::Network::DisconnectWifiSta::handle()
         result(-1);
     }
 }
+
+#if CAP_BLUETOOTH
+void Task::Network::ReleaseBleProvisioning::handle()
+{
+    CWifiManager::instance()->releaseProvisioningOwner(
+        ::Network::WIFI_PROVISIONING_BLE);
+    result(0);
+}
+#endif
 
 void Task::Network::SetConfigWifiIpv4::handle()
 {

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-15 16:29:58
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-13 18:12:04
+ * @LastEditTime : 2026-10-26 09:39:49
  * @Description  : 事件联动字典与协议映射基础实现
  */
 
@@ -212,6 +212,7 @@ UINT32 get_rule_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::KEY_AREA_ABNORMAL_STAY: return NET_ALARM_KEY_AREA_ABNORMAL_STAY;
     case Event::Type_E::DANGER_ZONE_STAY:       return NET_ALARM_DANGER_ZONE_STAY;
     case Event::Type_E::DANGER_ZONE_APPROACH:   return NET_ALARM_DANGER_ZONE_APPROACH;
+    
     default:                               return 0;
     }
 }
@@ -245,7 +246,6 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     {
     case Event::Type_E::LOITERING_DETECT:             return NET_ALARM_LOITERING;
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
-    /* 平安校园：行为分析（网页端“长时间滞留”与徘徊/停车同组） */
     case Event::Type_E::LONG_TIME_STAY:               return NET_ALARM_LONG_TIME_STAY;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
     case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_CAPTURE;
@@ -255,18 +255,15 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::LEAVE_POST:                   return NET_ALARM_LEAVE_POST;
     case Event::Type_E::PERSON_FALL_DOWN:             return NET_ALARM_PERSON_FALL;
     case Event::Type_E::FENCE_CLIMBING:               return NET_ALARM_FENCE_CLIMBING;
-    /* 平安校园：行为监管（攀爬识别与翻越围栏同类） */
     case Event::Type_E::CLIMB_DETECTION:              return NET_ALARM_CLIMB_DETECTION;
     case Event::Type_E::SMOKING:                      return NET_ALARM_SMOKING;
     case Event::Type_E::PHONE_USAGE:                  return NET_ALARM_PHONE_USAGE;
     case Event::Type_E::SMOKE_FIRE:                   return NET_ALARM_SMOKE_FIRE;
     case Event::Type_E::OPEN_FLAME:                   return NET_ALARM_OPEN_FLAME;
-    /* 平安校园：行为监管（明火离人与明火识别同类） */
     case Event::Type_E::OPEN_FLAME_LEAVE:             return NET_ALARM_OPEN_FLAME_LEAVE;
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:       return NET_ALARM_MANHOLE_COVER_ABNORMAL;
-    /* 平安校园：环境与设施异常（通道占用与井盖/垃圾等环境类同组） */
-    case Event::Type_E::CHANNEL_OCCUPATION:           return NET_ALARM_CHANNEL_OCCUPATION;
     case Event::Type_E::BARE_SOIL:                    return NET_ALARM_BARE_SOIL;
+    case Event::Type_E::CHANNEL_OCCUPATION:           return NET_ALARM_CHANNEL_OCCUPATION;
     case Event::Type_E::HOLE_PROTECTION_BAR:          return NET_ALARM_HOLE_PROTECTION_BAR;
     case Event::Type_E::PEDESTRIAN_INTRUSION:         return NET_ALARM_PEDESTRIAN_INTRUSION;
     case Event::Type_E::PERSON_TRIP:                  return NET_ALARM_PERSON_TRIP;
@@ -742,210 +739,143 @@ void push_statistics_alarm(const EventTriggerContext_S &stContext)
 } // namespace
 #endif
 
-std::string EventLinkageDict::get_event_name(Event::Type_E enType)
+namespace
 {
-    switch (enType)
+    /* 事件名双语表：context 落库语言跟随 4009 设置的设备语言 */
+    struct EventNameEntry
     {
-    case Event::Type_E::MOTION_DETECT:
-        return "移动侦测";
-    case Event::Type_E::OCCLUSION_DETECT:
-        return "遮挡侦测";
-    case Event::Type_E::ANOMALY_ALARM:
-        return "异常报警";
-    case Event::Type_E::DISK_FULL:
-        return "异常报警-硬盘满";
-    case Event::Type_E::DISK_ERROR:
-        return "异常报警-硬盘错误";
-    case Event::Type_E::NET_BROKEN:
-        return "异常报警-网络断开";
-    case Event::Type_E::IP_CONFLICT:
-        return "异常报警-IP冲突";
-    case Event::Type_E::ILLEGAL_ACCESS:
-        return "异常报警-非法访问";
-    case Event::Type_E::RECORD_ABNORMAL:
-        return "异常报警-录像异常";
-    case Event::Type_E::HARDWARE_ABNORMAL:
-        return "异常报警-配件版异常";
-    case Event::Type_E::IP_CHANNEL_CONFLICT:
-        return "异常报警-IP通道冲突";
-    case Event::Type_E::STREAM_RESOLUTION_LIMIT:
-        return "异常报警-子码流分辨率/码率超限";
-    case Event::Type_E::VIDEO_SIGNAL_LOSS:
-        return "异常报警-视频信号丢失";
-    case Event::Type_E::AUDIO_ALARM:
-        return "声音报警";
-    case Event::Type_E::ALARM_INPUT:
-        return "报警输入";
-    case Event::Type_E::PIR_ALARM:
-        return "PIR红外感应报警";
-    case Event::Type_E::MANUAL_SOUND_LIGHT_ALARM:
-        return "手动声光报警";
-    case Event::Type_E::LINE_CROSSING:
-        return "越界侦测";
-    case Event::Type_E::INTRUSION:
-        return "区域入侵";
-    case Event::Type_E::ENTER_REGION:
-        return "进入区域";
-    case Event::Type_E::LEAVE_REGION:
-        return "离开区域";
-    case Event::Type_E::AUDIO_ANOMALY:
-        return "音频异常侦测";
-    case Event::Type_E::AUDIO_SUDDEN_RISE:
-        return "音频异常侦测-声强陡升检测";
-    case Event::Type_E::AUDIO_SUDDEN_DROP:
-        return "音频异常侦测-声强陡降检测";
-    case Event::Type_E::SCENE_CHANGE:
-        return "场景变更";
-    case Event::Type_E::FACE_DETECT:
-        return "人脸侦测";
-    case Event::Type_E::FACE_RECOGNITION:
-        return "人脸识别";
-    case Event::Type_E::LOITERING_DETECT:
-        return "徘徊侦测";
-    case Event::Type_E::CROWD_GATHERING:
-        return "人员聚集";
-    case Event::Type_E::PARKING_DETECT:
-        return "停车侦测";
-    case Event::Type_E::UNATTENDED_OBJECT:
-        return "物品遗留";
-    case Event::Type_E::OBJECT_REMOVAL:
-        return "物品拿取";
-    case Event::Type_E::PET_RECOGNITION:
-        return "宠物识别";
-    case Event::Type_E::FACE_CAPTURE:
-        return "人脸抓拍";
-    case Event::Type_E::FACE_COMPARE_SUCCESS:
-        return "人脸比对事件触发，抓拍人脸与目标库匹配";
-    case Event::Type_E::FACE_COMPARE_FAIL:
-        return "人脸比对事件触发，抓拍人脸与目标库不匹配";
+        Event::Type_E enType;
+        const char *pCnName;
+        const char *pEnName;
+    };
+
+    const EventNameEntry s_eventNameTable[] = {
+        {Event::Type_E::MOTION_DETECT, "移动侦测", "Motion detection"},
+        {Event::Type_E::OCCLUSION_DETECT, "遮挡侦测", "Occlusion detection"},
+        {Event::Type_E::ANOMALY_ALARM, "异常报警", "Abnormal alarm"},
+        {Event::Type_E::DISK_FULL, "异常报警-硬盘满", "Abnormal alarm - disk full"},
+        {Event::Type_E::DISK_ERROR, "异常报警-硬盘错误", "Abnormal alarm - disk error"},
+        {Event::Type_E::NET_BROKEN, "异常报警-网络断开", "Abnormal alarm - network disconnected"},
+        {Event::Type_E::IP_CONFLICT, "异常报警-IP冲突", "Abnormal alarm - IP conflict"},
+        {Event::Type_E::ILLEGAL_ACCESS, "异常报警-非法访问", "Abnormal alarm - illegal access"},
+        {Event::Type_E::RECORD_ABNORMAL, "异常报警-录像异常", "Abnormal alarm - record abnormal"},
+        {Event::Type_E::HARDWARE_ABNORMAL, "异常报警-配件版异常", "Abnormal alarm - accessory board abnormal"},
+        {Event::Type_E::IP_CHANNEL_CONFLICT, "异常报警-IP通道冲突", "Abnormal alarm - IP channel conflict"},
+        {Event::Type_E::STREAM_RESOLUTION_LIMIT, "异常报警-子码流分辨率/码率超限", "Abnormal alarm - sub-stream resolution/bitrate exceeded"},
+        {Event::Type_E::VIDEO_SIGNAL_LOSS, "异常报警-视频信号丢失", "Abnormal alarm - video signal loss"},
+        {Event::Type_E::AUDIO_ALARM, "声音报警", "Audio alarm"},
+        {Event::Type_E::ALARM_INPUT, "报警输入", "Alarm input"},
+        {Event::Type_E::PIR_ALARM, "PIR红外感应报警", "PIR alarm"},
+        {Event::Type_E::MANUAL_SOUND_LIGHT_ALARM, "手动声光报警", "Manual sound-light alarm"},
+        {Event::Type_E::LINE_CROSSING, "越界侦测", "Line crossing detection"},
+        {Event::Type_E::INTRUSION, "区域入侵", "Region intrusion"},
+        {Event::Type_E::ENTER_REGION, "进入区域", "Enter region"},
+        {Event::Type_E::LEAVE_REGION, "离开区域", "Leave region"},
+        {Event::Type_E::AUDIO_ANOMALY, "音频异常侦测", "Audio anomaly detection"},
+        {Event::Type_E::AUDIO_SUDDEN_RISE, "音频异常侦测-声强陡升检测", "Audio anomaly detection - sudden rise"},
+        {Event::Type_E::AUDIO_SUDDEN_DROP, "音频异常侦测-声强陡降检测", "Audio anomaly detection - sudden drop"},
+        {Event::Type_E::SCENE_CHANGE, "场景变更", "Scene change"},
+        {Event::Type_E::FACE_DETECT, "人脸侦测", "Face detection"},
+        {Event::Type_E::FACE_RECOGNITION, "人脸识别", "Face recognition"},
+        {Event::Type_E::LOITERING_DETECT, "徘徊侦测", "Loitering detection"},
+        {Event::Type_E::CROWD_GATHERING, "人员聚集", "Crowd gathering"},
+        {Event::Type_E::PARKING_DETECT, "停车侦测", "Parking detection"},
+        {Event::Type_E::UNATTENDED_OBJECT, "物品遗留", "Unattended object"},
+        {Event::Type_E::OBJECT_REMOVAL, "物品拿取", "Object removal"},
+        {Event::Type_E::PET_RECOGNITION, "宠物识别", "Pet recognition"},
+        {Event::Type_E::FACE_CAPTURE, "人脸抓拍", "Face capture"},
+        {Event::Type_E::FACE_COMPARE_SUCCESS, "人脸比对事件触发，抓拍人脸与目标库匹配", "Face comparison triggered, captured face matched library"},
+        {Event::Type_E::FACE_COMPARE_FAIL, "人脸比对事件触发，抓拍人脸与目标库不匹配", "Face comparison triggered, captured face not matched"},
 #ifdef SCENE_INTELLIGENCE
-    case Event::Type_E::SLEEP_ON_DUTY:
-        return "睡岗识别";
-    case Event::Type_E::LEAVE_POST:
-        return "离岗识别";
-    case Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR:
-        return "电瓶车进电梯识别";
-    case Event::Type_E::PERSON_FALL_DOWN:
-        return "人员倒地识别";
-    case Event::Type_E::FENCE_CLIMBING:
-        return "翻越围栏识别";
-    case Event::Type_E::SMOKING:
-        return "抽烟识别";
-    case Event::Type_E::PHONE_USAGE:
-        return "玩手机识别";
-    // case Event::Type_E::SMOKE_FIRE:
-    //     return "烟火识别";
-    case Event::Type_E::OPEN_FLAME:
-        return "明火识别";
-    case Event::Type_E::MANHOLE_COVER_ABNORMAL:
-        return "井盖异常检测";
-    case Event::Type_E::BARE_SOIL:
-        return "黄土裸露识别";
-    case Event::Type_E::HOLE_PROTECTION_BAR:
-        return "洞口防护栏识别";
-    case Event::Type_E::PEDESTRIAN_INTRUSION:
-        return "行人闯入识别";
-    case Event::Type_E::PERSON_TRIP:
-        return "摔倒识别";
-    case Event::Type_E::SAFETY_HELMET:
-        return "安全帽识别";
-    case Event::Type_E::REFLECTIVE_CLOTHING:
-        return "反光衣识别";
-    case Event::Type_E::HIGH_ALTITUDE_SEATBELT:
-        return "高空安全带识别";
-    case Event::Type_E::CONSTRUCTION_OCCUPY_ROAD:
-        return "施工占道识别";
-    case Event::Type_E::EMERGENCY_LANE_OCCUPANCY:
-        return "应急车道占用识别";
-    case Event::Type_E::REVERSE_DIRECTION:
-        return "逆行识别";
-    case Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION:
-        return "非机动车闯入识别";
-    case Event::Type_E::ROAD_PONDING:
-        return "道路积水识别";
-    case Event::Type_E::CONGESTION:
-        return "拥堵识别";
-    case Event::Type_E::ILLEGAL_PARKING:
-        return "违规停车识别";
-    case Event::Type_E::ILLEGAL_LANE_CHANGE:
-        return "违规变道识别";
-    case Event::Type_E::PLATE_NUMBER:
-        return "车牌识别";
-    case Event::Type_E::PEDESTRIAN_ATTRIBUTE:
-        return "行人属性识别";
-    case Event::Type_E::MOTORVEHICLE_ATTRIBUTE:
-        return "机动车属性识别";
-    case Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE:
-        return "非机动车属性识别";
-    case Event::Type_E::CHANNEL_OCCUPATION:
-        return "通道占用";
-    case Event::Type_E::CLIMB_DETECTION:
-        return "攀爬识别";
-    case Event::Type_E::DANGER_ZONE_APPROACH:
-        return "危险区域靠近";
-    case Event::Type_E::LONG_TIME_STAY:
-        return "长时间滞留";
-    case Event::Type_E::DANGER_ZONE_STAY:
-        return "危险区域滞留";
-    case Event::Type_E::KEY_AREA_ABNORMAL_STAY:
-        return "重点区域异常滞留";
-    case Event::Type_E::ROOFTOP_STAY:
-        return "天台滞留";
-    case Event::Type_E::OPEN_FLAME_LEAVE:
-        return "明火离人识别";
-    case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:
-        return "消防设施异常";
-    case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY:
-        return "后厨无关人员进入";
-    case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE:
-        return "门禁异常通行";
-    case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS:
-        return "社交关系分析";
-    case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:
-        return "后厨穿戴规范";
+        {Event::Type_E::SLEEP_ON_DUTY, "睡岗识别", "Sleep on duty detection"},
+        {Event::Type_E::LEAVE_POST, "离岗识别", "Leave post detection"},
+        {Event::Type_E::ELECTRIC_VEHICLE_IN_ELEVATOR, "电瓶车进电梯识别", "E-bike in elevator detection"},
+        {Event::Type_E::PERSON_FALL_DOWN, "人员倒地识别", "Person fall detection"},
+        {Event::Type_E::FENCE_CLIMBING, "翻越围栏识别", "Fence climbing detection"},
+        {Event::Type_E::SMOKING, "抽烟识别", "Smoking detection"},
+        {Event::Type_E::PHONE_USAGE, "玩手机识别", "Phone usage detection"},
+        {Event::Type_E::OPEN_FLAME, "明火识别", "Open flame detection"},
+        {Event::Type_E::MANHOLE_COVER_ABNORMAL, "井盖异常检测", "Manhole cover abnormal detection"},
+        {Event::Type_E::BARE_SOIL, "黄土裸露识别", "Bare soil detection"},
+        {Event::Type_E::HOLE_PROTECTION_BAR, "洞口防护栏识别", "Hole protection bar detection"},
+        {Event::Type_E::PEDESTRIAN_INTRUSION, "行人闯入识别", "Pedestrian intrusion detection"},
+        {Event::Type_E::PERSON_TRIP, "摔倒识别", "Trip and fall detection"},
+        {Event::Type_E::SAFETY_HELMET, "安全帽识别", "Safety helmet detection"},
+        {Event::Type_E::REFLECTIVE_CLOTHING, "反光衣识别", "Reflective clothing detection"},
+        {Event::Type_E::HIGH_ALTITUDE_SEATBELT, "高空安全带识别", "High-altitude seatbelt detection"},
+        {Event::Type_E::CONSTRUCTION_OCCUPY_ROAD, "施工占道识别", "Construction road occupation detection"},
+        {Event::Type_E::EMERGENCY_LANE_OCCUPANCY, "应急车道占用识别", "Emergency lane occupation detection"},
+        {Event::Type_E::REVERSE_DIRECTION, "逆行识别", "Reverse direction detection"},
+        {Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION, "非机动车闯入识别", "Non-motor vehicle intrusion detection"},
+        {Event::Type_E::ROAD_PONDING, "道路积水识别", "Road ponding detection"},
+        {Event::Type_E::CONGESTION, "拥堵识别", "Congestion detection"},
+        {Event::Type_E::ILLEGAL_PARKING, "违规停车识别", "Illegal parking detection"},
+        {Event::Type_E::ILLEGAL_LANE_CHANGE, "违规变道识别", "Illegal lane change detection"},
+        {Event::Type_E::PLATE_NUMBER, "车牌识别", "Plate number recognition"},
+        {Event::Type_E::PEDESTRIAN_ATTRIBUTE, "行人属性识别", "Pedestrian attribute recognition"},
+        {Event::Type_E::MOTORVEHICLE_ATTRIBUTE, "机动车属性识别", "Motor vehicle attribute recognition"},
+        {Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE, "非机动车属性识别", "Non-motor vehicle attribute recognition"},
+        {Event::Type_E::CHANNEL_OCCUPATION, "通道占用", "Channel occupation"},
+        {Event::Type_E::CLIMB_DETECTION, "攀爬识别", "Climbing detection"},
+        {Event::Type_E::DANGER_ZONE_APPROACH, "危险区域靠近", "Danger zone approach"},
+        {Event::Type_E::LONG_TIME_STAY, "长时间滞留", "Long-time stay"},
+        {Event::Type_E::DANGER_ZONE_STAY, "危险区域滞留", "Danger zone stay"},
+        {Event::Type_E::KEY_AREA_ABNORMAL_STAY, "重点区域异常滞留", "Key area abnormal stay"},
+        {Event::Type_E::ROOFTOP_STAY, "天台滞留", "Rooftop stay"},
+        {Event::Type_E::OPEN_FLAME_LEAVE, "明火离人识别", "Open flame with person leaving detection"},
+        {Event::Type_E::FIRE_EQUIPMENT_ABNORMAL, "消防设施异常", "Fire equipment abnormal"},
+        {Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY, "后厨无关人员进入", "Unrelated person entering kitchen"},
+        {Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE, "门禁异常通行", "Access control abnormal passage"},
+        {Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS, "社交关系分析", "Social relationship analysis"},
+        {Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE, "后厨穿戴规范", "Kitchen clothing compliance"},
+        {Event::Type_E::FIGHT_DETECTION, "打架斗殴", "Fight detection"},
+        {Event::Type_E::MOUSE_INFESTATION, "鼠患识别", "Mouse infestation"},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
-    case Event::Type_E::SMOKE_FIRE:
-        return "烟火识别";
+        {Event::Type_E::SMOKE_FIRE, "烟火识别", "Smoke and fire detection"},
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_GARBAGE_DETECT
-    case Event::Type_E::GARBAGE_EXPOSURE:
-        return "垃圾暴露识别";
-    case Event::Type_E::GARBAGE_OVERFLOW:
-        return "垃圾满溢识别";
-    case Event::Type_E::GARBAGE_STATION_SNAPSHOT:
-        return "垃圾站抓图识别";
+        {Event::Type_E::GARBAGE_EXPOSURE, "垃圾暴露识别", "Garbage exposure detection"},
+        {Event::Type_E::GARBAGE_OVERFLOW, "垃圾满溢识别", "Garbage overflow detection"},
+        {Event::Type_E::GARBAGE_STATION_SNAPSHOT, "垃圾站抓图识别", "Garbage station snapshot"},
 #endif
 #if CAP_AI_PEOPLE_STATISTICS
-    case Event::Type_E::PEOPLE_FLOW_STATISTICS:
-        return "人流统计";
-    case Event::Type_E::PEOPLE_DENSITY_DETECTION:
-        return "人员密度检测";
-    case Event::Type_E::PEOPLE_FLOW_STAY_NORMAL:
-        return "人流统计-滞留人数普通报警";
-    case Event::Type_E::PEOPLE_FLOW_STAY_MEDIUM:
-        return "人流统计-滞留人数中度报警";
-    case Event::Type_E::PEOPLE_FLOW_STAY_SEVERE:
-        return "人流统计-滞留人数严重报警";
-    case Event::Type_E::PEOPLE_DENSITY_NORMAL:
-        return "人员密度检测-普通报警";
-    case Event::Type_E::PEOPLE_DENSITY_MEDIUM:
-        return "人员密度检测-中度报警";
-    case Event::Type_E::PEOPLE_DENSITY_SEVERE:
-        return "人员密度检测-严重报警";
+        {Event::Type_E::PEOPLE_FLOW_STATISTICS, "人流统计", "People flow statistics"},
+        {Event::Type_E::PEOPLE_DENSITY_DETECTION, "人员密度检测", "People density detection"},
+        {Event::Type_E::PEOPLE_FLOW_STAY_NORMAL, "人流统计-滞留人数普通报警", "People flow statistics - stay normal alarm"},
+        {Event::Type_E::PEOPLE_FLOW_STAY_MEDIUM, "人流统计-滞留人数中度报警", "People flow statistics - stay medium alarm"},
+        {Event::Type_E::PEOPLE_FLOW_STAY_SEVERE, "人流统计-滞留人数严重报警", "People flow statistics - stay severe alarm"},
+        {Event::Type_E::PEOPLE_DENSITY_NORMAL, "人员密度检测-普通报警", "People density detection - normal alarm"},
+        {Event::Type_E::PEOPLE_DENSITY_MEDIUM, "人员密度检测-中度报警", "People density detection - medium alarm"},
+        {Event::Type_E::PEOPLE_DENSITY_SEVERE, "人员密度检测-严重报警", "People density detection - severe alarm"},
 #endif
 #ifdef SCENE_INTELLIGENT_ANALYSIS
-    case Event::Type_E::IMAGE_ANALYSIS:
-        return "AI图像分析";
-    case Event::Type_E::TEXT_PRESET:
-        return "AI文本预设任务";
-    case Event::Type_E::REAL_ALARM:
-        return "AI实时预警";
+        {Event::Type_E::IMAGE_ANALYSIS, "AI图像分析", "AI image analysis"},
+        {Event::Type_E::TEXT_PRESET, "AI文本预设任务", "AI text preset task"},
+        {Event::Type_E::REAL_ALARM, "AI实时预警", "AI real-time alarm"},
 #endif
-    default:
-        return "未知事件";
+    };
+} // namespace
+
+std::string EventLinkageDict::get_event_name(System::Language_E enLanguage, Event::Type_E enType)
+{
+    for (const EventNameEntry &entry : s_eventNameTable)
+    {
+        if (entry.enType == enType)
+        {
+            return System::Language_E::ENGLISH == enLanguage ? entry.pEnName : entry.pCnName;
+        }
     }
+
+    return System::Language_E::ENGLISH == enLanguage ? "Unknown event" : "未知事件";
 }
+
+std::string EventLinkageDict::get_event_name(Event::Type_E enType)
+{
+    /* 兼容旧调用方：dlog调试与联动上报链路仍取中文 */
+    return get_event_name(System::Language_E::SIMP_CHINESE, enType);
+}
+
 
 void EventLinkageDict::push_tvsdk_event_alarm(Event::Type_E enEventType, bool bEventEnded, int nChnId)
 {

@@ -75,6 +75,7 @@ include(${AI_SHARE_PATH}/AiModules/Modules/Group5Detect/Group5Detect.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/PresonAttribute/PresonAttribute.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/VehicleAttribute/VehicleAttribute.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/NonMotorizedAttribute/NonMotorizedAttribute.cmake)
+include(${AI_SHARE_PATH}/AiModules/Inference/CPU/ChannelOccupationDetect/ChannelOccupationDetect.cmake)
 
 # rk_pipeline
 message(${RK_PIPELINE_PATH})
@@ -230,6 +231,7 @@ target_link_libraries(${PROJECT_NAME}
     PresonAttribute_Module
     VehicleAttribute_Module
     NonMotorizedAttribute_Module
+    ChannelOccupationDetect_CPU
     libmqtt
     libcurl
 )

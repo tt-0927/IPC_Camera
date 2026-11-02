@@ -195,7 +195,7 @@ set(DEVICE_PROFILE_TV_3852T_CMAKE_VARS
     IPC_CAP_EXHIBITION_OSD_PANEL=0           # 展会版AI左上角汇总面板能力
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
+    IPC_CAP_UNIFIED_DETECTION=1            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）
@@ -251,7 +251,7 @@ set(DEVICE_PROFILE_TV_3852H_CMAKE_VARS
     IPC_CAP_RECORD_LINK_FDK_AAC=0
     IPC_CAP_RTMP_PUSH=0                      # RTMP 推流能力
     IPC_CAP_AI_PEOPLE_FLOW_PIPELINE=0        # 人流统计新框架迁移管线（0=Legacy，1=New）
-    IPC_CAP_UNIFIED_DETECTION=0            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
+    IPC_CAP_UNIFIED_DETECTION=1            # 统一检测层新链路总开关（0=Legacy 全走旧链路，1=MD/OD/FACE 一并切新链路）
     IPC_CAP_AI_EXHIBITION_PEOPLE_FLOW=0      # 展馆人流统计自研模型（0=HVF，1=展馆YOLO）
     IPC_CAP_AI_PEOPLE_DENSITY_PIPELINE=0     # 人员密度新框架迁移（0=HVF V2，1=展馆YOLO head）
     IPC_CAP_UNIFIED_EVENT_PIPELINE=0         # 全局事件链路（新事件结构）总开关（0=Legacy，1=New）

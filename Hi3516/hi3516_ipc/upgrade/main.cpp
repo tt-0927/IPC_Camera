@@ -15,6 +15,9 @@
 #include <string.h>
 #include "path_define.h"
 #include "upgrade_communicate.h"
+#include "upgrade_logic.h"
+#include "manifest_manage.h"
+#include "upgrade_define.h"
 #include "data_manage.h"
 #include "dlog.h"
 #include "timezone_runtime.h"
@@ -82,7 +85,15 @@ int main(int argc, char *argv[])
 
     /* 初始化升级程序 */
     dataManage_init();
-    
+
+    /* 清理上次升级中断残留的升级包（开机时刻无并发上传，清理安全） */
+    upgrade_logic_cleanup_upload_leftover();
+
+    /* 网页目录对账：升级成功重启后即清理旧 html（不在清单中的一律删，
+       opt 软链豁免；板上无清单时跳过）。每次开机幂等执行 */
+    manifest_reconcile_web_directory(PATH_INSTALL_ROOT, MANIFEST_DIR_REL);
+
+
     /* 创建通讯 */
     UpgradeServer::instance()->init();
     

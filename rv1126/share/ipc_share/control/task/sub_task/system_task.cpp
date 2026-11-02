@@ -3,12 +3,11 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2026-04-23 17:04:24
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-10-13 14:28:35
+ * @LastEditTime : 2026-10-22 11:11:43
  * @Description  : 系统相关任务
  */
 
 #include "system_task.h"
-#include "osd_configure.h"
 
 #include "dlog.h"
 #include "system_convert.h"
@@ -293,35 +292,8 @@ void Task::System::SetDeviceConfig::handle()
 
     ::System::DeviceConfig_S stDeviceConfig;
     Convert::to_struct(m_taskData, stDeviceConfig);
-
-    /* 修改时间配置 */
-    ::System::TimeInfo_S stTimeInfo;
-    Convert::read_file(TIME_CONFIG_FILE, stTimeInfo);
-    
-    ::System::TimeZone_E enTimeZone = stTimeInfo.enTimeZone;
-    stTimeInfo.enTimeZone = stDeviceConfig.enTimeZone;
-    stTimeInfo.enDateFormat = stDeviceConfig.enDateFormat;
-    if (!stDeviceConfig.strDateTime.empty())
-    {
-        stTimeInfo.strDateTime = stDeviceConfig.strDateTime;
-    }
-    dlog_info("设置基本配置同步时间配置, oldTimezone:%d, newTimezone:%d, dateTime:%s",
-              static_cast<int>(enTimeZone),
-              static_cast<int>(stDeviceConfig.enTimeZone),
-              stDeviceConfig.strDateTime.c_str());
-    CTimeManage::instance()->set_time_info(stTimeInfo);
-    if (stDeviceConfig.enTimeZone != enTimeZone)
-    {
-        CNtpClient::instance()->bIsUpdate = true;
-    }
     Convert::write_file(DEVICE_CONFIG_FILE, stDeviceConfig);
 
-    /* 设置osd共用信息 */
-    if (COsdConfigure::instance()->is_initialized())
-    {
-        COsdConfigure::instance()->set_osd_share_info(stDeviceConfig);
-    }
-    
     result(OK);
 }
 

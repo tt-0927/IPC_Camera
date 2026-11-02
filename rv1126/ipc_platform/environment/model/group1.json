@@ -1,0 +1,32 @@
+{
+    "version": "v1.0",
+    "model": "Yolov8n",
+    "notes": "第一组安防数据：notHelmet(未戴安全帽)、helmet(安全帽)、reflective(反光衣)、safetyRope(安全绳)、exposedSoil(泥土裸露)、person(人)",
+    "model_path": "/opt/cam/model/RV1126B_group1_yolov8n_640x384_V1.0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            384
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "未戴安全帽",
+            "安全帽",
+            "反光衣",
+            "安全绳",
+            "泥土裸露",
+            "人"
+        ]
+    }
+}

@@ -106,7 +106,10 @@ endif()
 if(IPC_OSD_FONT_BACKEND STREQUAL "dotfont")
     set(PROJECT_OSD_FONT_LINK_LIBS "")
 elseif(IPC_OSD_FONT_BACKEND STREQUAL "sdl")
-    set(PROJECT_OSD_FONT_LINK_LIBS libfreetype libSDL2 libSDL2_ttf)
+    # 链接顺序要求（工具链默认 --as-needed + 归档单遍扫描）：依赖方在前、
+    # 提供方在后。libSDL2_ttf 依赖 libSDL2 与 freetype，SDL2 的 iconv 封装
+    # 依赖 libiconv，freetype 依赖 zlib
+    set(PROJECT_OSD_FONT_LINK_LIBS libSDL2_ttf libSDL2 libfreetype)
 else()
     message(FATAL_ERROR
         "IPC_OSD_FONT_BACKEND 必须是 dotfont 或 sdl，当前为：${IPC_OSD_FONT_BACKEND}")
@@ -117,13 +120,79 @@ target_link_libraries(${PROJECT_NAME}
     -lpthread
     -latomic
 
-    #mpp
+    # -lrt
+	# -lm
+	# -ldl
+	# -lpthread
+	# -lstdc++
+	# third
+	# 链接顺序（--as-needed + 归档单遍扫描）：依赖方在前、提供方在后
+	# libxml2/libcurl/freetype 等引用 zlib，libz 必须排在它们之后（见列表末尾）
+	libxml2
+    libzlog
+    ${PROJECT_RTSP_LINK_LIBS}
+    # libsrt
+    libeXosip2
+    libosip2
+    libosipparser2
+    libpugixml
+    # libatomic
+	libsqlite3
+    libcurl
+    # libgmssl
+	# -lMemoryCheck
+    libupnp
+    libagent++
+    libsnmp++
+    # openssl 排在 agent++/snmp++（引用 OpenSSL 符号）之后、websockets 之前
+    libopenssl
+    ${PROJECT_WS_LINK_LIBS}
+    ${PROJECT_OSD_FONT_LINK_LIBS}
+    # libiconv
+    # libopencv
+    # libopencvfont
+    # libtwolame
+    # ZLMediaKit
+    # libmk_api
+    libonvif
+    libffmpeg
+    libNetTVSDKServer
+    libmqtt
+
+    # ai_share
+    YoloUltralytics_rpn
+    YoloUltralyticsPoint_rpn
+    ImageFeature
+
+    # libz 排在末尾：libxml2/libcurl/freetype/ffmpeg 等引用 zlib 符号，
+    # 归档单遍扫描要求提供方在消费方之后
+    libz
+)
+
+# ss_mpi（mpp）系平台库单独一组：这些库在 ipc_platform/lib/ss_mpi/lib 下，
+# 用裸 -l 标志链接（ld 在 -L 目录按 .so 优先挑选），static_first 不参与。
+# 静态段用 -Bstatic 让 ld 对段内 -l 只找 .a（目录无 .a 会直接报错，正好
+# 暴露范围问题）；MPI 核心与 aac/sbr 之间存在相互引用符号，全部置于
+# --start-group 内。libsvp_aicpu 目录无 .a，保留在动态段。
+target_link_libraries(${PROJECT_NAME}
+    # ---- 静态段：ss_mpi 系全量 ----
+    -Wl,-Bstatic
+    -Wl,--start-group
     -lsecurec
+    -laac_comm
+    -laac_dec
+    -laac_sbr_dec
+    -laac_enc
+    -laac_sbr_enc
+    -lss_mpi_aidetect
+    -lsvp_acl
+    -lss_mpi_ive
+    -lprotobuf-c
+    -lvqe_res
     -lss_mpi
     -lss_mpi_sysmem
     -lss_mpi_sysbind
     -lss_mpi_isp
-    -lss_mpi_ive
     -lot_mpi_isp
     -ldrc
     -ldehaze
@@ -139,66 +208,21 @@ target_link_libraries(${PROJECT_NAME}
     -lvoice_engine
     -lldci
     -lacs
-    -lvqe_res
+    -lss_mpi_cipher
+    -lss_mpi_km
+    -lot_mpi_otp
+    -lss_ivs_md
+    -Wl,--end-group
+    -Wl,-Bdynamic
+
+    # ---- 动态段：仅存目录无 .a 的库 ----
     # -lvqe_record
     # -lvqe_talkv2
     # -lmp3_dec
     # -lmp3_enc
     # -lmp3_lame
     # -lopus
-    -laac_comm
-    -laac_dec
-    -laac_enc
-    -lss_mpi_cipher
-    -lss_mpi_km
-    -lot_mpi_otp
-    #ai detect
-    -lss_mpi_aidetect
-    -lsvp_acl
-    -lprotobuf-c
     -lsvp_aicpu
-    -lss_ivs_md
-    # -lrt
-	# -lm
-	# -ldl
-	# -lpthread 
-	# -lstdc++
-	libz
-	# third
-	libxml2
-    libzlog
-    ${PROJECT_RTSP_LINK_LIBS}
-    # libsrt
-    libeXosip2
-    libosip2
-    libosipparser2
-    libpugixml
-    # libatomic
-	libsqlite3
-    libcurl
-    # libgmssl
-    libopenssl
-	# -lMemoryCheck
-    libupnp
-    libsnmp++
-    libagent++
-    libiconv
-    ${PROJECT_WS_LINK_LIBS}
-    ${PROJECT_OSD_FONT_LINK_LIBS}
-    # libopencv
-    # libopencvfont
-    # libtwolame
-    # ZLMediaKit
-    # libmk_api
-    libonvif
-    libffmpeg
-    libNetTVSDKServer
-    libmqtt
-
-    # ai_share
-    YoloUltralytics_rpn
-    YoloUltralyticsPoint_rpn
-    ImageFeature
 )
 
 # 在目标链接选项中添加（确保作用域清晰）

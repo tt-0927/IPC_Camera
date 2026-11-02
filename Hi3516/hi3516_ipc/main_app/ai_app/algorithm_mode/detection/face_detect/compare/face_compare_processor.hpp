@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "algorithm.hpp"
+#include "bestshot_types.h"
 #include "bestshot_hub.hpp"
 #include "face_capture_types.hpp"
 #include "face_chain_types.hpp"

@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-10-13 14:32:02
+ * @LastEditTime : 2026-10-26 09:49:18
  * @Description  : 控制事务任务管理
  */
 
@@ -69,6 +69,7 @@
 #endif
 #include "wifi_manage.h"
 #include "production_test_task.h"
+#include "web_feature_task.h"
 #include "4g_manage.h"
 #include "hostapd_manager.h"
 #ifdef ENABLE_AI_STUDENT
@@ -772,6 +773,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 系统配置相关 */
     pTaskManage->bind<Task::WebPlugin::GetParam>(AC_GET_WEB_PLUGIN_PARAM);
     pTaskManage->bind<Task::WebPlugin::SetParam>(AC_SET_WEB_PLUGIN_PARAM);
+    pTaskManage->bind<Task::WebFeature::GetFeatureConfig>(AC_GET_WEB_FEATURE_CONFIG);
     pTaskManage->bind<Task::System::GetDeviceInfo>(AC_GET_DEVICE_INFO);
     pTaskManage->bind<Task::System::SetDeviceInfo>(AC_SET_DEVICE_INFO);
     pTaskManage->bind<Task::System::GetTimeInfo>(AC_GET_TIME_INFO);
@@ -841,8 +843,10 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::SetSnmpInfo>(AC_SET_SNMP_INFO);
     pTaskManage->bind<Task::Network::GetEamilInfo>(AC_GET_EAMIL_INFO);
     pTaskManage->bind<Task::Network::SetEamilInfo>(AC_SET_EAMIL_INFO);
+#if !LANG_OVERSEAS_EN /* 外贸英文通用版屏蔽平台接入 */
     pTaskManage->bind<Task::Network::GetGb28181Info>(AC_GET_GB28181_INFO);
     pTaskManage->bind<Task::Network::SetGb28181Info>(AC_SET_GB28181_INFO);
+#endif
     // pTaskManage->bind<Task::Network::GetOhterSeniorInfo>(AC_GET_OHTER_SENIOR_INFO);
     pTaskManage->bind<Task::Network::SetOhterSeniorInfo>(AC_SET_OHTER_SENIOR_INFO);
     pTaskManage->bind<Task::Network::GetIntegrationProtoInfo>(AC_GET_INTEGRATION_PROTO_INFO);
@@ -874,7 +878,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::SetBonjourInfo>(AC_SET_BONJOUR_INFO);
 
     /* 国标证书管理 */
-#if CAP_GB35114
+#if CAP_GB35114 && !LANG_OVERSEAS_EN /* 外贸英文通用版屏蔽国标证书 */
     pTaskManage->bind<Task::Network::GmCreateCertRequestFile>(AC_GM_CREATE_CERT_REQUEST_FILE);
     pTaskManage->bind<Task::Network::GmUploadCaCert>(AC_GM_UPLOAD_CA_CERT);
     pTaskManage->bind<Task::Network::GmUploadPlatformCert>(AC_GM_UPLOAD_PLATFORM_CERT);
@@ -910,7 +914,9 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GetHotspotConn>(AC_GET_HOTSPOT_CONN);
     pTaskManage->bind<Task::Network::GetHotspot>(AC_GET_HOTSPOT_INFO);
     #endif
-
+    #if CAP_BLUETOOTH
+    pTaskManage->bind<Task::Network::ReleaseBleProvisioning>(AC_RELEASE_BLE_PROVISIONING);
+    #endif
     #if CAP_GARBAGE_STATION_PLATFORM
     /* 平台管理 */
     pTaskManage->bind<Task::Network::ConnPlatform>(AC_PLATFORM_CONN);
@@ -1369,7 +1375,13 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 消防设施异常 */
     pTaskManage->bind<Task::Event::GetFireEquipmentAbnormalInfo>(AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG);
     pTaskManage->bind<Task::Event::SetFireEquipmentAbnormalInfo>(AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG);
-#endif
+    /* 打架斗殴检测 */
+    pTaskManage->bind<Task::Event::GetFightDetectionInfo>(AC_GET_FIGHT_DETECTION_CFG);
+    pTaskManage->bind<Task::Event::SetFightDetectionInfo>(AC_SET_FIGHT_DETECTION_CFG);
+    /* 鼠患识别 */
+    pTaskManage->bind<Task::Event::GetMouseDetectionInfo>(AC_GET_MOUSE_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetMouseDetectionInfo>(AC_SET_MOUSE_DETECTION_INFO);
+    #endif
 
     TaskPublish::instance()->set_manage(pTaskManage);
 }

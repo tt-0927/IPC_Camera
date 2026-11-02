@@ -3,12 +3,13 @@
  * @Author       : yanzeh yanzeh@kfb.cn
  * @Date         : 2023-08-26 11:22:17
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-08-04 10:50:35
+ * @LastEditTime : 2026-10-26 15:01:40
  * @Description  : 升级逻辑模块（流式校验、解压与上传临时目录清理）
  */
 
 #include "upgrade_logic.h"
 
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,6 +26,8 @@
 #include "data_manage.h"
 #include "dlog.h"
 #include "md5lib.h"
+#include "manifest_manage.h"
+#include "path_define.h"
 
 static IpcRet_E remove_upload_entry(const char *pchPath, int *pnRemovedCount);
 
@@ -169,39 +172,54 @@ static IpcRet_E remove_upload_entry(const char *pchPath, int *pnRemovedCount)
  */
 static IpcRet_E cleanup_upload_directory()
 {
-    /* 根目录属性用于确认固定清理目标不是软链接或普通文件。 */
+    /* 根目录属性确认固定清理目标不是普通文件，且软链只指向预期位置。
+       ! 上传目录与各升级入口的落盘路径一致（path_define.h 的 UPLOAD_PATH）；
+       S81appinit 开机将其建为 /tmp/upload 的软链，实际文件在 /tmp/upload */
     struct stat stUploadDir = {};
-    if (lstat(UPLOAD_RUNTIME_PATH, &stUploadDir) != 0)
+    if (lstat(UPLOAD_PATH, &stUploadDir) != 0)
     {
         if (ENOENT == errno)
         {
-            dlog_info("运行时上传目录不存在，跳过清理[%s]", UPLOAD_RUNTIME_PATH);
+            dlog_info("升级上传目录不存在，跳过清理[%s]", UPLOAD_PATH);
             return OK;
         }
 
-        dlog_error("检查运行时上传目录失败[%s] errno[%d]", UPLOAD_RUNTIME_PATH, errno);
+        dlog_error("检查升级上传目录失败[%s] errno[%d]", UPLOAD_PATH, errno);
         return ERR_FILE_ERR;
     }
 
-    /* ! 根目录必须是普通目录，禁止清理指向其他位置的软链接。 */
-    if (!S_ISDIR(stUploadDir.st_mode))
+    if (S_ISLNK(stUploadDir.st_mode))
     {
-        dlog_error("运行时上传路径不是普通目录，拒绝清理[%s]", UPLOAD_RUNTIME_PATH);
+        /* S81appinit 每次开机把上传路径建为 /tmp/upload 的软链（兼容旧
+           路径，实际文件落在 /tmp/upload），软链是合法形态——但只允许
+           指向 /tmp 之下，防止上传目录被替换成指向别处的软链 */
+        char achReal[PATH_MAX] = {0};
+        if (realpath(UPLOAD_PATH, achReal) == NULL ||
+            0 != strncmp(achReal, "/tmp/", strlen("/tmp/")))
+        {
+            dlog_error("上传目录软链指向 /tmp 之外，拒绝清理[%s]", UPLOAD_PATH);
+            return ERR_FILE_ERR;
+        }
+        /* 合法软链：readdir/unlink 经软链作用于 /tmp 下的实际目录 */
+    }
+    else if (!S_ISDIR(stUploadDir.st_mode))
+    {
+        dlog_error("升级上传路径不是普通目录，拒绝清理[%s]", UPLOAD_PATH);
         return ERR_FILE_ERR;
     }
 
     /* 记录递归清理的最终结果和已处理目录项数量。 */
     IpcRet_E enRetCode = OK;
     int nRemovedCount = 0;
-    enRetCode = remove_upload_directory_contents(UPLOAD_RUNTIME_PATH, &nRemovedCount);
+    enRetCode = remove_upload_directory_contents(UPLOAD_PATH, &nRemovedCount);
 
     if (enRetCode == OK)
     {
-        dlog_info("运行时上传目录清理完成[%s]，清理项目数[%d]", UPLOAD_RUNTIME_PATH, nRemovedCount);
+        dlog_info("升级上传目录清理完成[%s]，清理项目数[%d]", UPLOAD_PATH, nRemovedCount);
     }
     else
     {
-        dlog_error("运行时上传目录清理不完整[%s]，已清理项目数[%d]", UPLOAD_RUNTIME_PATH, nRemovedCount);
+        dlog_error("升级上传目录清理不完整[%s]，已清理项目数[%d]", UPLOAD_PATH, nRemovedCount);
     }
 
     return enRetCode;
@@ -222,6 +240,57 @@ static void cleanup_upload_directory_with_log(const char *pchReason)
                    (NULL == pchReason) ? "未知" : pchReason,
                    enRetCode);
     }
+}
+
+void upgrade_logic_cleanup_upload_leftover(void)
+{
+    /* 进程启动时清除上次升级中断残留的升级包；
+       开机时刻网页/云端服务尚未就绪，不存在并发上传，清理安全 */
+    cleanup_upload_directory_with_log("进程启动清理升级遗留");
+}
+
+/**
+ * @brief   : 解析包头 version 字段的适用型号
+ * @param    {const char*} pchVersion：version 字段起始地址（48 字节）
+ * @param    {int} nFieldSize：字段长度
+ * @param    {std::string&} strStamp：适用型号（'|' 之前部分；空表示旧格式包未盖章）
+ * @param    {std::string&} strDisplay：显示版本（'|' 之后部分）
+ * @return   {void}
+ * @note    : version[0] 是历史兼容保留字节（恒为 NUL，ONVIF 上传门
+ *            依赖它终止 id 字符串），正文从 version[1] 起，解析时跳过前导 NUL
+ */
+static void parse_version_stamp(const char *pchVersion, int nFieldSize, std::string &strStamp, std::string &strDisplay)
+{
+    strStamp.clear();
+    strDisplay.clear();
+
+    if (NULL == pchVersion || nFieldSize <= 0)
+    {
+        return;
+    }
+
+    int nStart = 0;
+    while (nStart < nFieldSize && '\0' == pchVersion[nStart])
+    {
+        nStart++;
+    }
+
+    std::string strAll;
+    for (int i = nStart; i < nFieldSize && '\0' != pchVersion[i]; i++)
+    {
+        strAll.push_back(pchVersion[i]);
+    }
+
+    size_t nPos = strAll.find('|');
+    if (std::string::npos == nPos)
+    {
+        /* 无 '|'：旧格式包的裸版本号，视为未标注适用型号 */
+        strDisplay = strAll;
+        return;
+    }
+
+    strStamp = strAll.substr(0, nPos);
+    strDisplay = strAll.substr(nPos + 1);
 }
 
 /**
@@ -305,31 +374,52 @@ static IpcRet_E check_path_exsit(char *pchPath)
 
 /**
  * @brief   : 备份网络配置文件，防止升级包覆盖后丢失
- * @note    : 仅备份 resolv.conf 和 S80network，其他网络配置不在此范围
+ * @return   {bool} true 备份可用，false 任一文件备份失败
+ * @note    : 仅备份 resolv.conf 和 S80network，其他网络配置不在此范围。
+ *            备份失败必须让升级中止：解压可能覆盖用户网络配置，
+ *            无备份可恢复会导致设备升级后失联。
  */
-static void network_config_backup()
+static bool network_config_backup()
 {
     dlog_info("正在备份网络配置");
-    system("cp -a /etc/resolv.conf /etc/resolv.conf.bak");
-    system("cp -a /etc/init.d/S80network /etc/init.d/S80network.bak");
+    bool bOk = true;
+
+    if (system("cp -a /etc/resolv.conf /etc/resolv.conf.bak") != 0 || access("/etc/resolv.conf.bak", F_OK) != 0)
+    {
+        dlog_error("备份 resolv.conf 失败 errno[%d]", errno);
+        bOk = false;
+    }
+
+    if (system("cp -a /etc/init.d/S80network /etc/init.d/S80network.bak") != 0 || access("/etc/init.d/S80network.bak", F_OK) != 0)
+    {
+        dlog_error("备份 S80network 失败 errno[%d]", errno);
+        bOk = false;
+    }
+
+    return bOk;
 }
 
 /**
  * @brief   : 恢复网络配置文件
- * @note    : 从 .bak 文件还原，还原成功后删除备份文件
+ * @note    : 从 .bak 文件还原，还原成功后删除备份文件；cp 与 rm 联动，
+ *            避免 cp 失败仍删掉唯一备份
  */
 static void network_config_restore()
 {
     dlog_info("正在恢复网络配置");
     if (access("/etc/resolv.conf.bak", F_OK) == 0)
     {
-        system("cp /etc/resolv.conf.bak /etc/resolv.conf");
-        system("rm /etc/resolv.conf.bak");
+        if (system("cp /etc/resolv.conf.bak /etc/resolv.conf && rm -f /etc/resolv.conf.bak") != 0)
+        {
+            dlog_error("恢复 resolv.conf 失败，保留备份文件待下次恢复");
+        }
     }
     if (access("/etc/init.d/S80network.bak", F_OK) == 0)
     {
-        system("cp /etc/init.d/S80network.bak /etc/init.d/S80network");
-        system("rm /etc/init.d/S80network.bak");
+        if (system("cp /etc/init.d/S80network.bak /etc/init.d/S80network && rm -f /etc/init.d/S80network.bak") != 0)
+        {
+            dlog_error("恢复 S80network 失败，保留备份文件待下次恢复");
+        }
     }
 }
 
@@ -485,6 +575,9 @@ static IpcRet_E process_upgrade(char *pchSrcFile)
 
     Upgrade_Package_t stInfo;
     IpcRet_E enRetCode = ERR;
+    /* 是否装过至少一个子包：全包 ID/型号均不匹配时必须报失败，
+       否则会误报成功并触发无意义重启 */
+    bool bInstalledAny = false;
 
     /* 循环读取所有的包头 */
     while (true)
@@ -534,6 +627,25 @@ static IpcRet_E process_upgrade(char *pchSrcFile)
             return ERR_PARAM;
         }
 
+        /* 包头健壮性：MD5 字段必须是 32 位十六进制字符（仅查结尾 NUL 不够） */
+        {
+            bool bMd5Valid = true;
+            for (int i = 0; i < 32; i++)
+            {
+                if (!isxdigit((unsigned char) stInfo.md5[i]))
+                {
+                    bMd5Valid = false;
+                    break;
+                }
+            }
+            if (!bMd5Valid)
+            {
+                dlog_error("升级包 MD5 字段格式非法");
+                close(srcFd);
+                return ERR_PARAM;
+            }
+        }
+
         dlog_info("扫描到包: ID[%.*s] Ver[%.*s] Len[%lld]",
                   (int)sizeof(stInfo.id),
                   stInfo.id,
@@ -555,6 +667,33 @@ static IpcRet_E process_upgrade(char *pchSrcFile)
             continue;
         }
 
+        /* === 型号匹配检查：在 MD5 校验与解压之前拦截错型号包 === */
+
+        std::string strStamp;
+        std::string strDisplayVer;
+        parse_version_stamp(stInfo.version, sizeof(stInfo.version), strStamp, strDisplayVer);
+
+        if (!strStamp.empty() && strStamp != "*" && strStamp != DEVICE_CODE)
+        {
+            dlog_warn("升级包型号不匹配，跳过：包内型号[%s] 本机型号[%s]", strStamp.c_str(), DEVICE_CODE);
+            if (lseek(srcFd, (off_t) stInfo.len, SEEK_CUR) < 0)
+            {
+                dlog_error("跳过型号不匹配的升级包失败 errno[%d]", errno);
+                close(srcFd);
+                return ERR_FILE_ERR;
+            }
+            continue;
+        }
+
+        if (strStamp.empty())
+        {
+            dlog_warn("升级包未标注适用型号（旧格式包），按家族包安装 版本[%s]", strDisplayVer.c_str());
+        }
+        else
+        {
+            dlog_info("升级包型号[%s] 版本[%s]", strStamp.c_str(), strDisplayVer.c_str());
+        }
+
         /* === 本机升级包 === */
 
         /* step: 流式 MD5 校验（不占磁盘空间） */
@@ -574,13 +713,25 @@ static IpcRet_E process_upgrade(char *pchSrcFile)
             return ERR_FILE_ERR;
         }
 
-        /* step: 备份网络配置（防止升级包覆盖） */
-        network_config_backup();
+        /* step: 备份网络配置（防止升级包覆盖）；备份失败必须中止——
+           否则解压覆盖后无备份可恢复，设备会失联 */
+        if (!network_config_backup())
+        {
+            dlog_error("网络配置备份失败，中止升级");
+            close(srcFd);
+            return ERR_FILE_ERR;
+        }
 
         /* step: 流式解压到根目录 */
         enRetCode = install_stream(srcFd, stInfo.len, PATH_INSTALL_ROOT);
 
-        /* step: 恢复网络配置 */
+        /* step: 清单逐文件 sha256 校验（解压成功才做；任一文件不一致则整包失败不重启） */
+        if (enRetCode == OK)
+        {
+            enRetCode = manifest_verify_package(PATH_INSTALL_ROOT, MANIFEST_DIR_REL);
+        }
+
+        /* step: 恢复网络配置（无论成败都恢复，保证设备网络可用） */
         network_config_restore();
 
         if (enRetCode != OK)
@@ -591,9 +742,18 @@ static IpcRet_E process_upgrade(char *pchSrcFile)
         }
 
         dlog_info("升级包安装成功");
+        bInstalledAny = true;
     }
 
     close(srcFd);
+
+    /* 整个 .bin 没有任何可安装子包（ID/型号全部不匹配）：
+       按失败处理，不误报成功、不触发重启 */
+    if (!bInstalledAny)
+    {
+        dlog_error("升级包内没有适用于本机的子包（ID/型号均不匹配），升级失败");
+        return ERR_SYSTEM_UPGRADE;
+    }
 
     /* 删除源 .bin 文件 */
     if (unlink(pchSrcFile) != 0 && ENOENT != errno)
@@ -653,12 +813,12 @@ void *upgrade_process_thread(void *pArgv)
     free(pstUpgradeInfo);
     sleep(2);
 
-    /* 执行重启 */
-    int nRet = system("sync && reboot");
-    if (nRet != 0)
+    /* 执行重启：reboot 生效时本进程随即被终止，不会走到返回之后；
+       能返回说明命令没执行成功，只记日志提示手动重启 */
+    system("sync");
+    if (system("reboot") != 0)
     {
-        /* ! 主重启命令失败时，使用备用重启脚本 */
-        nRet = system("/opt/bl/shell/rebootDocker.sh");
+        dlog_error("重启命令执行失败，设备未重启；升级文件已就位，请手动重启设备");
     }
 
     return NULL;
@@ -742,8 +902,7 @@ IpcRet_E upgrade_start(UpgradeInfo_S stUpgradeInfo)
         return enRetCode;
     }
 
-    int nRet = pthread_create(&tid, &attr_upgrade,
-                              upgrade_process_thread, (void *)pstUpgradeInfo);
+    int nRet = pthread_create(&tid, &attr_upgrade, upgrade_process_thread, (void *) pstUpgradeInfo);
     if (nRet)
     {
         cleanup_upload_directory_with_log("升级线程创建失败");

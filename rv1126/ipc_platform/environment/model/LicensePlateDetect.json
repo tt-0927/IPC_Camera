@@ -1,0 +1,28 @@
+{
+    "version": "v1.0",
+    "model": "Yolov5s",
+    "notes": "车牌检测",
+    "model_path": "/opt/cam/model/RV1126B_LicensePlateDetect_yolov5s_640x640_V1_0.rknn",
+    "pre_process": {
+        "size": [
+            640,
+            640
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [0,0,0],
+        "std": [255,255,255],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b"
+    },
+    "post_precess": {
+        "confidence": 0.25,
+        "nms": 0.25,
+        "label_name": [
+            "单层车牌",
+            "双层车牌"
+        ]
+    }
+}

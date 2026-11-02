@@ -32,6 +32,10 @@ const char *kResponseUuid = "7a1e0003-7d8b-4f31-9e45-545650524f56";
 
 const unsigned int kDefaultAttMtu = 23;
 const unsigned int kAttValueOverhead = 3;
+const unsigned int kWifiConnectTimeoutSeconds = 60;
+const unsigned int kWifiScanTimeoutSeconds = 20;
+const unsigned int kPlatformConnectTimeoutSeconds = 60;
+const unsigned int kPlatformStatusTimeoutSeconds = 15;
 
 const char *kRootXml =
     "<node><interface name='org.freedesktop.DBus.ObjectManager'>"
@@ -164,6 +168,27 @@ struct PendingDBusCall
     GError *error;
 };
 
+struct QueuedBleResponse
+{
+    BleGattServer *server;
+    std::vector<uint8_t> encoded;
+    uint16_t command;
+    uint16_t sequence;
+};
+
+struct ScheduledClientDisconnect
+{
+    BleGattServer *server;
+    std::string devicePath;
+};
+
+struct RejectedClientDisconnect
+{
+    BleGattServer *server;
+    std::string devicePath;
+    std::string reason;
+};
+
 /*
  * BlueZ在RegisterApplication/RegisterAdvertisement期间会反向读取本进程
  * 导出的ObjectManager和Advertisement属性。如果在拥有GMainContext的线程
@@ -227,13 +252,14 @@ BleGattServer::BleGattServer()
     : m_running(false), m_stopRequested(false), m_context(NULL), m_loop(NULL),
       m_connection(NULL), m_rootInfo(NULL), m_advertisementInfo(NULL),
       m_serviceInfo(NULL), m_characteristicInfo(NULL),
+      m_deviceSignalSubscriptionId(0),
       m_applicationRegistered(false), m_advertisementRegistered(false),
       m_notifying(false), m_attMtu(kDefaultAttMtu),
-      m_powerOffOnStop(false), m_shutdownScheduled(false),
+      m_disconnectScheduled(false),
+      /* 使用高位正整数命名空间，降低与 Web/其他调用方 UniqueId 碰撞概率。 */
+      m_nextRequestId(0x40000000U),
       m_wifiState(0),
-      m_platformState(0), m_hasPendingWifiRequest(false),
-      m_hasPendingWifiScanRequest(false),
-      m_hasPendingPlatformRequest(false)
+      m_platformState(0), m_provisionCompletionPending(false)
 {
     std::memset(m_registrationIds, 0, sizeof(m_registrationIds));
     /* 广播名固定为“设备型号-芯片序列号”，方便 App 与二维码信息对应。 */
@@ -279,13 +305,35 @@ bool BleGattServer::start()
 void BleGattServer::stop()
 {
     m_stopRequested.store(true);
-    if (m_context && m_loop)
-        g_main_context_invoke(m_context, [](gpointer data) -> gboolean {
-            g_main_loop_quit(static_cast<GMainLoop *>(data));
+    GMainContext *context = NULL;
+    {
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        if (m_context)
+            context = g_main_context_ref(m_context);
+    }
+    if (context)
+    {
+        g_main_context_invoke(context, [](gpointer data) -> gboolean {
+            BleGattServer *self = static_cast<BleGattServer *>(data);
+            if (self->m_loop)
+                g_main_loop_quit(self->m_loop);
             return G_SOURCE_REMOVE;
-        }, m_loop);
+        }, this);
+        g_main_context_unref(context);
+    }
     if (m_thread.joinable())
         m_thread.join();
+}
+
+uint32_t BleGattServer::nextRequestId()
+{
+    uint32_t id = m_nextRequestId.fetch_add(1);
+    if (id < 0x40000000U || id > 0x7fffffffU)
+    {
+        m_nextRequestId.store(0x40000001U);
+        id = 0x40000000U;
+    }
+    return id;
 }
 
 bool BleGattServer::running() const
@@ -325,6 +373,11 @@ CommandResult BleGattServer::handleWifiCredentials(const CommandFrame &frame)
     }
     /* 此步骤只暂存凭据；真正连接由后续 CMD_WIFI_CONNECT 触发。 */
     std::lock_guard<std::mutex> lock(m_flowMutex);
+    if (m_pendingWifiRequest.active)
+    {
+        result.status = STATUS_BUSY;
+        return result;
+    }
     m_wifiCredentials = json;
     m_wifiState = 1; /* credentials ready */
     m_wifiDetail = "credentials_ready";
@@ -336,6 +389,7 @@ CommandResult BleGattServer::handleWifiConnect(const CommandFrame &frame)
     CommandResult result;
     ExternalCommandSender sender;
     std::string credentials;
+    uint32_t requestId = 0;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         if (m_wifiCredentials.empty() || !m_externalSender)
@@ -343,20 +397,29 @@ CommandResult BleGattServer::handleWifiConnect(const CommandFrame &frame)
             result.status = STATUS_INVALID_PAYLOAD;
             return result;
         }
+        if (m_pendingWifiRequest.active)
+        {
+            result.status = STATUS_BUSY;
+            return result;
+        }
         sender = m_externalSender;
         credentials = m_wifiCredentials;
         m_wifiState = 2; /* connecting */
         m_wifiDetail = "connecting";
         /* 保存原请求的 command/sequence，异步完成时据此生成对应响应。 */
-        m_pendingWifiRequest = frame;
-        m_hasPendingWifiRequest = true;
+        m_pendingWifiRequest.active = true;
+        m_pendingWifiRequest.requestId = nextRequestId();
+        requestId = m_pendingWifiRequest.requestId;
+        m_pendingWifiRequest.frame = frame;
+        m_pendingWifiRequest.deadline = std::chrono::steady_clock::now() +
+            std::chrono::seconds(kWifiConnectTimeoutSeconds);
     }
-    if (sender(CMD_WIFI_CONNECT, credentials) < 0)
+    if (sender(CMD_WIFI_CONNECT, credentials, requestId) < 0)
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         m_wifiState = 4;
         m_wifiDetail = "dispatch_failed";
-        m_hasPendingWifiRequest = false;
+        m_pendingWifiRequest.active = false;
         result.status = STATUS_INTERNAL_ERROR;
     }
     return result;
@@ -374,6 +437,7 @@ CommandResult BleGattServer::handleWifiScan(const CommandFrame &frame)
 {
     CommandResult result;
     ExternalCommandSender sender;
+    uint32_t requestId = 0;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         if (!m_externalSender)
@@ -382,19 +446,23 @@ CommandResult BleGattServer::handleWifiScan(const CommandFrame &frame)
             return result;
         }
         /* 扫描耗时且底层通常不能并发执行，未完成前拒绝第二次扫描。 */
-        if (m_hasPendingWifiScanRequest)
+        if (m_pendingWifiScanRequest.active)
         {
             result.status = STATUS_BUSY;
             return result;
         }
         sender = m_externalSender;
-        m_pendingWifiScanRequest = frame;
-        m_hasPendingWifiScanRequest = true;
+        m_pendingWifiScanRequest.active = true;
+        m_pendingWifiScanRequest.requestId = nextRequestId();
+        requestId = m_pendingWifiScanRequest.requestId;
+        m_pendingWifiScanRequest.frame = frame;
+        m_pendingWifiScanRequest.deadline = std::chrono::steady_clock::now() +
+            std::chrono::seconds(kWifiScanTimeoutSeconds);
     }
-    if (sender(CMD_WIFI_SCAN, "{}") < 0)
+    if (sender(CMD_WIFI_SCAN, "{}", requestId) < 0)
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
-        m_hasPendingWifiScanRequest = false;
+        m_pendingWifiScanRequest.active = false;
         result.status = STATUS_INTERNAL_ERROR;
     }
     return result;
@@ -404,6 +472,7 @@ CommandResult BleGattServer::handlePlatformConnect(const CommandFrame &frame)
 {
     CommandResult result;
     ExternalCommandSender sender;
+    uint32_t requestId = 0;
     std::string platformJson(frame.payload.begin(), frame.payload.end());
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
@@ -419,18 +488,29 @@ CommandResult BleGattServer::handlePlatformConnect(const CommandFrame &frame)
             result.status = STATUS_INVALID_PAYLOAD;
             return result;
         }
+        if (m_pendingPlatformRequest.active)
+        {
+            result.status = STATUS_BUSY;
+            return result;
+        }
         sender = m_externalSender;
         m_platformState = 1; /* connecting */
         m_platformDetail = "connecting";
-        m_pendingPlatformRequest = frame;
-        m_hasPendingPlatformRequest = true;
+        m_provisionCompletionPending = true;
+        m_pendingPlatformRequest.active = true;
+        m_pendingPlatformRequest.requestId = nextRequestId();
+        requestId = m_pendingPlatformRequest.requestId;
+        m_pendingPlatformRequest.frame = frame;
+        m_pendingPlatformRequest.deadline = std::chrono::steady_clock::now() +
+            std::chrono::seconds(kPlatformConnectTimeoutSeconds);
     }
-    if (sender(CMD_PLATFORM_CONNECT, platformJson) < 0)
+    if (sender(CMD_PLATFORM_CONNECT, platformJson, requestId) < 0)
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         m_platformState = 3;
         m_platformDetail = "dispatch_failed";
-        m_hasPendingPlatformRequest = false;
+        m_provisionCompletionPending = false;
+        m_pendingPlatformRequest.active = false;
         result.status = STATUS_INTERNAL_ERROR;
     }
     return result;
@@ -459,7 +539,8 @@ CommandResult BleGattServer::handleAuthStatus(const CommandFrame &)
     return m_security.authenticationStatus();
 }
 
-void BleGattServer::onExternalCommandResult(uint16_t command, bool success,
+void BleGattServer::onExternalCommandResult(uint16_t command, uint32_t requestId,
+                                             bool success,
                                              const std::string &detail)
 {
     /*
@@ -469,42 +550,61 @@ void BleGattServer::onExternalCommandResult(uint16_t command, bool success,
     CommandFrame pending;
     bool hasPending = false;
     bool rawPayload = false;
+    bool provisioningComplete = false;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
-        if (command == CMD_WIFI_CONNECT)
+        if (command == CMD_WIFI_CONNECT && m_pendingWifiRequest.active &&
+            m_pendingWifiRequest.requestId == requestId)
         {
             m_wifiState = success ? 3 : 4;
             m_wifiDetail = detail;
-            pending = m_pendingWifiRequest;
-            hasPending = m_hasPendingWifiRequest;
-            m_hasPendingWifiRequest = false;
+            pending = m_pendingWifiRequest.frame;
+            hasPending = true;
+            m_pendingWifiRequest.active = false;
         }
-        else if (command == CMD_PLATFORM_CONNECT)
+        else if (command == CMD_PLATFORM_CONNECT && m_pendingPlatformRequest.active &&
+                 m_pendingPlatformRequest.requestId == requestId)
         {
             m_platformState = success ? 2 : 3;
             m_platformDetail = detail;
-            pending = m_pendingPlatformRequest;
-            hasPending = m_hasPendingPlatformRequest;
-            m_hasPendingPlatformRequest = false;
+            pending = m_pendingPlatformRequest.frame;
+            hasPending = true;
+            m_pendingPlatformRequest.active = false;
+            provisioningComplete = success && m_provisionCompletionPending;
+            m_provisionCompletionPending = false;
         }
-        else if (command == CMD_PLATFORM_GET_STATUS)
+        else if (command == CMD_PLATFORM_GET_STATUS &&
+                 m_pendingPlatformStatusRequest.active &&
+                 m_pendingPlatformStatusRequest.requestId == requestId)
         {
             m_platformState = success ? 2 : 0;
             m_platformDetail = detail;
+            m_pendingPlatformStatusRequest.active = false;
+            provisioningComplete = success && m_provisionCompletionPending;
+            if (provisioningComplete)
+                m_provisionCompletionPending = false;
         }
-        else if (command == CMD_WIFI_SCAN)
+        else if (command == CMD_WIFI_SCAN && m_pendingWifiScanRequest.active &&
+                 m_pendingWifiScanRequest.requestId == requestId)
         {
-            pending = m_pendingWifiScanRequest;
-            hasPending = m_hasPendingWifiScanRequest;
-            m_hasPendingWifiScanRequest = false;
+            pending = m_pendingWifiScanRequest.frame;
+            hasPending = true;
+            m_pendingWifiScanRequest.active = false;
             rawPayload = true;
+        }
+        else
+        {
+            dlog_warn("[BLE GATT] 丢弃无匹配或已过期业务回包 code=0x%04x requestId=%u",
+                      static_cast<unsigned int>(command), requestId);
+            return;
         }
     }
 
     if (hasPending)
     {
         CommandResult result;
-        result.status = success ? STATUS_OK : STATUS_INTERNAL_ERROR;
+        result.status = success ? STATUS_OK :
+            (detail == "provisioning_busy" ? STATUS_BUSY : STATUS_INTERNAL_ERROR);
         /* Wi-Fi 扫描 detail 已经是约定的 JSON，直接返回；流程类结果统一封装。 */
         if (rawPayload)
             result.payload.assign(detail.begin(), detail.end());
@@ -512,54 +612,195 @@ void BleGattServer::onExternalCommandResult(uint16_t command, bool success,
             result.payload = makeFlowStatusPayload(success ? 1 : 0, detail);
         publishResponse(pending, result);
     }
-    if ((command == CMD_PLATFORM_CONNECT || command == CMD_PLATFORM_GET_STATUS) &&
-        success)
-        scheduleBluetoothShutdown();
+    if (provisioningComplete)
+        scheduleClientDisconnect();
 }
 
-void BleGattServer::scheduleBluetoothShutdown()
+void BleGattServer::publishProvisioningCompleteEvent()
 {
-    bool expected = false;
-    if (!m_shutdownScheduled.compare_exchange_strong(expected, true))
-        return;
-    if (!m_context)
+    CommandFrame event;
+    event.command = CMD_PROVISION_COMPLETE_EVENT;
+    /* sequence=0 表示设备主动事件，不与 App 请求关联。 */
+    event.sequence = 0;
+    CommandResult result;
+    const char detail[] =
+        "state=2;detail=provisioning_complete;disconnect_in=3";
+    result.payload.assign(detail, detail + sizeof(detail) - 1);
+    publishResponse(event, result);
+}
+
+void BleGattServer::scheduleClientDisconnect()
+{
+    std::string devicePath;
     {
-        m_shutdownScheduled.store(false);
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        devicePath = m_boundDevicePath;
+    }
+    /* 后台平台状态查询成功时可能没有手机连接，此时无需安排断开。 */
+    if (devicePath.empty())
+        return;
+
+    bool expected = false;
+    if (!m_disconnectScheduled.compare_exchange_strong(expected, true))
+        return;
+    GMainContext *context = NULL;
+    {
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        if (m_context)
+            context = g_main_context_ref(m_context);
+    }
+    if (!context)
+    {
+        m_disconnectScheduled.store(false);
         return;
     }
-    dlog_info("[BLE GATT] WiFi和平台均已连接，3秒后关闭蓝牙");
-    g_main_context_invoke(m_context, [](gpointer data) -> gboolean {
-        BleGattServer *self = static_cast<BleGattServer *>(data);
+    /* 先排队发送0x0203；同一主上下文会在创建断开定时器前发出通知。 */
+    publishProvisioningCompleteEvent();
+    dlog_info("[BLE GATT] 配网完成事件已排队，3秒后断开手机，蓝牙保持开启 device=%s",
+              devicePath.c_str());
+    ScheduledClientDisconnect *scheduled = new ScheduledClientDisconnect;
+    scheduled->server = this;
+    scheduled->devicePath = devicePath;
+    g_main_context_invoke_full(context, G_PRIORITY_DEFAULT,
+      [](gpointer data) -> gboolean {
+        ScheduledClientDisconnect *request =
+            static_cast<ScheduledClientDisconnect *>(data);
         GSource *source = g_timeout_source_new_seconds(3);
         g_source_set_callback(source, [](gpointer timeoutData) -> gboolean {
-            BleGattServer *server = static_cast<BleGattServer *>(timeoutData);
-            server->m_powerOffOnStop = true;
-            if (server->m_loop)
-                g_main_loop_quit(server->m_loop);
+            ScheduledClientDisconnect *request =
+                static_cast<ScheduledClientDisconnect *>(timeoutData);
+            BleGattServer *server = request->server;
+            std::string boundDevice;
+            {
+                std::lock_guard<std::mutex> lock(server->m_flowMutex);
+                boundDevice = server->m_boundDevicePath;
+            }
+            /* 原手机若提前断开，绝不能误断3秒内刚接入的另一台手机。 */
+            if (boundDevice == request->devicePath && server->m_connection)
+            {
+                GError *error = NULL;
+                GVariant *reply = g_dbus_connection_call_sync(
+                    server->m_connection, kBluezBus, request->devicePath.c_str(),
+                    "org.bluez.Device1", "Disconnect", NULL, NULL,
+                    G_DBUS_CALL_FLAGS_NONE, 3000, NULL, &error);
+                if (reply)
+                {
+                    g_variant_unref(reply);
+                    dlog_info("[BLE GATT] 配网完成，已请求断开手机，蓝牙和广播保持开启 device=%s",
+                              request->devicePath.c_str());
+                }
+                else
+                {
+                    logGError("配网完成后断开手机失败", error);
+                }
+            }
+            else
+            {
+                dlog_info("[BLE GATT] 原手机已提前断开，取消延迟断开 device=%s",
+                          request->devicePath.c_str());
+            }
+            server->m_disconnectScheduled.store(false);
             return G_SOURCE_REMOVE;
-        }, self, NULL);
-        g_source_attach(source, self->m_context);
+        }, new ScheduledClientDisconnect(*request),
+        [](gpointer timeoutData) {
+            delete static_cast<ScheduledClientDisconnect *>(timeoutData);
+        });
+        g_source_attach(source, request->server->m_context);
         g_source_unref(source);
         return G_SOURCE_REMOVE;
-    }, this);
+      }, scheduled,
+      [](gpointer data) { delete static_cast<ScheduledClientDisconnect *>(data); });
+    g_main_context_unref(context);
 }
 
 void BleGattServer::queryPlatformStatus()
 {
     ExternalCommandSender sender;
+    uint32_t requestId = 0;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         /* 必须先完成WiFi连接，防止仅有线联网时提前结束蓝牙配网。 */
-        if (m_wifiState != 3 || m_shutdownScheduled.load())
+        if (m_wifiState != 3 || m_disconnectScheduled.load())
+            return;
+        if (m_pendingPlatformStatusRequest.active)
             return;
         sender = m_externalSender;
+        if (sender)
+        {
+            requestId = nextRequestId();
+            m_pendingPlatformStatusRequest.active = true;
+            m_pendingPlatformStatusRequest.requestId = requestId;
+            m_pendingPlatformStatusRequest.deadline = std::chrono::steady_clock::now() +
+                std::chrono::seconds(kPlatformStatusTimeoutSeconds);
+        }
     }
-    if (sender && sender(CMD_PLATFORM_GET_STATUS, "{}") < 0)
+    if (sender && sender(CMD_PLATFORM_GET_STATUS, "{}", requestId) < 0)
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        if (m_pendingPlatformStatusRequest.requestId == requestId)
+            m_pendingPlatformStatusRequest.active = false;
         dlog_warn("[BLE GATT] 查询平台连接状态发送失败");
+    }
+}
+
+void BleGattServer::checkPendingTimeouts()
+{
+    std::vector<CommandFrame> expired;
+    const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        if (m_pendingWifiRequest.active && now >= m_pendingWifiRequest.deadline)
+        {
+            expired.push_back(m_pendingWifiRequest.frame);
+            m_pendingWifiRequest.active = false;
+            m_wifiState = 4;
+            m_wifiDetail = "timeout";
+        }
+        if (m_pendingWifiScanRequest.active && now >= m_pendingWifiScanRequest.deadline)
+        {
+            expired.push_back(m_pendingWifiScanRequest.frame);
+            m_pendingWifiScanRequest.active = false;
+        }
+        if (m_pendingPlatformRequest.active && now >= m_pendingPlatformRequest.deadline)
+        {
+            expired.push_back(m_pendingPlatformRequest.frame);
+            m_pendingPlatformRequest.active = false;
+            m_platformState = 3;
+            m_platformDetail = "timeout";
+            m_provisionCompletionPending = false;
+        }
+        if (m_pendingPlatformStatusRequest.active &&
+            now >= m_pendingPlatformStatusRequest.deadline)
+        {
+            m_pendingPlatformStatusRequest.active = false;
+            dlog_warn("[BLE GATT] 平台状态查询超时");
+        }
+    }
+    for (std::size_t i = 0; i < expired.size(); ++i)
+    {
+        CommandResult result;
+        result.status = STATUS_TIMEOUT;
+        result.payload = makeFlowStatusPayload(0, "timeout");
+        dlog_warn("[BLE GATT] 异步指令超时 code=0x%04x seq=%u",
+                  static_cast<unsigned int>(expired[i].command),
+                  static_cast<unsigned int>(expired[i].sequence));
+        publishResponse(expired[i], result);
+    }
 }
 
 void BleGattServer::startPlatformStatusMonitor()
 {
+    GSource *timeouts = g_timeout_source_new_seconds(1);
+    g_source_set_callback(timeouts, [](gpointer data) -> gboolean {
+        BleGattServer *server = static_cast<BleGattServer *>(data);
+        if (server->m_stopRequested.load())
+            return G_SOURCE_REMOVE;
+        server->checkPendingTimeouts();
+        return G_SOURCE_CONTINUE;
+    }, this, NULL);
+    g_source_attach(timeouts, m_context);
+    g_source_unref(timeouts);
+
     GSource *initial = g_timeout_source_new_seconds(5);
     g_source_set_callback(initial, [](gpointer data) -> gboolean {
         static_cast<BleGattServer *>(data)->queryPlatformStatus();
@@ -571,7 +812,7 @@ void BleGattServer::startPlatformStatusMonitor()
     GSource *periodic = g_timeout_source_new_seconds(10);
     g_source_set_callback(periodic, [](gpointer data) -> gboolean {
         BleGattServer *server = static_cast<BleGattServer *>(data);
-        if (server->m_stopRequested.load() || server->m_shutdownScheduled.load())
+        if (server->m_stopRequested.load())
             return G_SOURCE_REMOVE;
         server->queryPlatformStatus();
         return G_SOURCE_CONTINUE;
@@ -608,7 +849,10 @@ void BleGattServer::threadMain()
      * GDBus 对象和主循环放在独立线程中，避免 BLE 调用阻塞 operation 主线程。
      * 该线程的 context 同时负责 BlueZ 的反向属性读取和手机 GATT 请求。
      */
-    m_context = g_main_context_new();
+    {
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        m_context = g_main_context_new();
+    }
     g_main_context_push_thread_default(m_context);
     m_loop = g_main_loop_new(m_context, FALSE);
 
@@ -639,8 +883,11 @@ void BleGattServer::threadMain()
     g_main_loop_unref(m_loop);
     m_loop = NULL;
     g_main_context_pop_thread_default(m_context);
-    g_main_context_unref(m_context);
-    m_context = NULL;
+    {
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        g_main_context_unref(m_context);
+        m_context = NULL;
+    }
 }
 
 bool BleGattServer::initializeBluez()
@@ -680,6 +927,11 @@ bool BleGattServer::initializeBluez()
     }
     if (!registerObjects())
         return false;
+    m_deviceSignalSubscriptionId = g_dbus_connection_signal_subscribe(
+        m_connection, kBluezBus, "org.freedesktop.DBus.Properties",
+        "PropertiesChanged", NULL, "org.bluez.Device1",
+        G_DBUS_SIGNAL_FLAGS_NONE,
+        &BleGattServer::handleDevicePropertiesChanged, this, NULL);
     return registerWithBluez();
 }
 
@@ -821,20 +1073,11 @@ bool BleGattServer::registerWithBluez()
 void BleGattServer::cleanupBluez()
 {
     /* 新连接不能继承上一连接尚未组完的半包、MTU 或通知状态。 */
-    m_decoder.reset();
-    m_security.resetSession();
-    m_notifying.store(false);
-    m_attMtu.store(kDefaultAttMtu);
-    {
-        std::lock_guard<std::mutex> lock(m_responseMutex);
-        m_lastResponse.clear();
-    }
+    resetClientSession();
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
-        m_wifiCredentials.clear();
-        m_hasPendingWifiRequest = false;
-        m_hasPendingWifiScanRequest = false;
-        m_hasPendingPlatformRequest = false;
+        m_activeDevicePath.clear();
+        m_rejectedDisconnects.clear();
     }
     if (m_connection && m_advertisementRegistered)
     {
@@ -865,21 +1108,14 @@ void BleGattServer::cleanupBluez()
     m_advertisementRegistered = false;
     m_applicationRegistered = false;
 
-    if (m_connection && m_powerOffOnStop)
-    {
-        GVariant *reply = g_dbus_connection_call_sync(
-            m_connection, kBluezBus, kAdapterPath,
-            "org.freedesktop.DBus.Properties", "Set",
-            g_variant_new("(ssv)", "org.bluez.Adapter1", "Powered",
-                          g_variant_new_boolean(FALSE)),
-            NULL, G_DBUS_CALL_FLAGS_NONE, 3000, NULL, NULL);
-        if (reply)
-            g_variant_unref(reply);
-        dlog_info("[BLE GATT] 配网完成，蓝牙适配器已关闭");
-    }
-
     if (m_connection)
     {
+        if (m_deviceSignalSubscriptionId)
+        {
+            g_dbus_connection_signal_unsubscribe(m_connection,
+                                                 m_deviceSignalSubscriptionId);
+            m_deviceSignalSubscriptionId = 0;
+        }
         for (int i = 0; i < 5; ++i)
             if (m_registrationIds[i])
                 g_dbus_connection_unregister_object(m_connection, m_registrationIds[i]);
@@ -892,6 +1128,196 @@ void BleGattServer::cleanupBluez()
     if (m_serviceInfo) g_dbus_node_info_unref(m_serviceInfo);
     if (m_characteristicInfo) g_dbus_node_info_unref(m_characteristicInfo);
     m_rootInfo = m_advertisementInfo = m_serviceInfo = m_characteristicInfo = NULL;
+}
+
+void BleGattServer::resetClientSession()
+{
+    m_decoder.reset();
+    m_security.resetSession();
+    m_notifying.store(false);
+    m_attMtu.store(kDefaultAttMtu);
+    {
+        std::lock_guard<std::mutex> lock(m_responseMutex);
+        m_lastResponse.clear();
+    }
+    ExternalCommandSender releaseSender;
+    bool releaseProvisioning = false;
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        releaseProvisioning = !m_boundDevicePath.empty();
+        releaseSender = m_externalSender;
+        m_wifiCredentials.clear();
+        m_pendingWifiRequest.active = false;
+        m_pendingWifiScanRequest.active = false;
+        m_pendingPlatformRequest.active = false;
+        m_pendingPlatformStatusRequest.active = false;
+        m_provisionCompletionPending = false;
+        m_boundDevicePath.clear();
+    }
+    if (releaseProvisioning && releaseSender)
+    {
+        const uint32_t requestId = nextRequestId();
+        if (releaseSender(CMD_INTERNAL_RELEASE_PROVISIONING, "{}", requestId) < 0)
+            dlog_warn("[BLE GATT] 释放BLE配网所有权通知发送失败");
+    }
+}
+
+bool BleGattServer::validateClientDevice(GVariant *options,
+                                         std::string &devicePath)
+{
+    const gchar *device = NULL;
+    if (!options || !g_variant_lookup(options, "device", "&o", &device) ||
+        !device || !device[0])
+    {
+        dlog_warn("[BLE GATT] 请求缺少 BlueZ device 身份，拒绝访问");
+        return false;
+    }
+
+    devicePath = device;
+    bool rejected = false;
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        /* Connected信号可能因启动时序漏报，首次合法读写可作为兜底认领。 */
+        if (m_activeDevicePath.empty())
+        {
+            m_activeDevicePath = devicePath;
+            dlog_info("[BLE GATT] 活动手机由首次访问认领 device=%s",
+                      devicePath.c_str());
+        }
+        if (m_activeDevicePath != devicePath)
+        {
+            rejected = true;
+        }
+        else if (m_boundDevicePath.empty())
+        {
+            m_boundDevicePath = devicePath;
+            dlog_info("[BLE GATT] 会话已绑定手机 device=%s", devicePath.c_str());
+        }
+        else if (m_boundDevicePath != devicePath)
+        {
+            rejected = true;
+        }
+    }
+    if (!rejected)
+        return true;
+
+    dlog_warn("[BLE GATT] 拒绝其他手机访问并主动断开 request=%s",
+              devicePath.c_str());
+    disconnectRejectedClient(devicePath, "another_client_is_active");
+    return false;
+}
+
+void BleGattServer::disconnectRejectedClient(const std::string &devicePath,
+                                              const char *reason)
+{
+    if (devicePath.empty())
+        return;
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        if (!m_rejectedDisconnects.insert(devicePath).second)
+            return;
+    }
+    if (!m_connection)
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        m_rejectedDisconnects.erase(devicePath);
+        return;
+    }
+
+    RejectedClientDisconnect *request = new RejectedClientDisconnect;
+    request->server = this;
+    request->devicePath = devicePath;
+    request->reason = reason ? reason : "single_client_only";
+    dlog_warn("[BLE GATT] 单客户端模式：请求断开其他手机 device=%s reason=%s",
+              request->devicePath.c_str(), request->reason.c_str());
+    g_dbus_connection_call(
+        m_connection, kBluezBus, request->devicePath.c_str(),
+        "org.bluez.Device1", "Disconnect", NULL, NULL,
+        G_DBUS_CALL_FLAGS_NONE, 3000, NULL,
+        [](GObject *source, GAsyncResult *result, gpointer data) {
+            RejectedClientDisconnect *request =
+                static_cast<RejectedClientDisconnect *>(data);
+            GError *error = NULL;
+            GVariant *reply = g_dbus_connection_call_finish(
+                G_DBUS_CONNECTION(source), result, &error);
+            if (reply)
+            {
+                g_variant_unref(reply);
+                dlog_info("[BLE GATT] 已断开其他手机 device=%s",
+                          request->devicePath.c_str());
+            }
+            else
+            {
+                logGError("断开其他手机失败", error);
+            }
+            {
+                std::lock_guard<std::mutex> lock(request->server->m_flowMutex);
+                request->server->m_rejectedDisconnects.erase(request->devicePath);
+            }
+            delete request;
+        }, request);
+}
+
+void BleGattServer::handleDevicePropertiesChanged(
+    GDBusConnection *, const char *, const char *objectPath, const char *,
+    const char *, GVariant *parameters, void *userData)
+{
+    BleGattServer *self = static_cast<BleGattServer *>(userData);
+    const gchar *changedInterface = NULL;
+    GVariant *changed = NULL;
+    GVariant *invalidated = NULL;
+    g_variant_get(parameters, "(&s@a{sv}@as)", &changedInterface,
+                  &changed, &invalidated);
+    gboolean connected = TRUE;
+    const bool hasConnected =
+        g_variant_lookup(changed, "Connected", "b", &connected) != FALSE;
+    g_variant_unref(changed);
+    g_variant_unref(invalidated);
+    if (!hasConnected ||
+        std::strcmp(changedInterface, "org.bluez.Device1") != 0)
+        return;
+
+    if (connected)
+    {
+        bool accepted = false;
+        {
+            std::lock_guard<std::mutex> lock(self->m_flowMutex);
+            if (self->m_activeDevicePath.empty())
+            {
+                self->m_activeDevicePath = objectPath;
+                accepted = true;
+            }
+            else
+            {
+                accepted = self->m_activeDevicePath == objectPath;
+            }
+        }
+        if (accepted)
+        {
+            dlog_info("[BLE GATT] 单客户端模式：活动手机已连接 device=%s",
+                      objectPath);
+        }
+        else
+        {
+            self->disconnectRejectedClient(objectPath,
+                                           "another_client_is_active");
+        }
+        return;
+    }
+
+    bool isActiveDevice = false;
+    {
+        std::lock_guard<std::mutex> lock(self->m_flowMutex);
+        isActiveDevice = !self->m_activeDevicePath.empty() &&
+                         self->m_activeDevicePath == objectPath;
+        if (isActiveDevice)
+            self->m_activeDevicePath.clear();
+    }
+    if (isActiveDevice)
+    {
+        dlog_info("[BLE GATT] 活动手机已断开 device=%s，清理会话", objectPath);
+        self->resetClientSession();
+    }
 }
 
 void BleGattServer::handleFrame(const CommandFrame &frame)
@@ -947,6 +1373,40 @@ void BleGattServer::publishResponse(const CommandFrame &request,
      * 无论是否订阅 Notify 都保存最后响应；未订阅时 App 仍可 ReadValue。
      * 已订阅时通过 PropertiesChanged(Value) 让 bluetoothd 发送通知。
      */
+    if (!m_notifying.load())
+        return;
+
+    GMainContext *context = NULL;
+    {
+        std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+        if (m_context)
+            context = g_main_context_ref(m_context);
+    }
+    if (!context)
+        return;
+
+    QueuedBleResponse *queued = new QueuedBleResponse;
+    queued->server = this;
+    queued->encoded.swap(encoded);
+    queued->command = request.command;
+    queued->sequence = request.sequence;
+    g_main_context_invoke_full(context, G_PRIORITY_DEFAULT,
+        [](gpointer data) -> gboolean {
+            QueuedBleResponse *item = static_cast<QueuedBleResponse *>(data);
+            item->server->emitResponseOnMainContext(item->encoded,
+                                                    item->command,
+                                                    item->sequence);
+            return G_SOURCE_REMOVE;
+        }, queued,
+        [](gpointer data) { delete static_cast<QueuedBleResponse *>(data); });
+    g_main_context_unref(context);
+}
+
+void BleGattServer::emitResponseOnMainContext(const std::vector<uint8_t> &encoded,
+                                               uint16_t command,
+                                               uint16_t sequence)
+{
+    /* m_connection 的读取和释放都发生在本 GMainContext 所在线程。 */
     if (m_connection && m_notifying.load())
     {
         const unsigned int mtu = std::max(kDefaultAttMtu, m_attMtu.load());
@@ -954,8 +1414,8 @@ void BleGattServer::publishResponse(const CommandFrame &request,
         const std::size_t chunkCount =
             (encoded.size() + chunkLimit - 1) / chunkLimit;
         dlog_info("[BLE GATT] 发送响应 code=0x%04x seq=%u frame=%zu mtu=%u chunks=%zu",
-                  static_cast<unsigned int>(request.command),
-                  static_cast<unsigned int>(request.sequence), encoded.size(),
+                  static_cast<unsigned int>(command),
+                  static_cast<unsigned int>(sequence), encoded.size(),
                   mtu, chunkCount);
 
         /*
@@ -1018,6 +1478,16 @@ void BleGattServer::handleMethodCall(GDBusConnection *, const char *,
         GVariant *value = NULL;
         GVariant *options = NULL;
         g_variant_get(parameters, "(@ay@a{sv})", &value, &options);
+        std::string devicePath;
+        if (!self->validateClientDevice(options, devicePath))
+        {
+            g_variant_unref(value);
+            g_variant_unref(options);
+            g_dbus_method_invocation_return_dbus_error(
+                invocation, "org.bluez.Error.NotAuthorized",
+                "Another BLE device owns the provisioning session");
+            return;
+        }
         guint16 mtu = 0;
         guint16 offset = 0;
         const gchar *writeType = "unknown";
@@ -1066,6 +1536,15 @@ void BleGattServer::handleMethodCall(GDBusConnection *, const char *,
     {
         GVariant *options = NULL;
         g_variant_get(parameters, "(@a{sv})", &options);
+        std::string devicePath;
+        if (!self->validateClientDevice(options, devicePath))
+        {
+            g_variant_unref(options);
+            g_dbus_method_invocation_return_dbus_error(
+                invocation, "org.bluez.Error.NotAuthorized",
+                "Another BLE device owns the provisioning session");
+            return;
+        }
         guint16 offset = 0;
         guint16 mtu = 0;
         g_variant_lookup(options, "offset", "q", &offset);
@@ -1110,22 +1589,19 @@ void BleGattServer::handleMethodCall(GDBusConnection *, const char *,
     if (std::strcmp(methodName, "StopNotify") == 0 &&
         std::strcmp(objectPath, kResponsePath) == 0)
     {
-        self->m_notifying.store(false);
-        self->m_attMtu.store(kDefaultAttMtu);
-        self->m_decoder.reset();
-        /* 手机断开或停止通知后立即销毁认证会话、会话密钥及接收半包。 */
-        self->m_security.resetSession();
-        {
-            std::lock_guard<std::mutex> lock(self->m_responseMutex);
-            self->m_lastResponse.clear();
-        }
-        {
-            std::lock_guard<std::mutex> lock(self->m_flowMutex);
-            self->m_wifiCredentials.clear();
-            self->m_hasPendingWifiRequest = false;
-            self->m_hasPendingWifiScanRequest = false;
-            self->m_hasPendingPlatformRequest = false;
-        }
+        /*
+         * StopNotify 只表示 BlueZ 当前不再为响应特征发送通知，并不等价于
+         * 手机已经断开。该方法没有 device 参数，而且 BlueZ 以聚合方式管理
+         * 本地 GATT 特征的订阅状态；如果在这里清理会话，其他客户端的订阅
+         * 变化、App 页面切换或系统临时取消通知，都可能误删活动手机的认证
+         * 密钥、接收半包和待处理业务。
+         *
+         * 完整会话只在活动 Device1 的 Connected 变为 false，或服务停止时由
+         * resetClientSession() 清理。通知停止后仍保留最后响应，App 可以通过
+         * ReadValue 补读，也可以重新 StartNotify 后继续当前认证会话。
+         */
+         self->m_notifying.store(false);
+         dlog_info("[BLE GATT] 响应通知已停止，保留当前客户端认证和业务会话");
         g_dbus_method_invocation_return_value(invocation, NULL);
         return;
     }

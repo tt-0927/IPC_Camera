@@ -237,6 +237,8 @@ void Convert::deal(Json::Object* pRootJson, Event::AlgorithmConfig_S& stInfo, bo
     convert.field(pRootJson, "SocialRelationshipAnalysis", stInfo.nSocialRelationshipAnalysis);
     convert.field(pRootJson, "KitchenClothingCompliance", stInfo.nKitchenClothingCompliance);
     convert.field(pRootJson, "EnFireEquipmentAbnormal", stInfo.nEnFireEquipmentAbnormal);
+    convert.field(pRootJson, "EnFight", stInfo.nEnFight);
+    convert.field(pRootJson, "MouseDetection", stInfo.nMouseDetection);
     #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "EnSmokeFire", stInfo.nEnSmokeFire);
@@ -355,6 +357,9 @@ void Convert::deal(Json::Object* pRootJson, Event::SmartEventEnableStatus_S& stI
     convert.field(pRootJson, "AccessControlAbnormalPassage", stInfo.bAccessControlAbnormalPassage);
     convert.field(pRootJson, "SocialRelationshipAnalysis", stInfo.bSocialRelationshipAnalysis);
     convert.field(pRootJson, "KitchenClothingCompliance", stInfo.bKitchenClothingCompliance);
+    convert.field(pRootJson, "FireEquipmentAbnormal", stInfo.bFireEquipmentAbnormal);
+    convert.field(pRootJson, "FightDetection", stInfo.bFightDetection);
+    convert.field(pRootJson, "MouseDetection", stInfo.bMouseDetection);
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 convert.field(pRootJson, "SmokeFire", stInfo.bSmokeFire);

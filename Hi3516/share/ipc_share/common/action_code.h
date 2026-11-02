@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2024-10-06 15:23:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-29 17:43:13
+ * @LastEditTime : 2026-10-28 15:47:22
  * @Description  : 通讯命令码
  */
 
@@ -618,6 +618,14 @@ typedef enum
     AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2824,
     /* 设置消防设施异常配置 */
     AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2825,
+    /* 获取打架斗殴检测配置 */
+    AC_GET_FIGHT_DETECTION_CFG = 2826,
+    /* 设置打架斗殴检测配置 */
+    AC_SET_FIGHT_DETECTION_CFG = 2827,
+    /* 获取鼠患识别配置 */
+    AC_GET_MOUSE_DETECTION_INFO = 2828,
+    /* 设置鼠患识别配置 */
+    AC_SET_MOUSE_DETECTION_INFO = 2829,
 
     /**
      * @brief 预览相关
@@ -744,6 +752,8 @@ typedef enum
     AC_GET_METADATA_CONFIG = 4034,
     /* 设置Metadata配置 */
     AC_SET_METADATA_CONFIG = 4035,
+    /// @brief 网页功能配置（编译期由产品版本决定，只读）
+    AC_GET_WEB_FEATURE_CONFIG = 4036,
 
     /**
      * @brief 系统运维相关
@@ -836,8 +846,8 @@ typedef enum
     AC_GET_GB28181_INFO = 6020,
     AC_SET_GB28181_INFO = 6021,
     /// @brief GB28181服务配置
-    AC_GET_GB28181_SERVER_INFO = 6022,
-    AC_SET_GB28181_SERVER_INFO = 6023,
+    // AC_GET_GB28181_SERVER_INFO = 6022,
+    // AC_SET_GB28181_SERVER_INFO = 6023,
     /// @brief 其他高级配置
     AC_GET_OHTER_SENIOR_INFO = 6024,
     AC_SET_OHTER_SENIOR_INFO = 6025,
@@ -940,6 +950,8 @@ typedef enum
     AC_SET_CONFIG_WIFI_IPV4 = 6083,
     AC_GET_CONFIG_WIFI_IPV4 = 6084,
     AC_SCAN_WIFI_STA = 6085,
+     /* operation通知control释放BLE配网所有权，仅进程间内部使用。 */
+     AC_RELEASE_BLE_PROVISIONING = 6086,
 
     /// @brief 4G配置
     AC_GET_4G_INFO = 6072,

@@ -244,8 +244,12 @@ namespace Log
         SOCIAL_RELATIONSHIP_ANALYSIS_STOP     = 1326, /**< 社交关系分析结束 */
         KITCHEN_CLOTHING_COMPLIANCE_START     = 1327, /**< 后厨穿戴规范开始 */
         KITCHEN_CLOTHING_COMPLIANCE_STOP      = 1328, /**< 后厨穿戴规范结束 */
-        FIRE_EQUIPMENT_ABNORMAL_START       = 1329, /**< 消防设施异常开始 */
-        FIRE_EQUIPMENT_ABNORMAL_STOP        = 1330, /**< 消防设施异常结束 */
+        FIRE_EQUIPMENT_ABNORMAL_START       = 1329,   /**< 消防设施异常开始 */
+        FIRE_EQUIPMENT_ABNORMAL_STOP        = 1330,   /**< 消防设施异常结束 */
+        FIGHT_DETECTION_START               = 1331,   /**< 打架斗殴检测开始 */
+        FIGHT_DETECTION_STOP               = 1332,   /**< 打架斗殴检测结束 */
+        MOUSE_INFESTATION_START             = 1333,   /**< 鼠患识别开始 */
+        MOUSE_INFESTATION_STOP              = 1334,   /**< 鼠患识别结束 */
 #endif
 
         /* 剩余部分报警日志需实现后在这里添加 */
@@ -822,6 +826,8 @@ namespace Log
             return bStart ? SOCIAL_RELATIONSHIP_ANALYSIS_START : SOCIAL_RELATIONSHIP_ANALYSIS_STOP;
         case Event::Type::KITCHEN_CLOTHING_COMPLIANCE:
             return bStart ? KITCHEN_CLOTHING_COMPLIANCE_START : KITCHEN_CLOTHING_COMPLIANCE_STOP;
+        case Event::Type::MOUSE_INFESTATION:
+            return bStart ? MOUSE_INFESTATION_START : MOUSE_INFESTATION_STOP;
 #endif
         default:
             return UNDEFINED;
@@ -1016,6 +1022,8 @@ namespace Log
         case SOCIAL_RELATIONSHIP_ANALYSIS_STOP:     return "社交关系分析结束";
         case KITCHEN_CLOTHING_COMPLIANCE_START:     return "后厨穿戴规范开始";
         case KITCHEN_CLOTHING_COMPLIANCE_STOP:      return "后厨穿戴规范结束";
+        case MOUSE_INFESTATION_START:               return "鼠患识别开始";
+        case MOUSE_INFESTATION_STOP:                return "鼠患识别结束";
 #endif
         /* 剩余部分报警日志需实现后在这里添加 */
         /* --------------------报警日志类型-------------------- */

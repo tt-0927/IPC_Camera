@@ -481,8 +481,7 @@ int CPreviewManage::device_control(const Preview::DeviceControl_S &stInfo)
             nAudioTimes = 1;
             dlog_warn("TVSDK声光报警次数无效，使用默认播放次数: times[%d]", nAudioTimes);
         }
-        /* 声音联动改为“先到先播完”：忙时不打断、由 worker 判忙丢弃，
-         * 保证先到的告警完整播报；灯光与 GPIO 仍按本次 START 生效。 */
+        
         if (CEventLinkage::instance()->play_audio_async())
         {
             dlog_info("TVSDK声光报警音频已异步投递: path[%s], times[%d]", strAudioPath.c_str(), nAudioTimes);

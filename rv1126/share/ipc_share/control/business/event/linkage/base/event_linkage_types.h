@@ -137,6 +137,7 @@ inline EventTvSdkPayloadType_E get_tvsdk_payload_type(Event::Type_E enEventType)
     case Event::Type_E::AUDIO_SUDDEN_RISE:
     case Event::Type_E::AUDIO_SUDDEN_DROP:
     case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:
+    case Event::Type_E::FIGHT_DETECTION:
         return EventTvSdkPayloadType_E::AI_OBJECT;
 
     /* 车牌识别类事件 */

@@ -389,7 +389,11 @@ namespace System
     /* 设备配置 */
     typedef struct _DeviceConfig_S_
     {
+#if LANG_OVERSEAS_EN
+        Language_E   enLanguage           = Language_E::ENGLISH;      /* 语言（外贸英文通用版默认英文） */
+#else
         Language_E   enLanguage           = Language_E::SIMP_CHINESE; /* 语言 */
+#endif
         TimeZone_E   enTimeZone           = TimeZone_E::UTC_PLUS_8;   /* 时区 */
         DateFormat_E enDateFormat         = DateFormat_E::YYYY_MM_DD; /* 日期格式 */
         std::string  strDateTime;                                     /* 日期时间字符串 */

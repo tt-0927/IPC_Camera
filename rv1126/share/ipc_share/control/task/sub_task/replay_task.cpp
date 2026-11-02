@@ -1,8 +1,8 @@
 /*
  * @Author: zhangjc zhangjc@kfb.cn
  * @Date: 2024-10-29 19:33:17
- * @LastEditors: lianghy lianghy@kfb.cn
- * @LastEditTime: 2026-05-29 11:13:56
+ * @LastEditors: zhengxh
+ * @LastEditTime: 2026-10-27 16:30:25
  * @FilePath: /hisi/share/ipc_share/control/task/sub_task/replay_task.cpp
  * @Description: 录像回放
  */
@@ -35,6 +35,15 @@ static const Event::Type_E PERIMETER_INCIDENT_EVENT_MAP[] = {
     ::Event::Type_E::INTRUSION,
     ::Event::Type_E::ENTER_REGION,
     ::Event::Type_E::LEAVE_REGION,
+    #ifdef SCENE_INTELLIGENCE
+    /* 平安校园划入周界组的事件 */
+    ::Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE,
+    ::Event::Type_E::DANGER_ZONE_APPROACH,
+    ::Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY,
+    ::Event::Type_E::DANGER_ZONE_STAY,
+    ::Event::Type_E::KEY_AREA_ABNORMAL_STAY,
+    ::Event::Type_E::ROOFTOP_STAY,
+    #endif
 };
 
 /* 行为分析事件 */
@@ -42,6 +51,11 @@ static const Event::Type_E BEHAVIOR_ANALYSIS_EVENT_MAP[] = {
     ::Event::Type_E::LOITERING_DETECT,
     ::Event::Type_E::CROWD_GATHERING,
     ::Event::Type_E::PARKING_DETECT,
+    #ifdef SCENE_INTELLIGENCE
+    /* 平安校园划入行为分析组的事件 */
+    ::Event::Type_E::LONG_TIME_STAY,
+    ::Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS,
+    #endif
 };
 
 /* 场景检测事件 */
@@ -54,10 +68,13 @@ static const Event::Type_E SCENE_DETECTION_EVENT_MAP[] = {
 static const Event::Type_E TARGET_DETECTION_EVENT_MAP[] = {
     ::Event::Type_E::FACE_DETECT,
     ::Event::Type_E::PET_RECOGNITION,
+    #if CAP_AI_GARBAGE_DETECT
+    /* 独立垃圾能力：垃圾事件归目标检测 */
     ::Event::Type_E::GARBAGE_EXPOSURE,
     ::Event::Type_E::GARBAGE_OVERFLOW,
+    #endif
     ::Event::Type_E::FACE_RECOGNITION,
-    #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
+    #if !defined(SCENE_INTELLIGENCE) && CAP_AI_SMOKE_FIRE_DETECT
     ::Event::Type_E::SMOKE_FIRE,
     #endif
 };
@@ -76,15 +93,18 @@ static const Event::Type_E BEHAVIOR_MONITORING_EVENT_MAP[] = {
     ::Event::Type_E::FENCE_CLIMBING,
     ::Event::Type_E::SMOKING,
     ::Event::Type_E::PHONE_USAGE,
-    ::Event::Type_E::GARBAGE_EXPOSURE,
     ::Event::Type_E::SMOKE_FIRE,
     ::Event::Type_E::OPEN_FLAME,
-    // ::Event::Type_E::GARBAGE_OVERFLOW,
-    // ::Event::Type_E::MANHOLE_COVER_ABNORMAL,
     ::Event::Type_E::BARE_SOIL,
     ::Event::Type_E::HOLE_PROTECTION_BAR,
     ::Event::Type_E::PEDESTRIAN_INTRUSION,
     ::Event::Type_E::PERSON_TRIP,
+    #ifdef SCENE_INTELLIGENCE
+    /* 平安校园划入行为监管组的事件 */
+    ::Event::Type_E::CLIMB_DETECTION,
+    ::Event::Type_E::FIGHT_DETECTION,
+    ::Event::Type_E::OPEN_FLAME_LEAVE,
+    #endif
 };
 
 /* 穿戴规范事件 */
@@ -92,6 +112,9 @@ static const Event::Type_E CLOTHING_COMPLIANCE_EVENT_MAP[] = {
     ::Event::Type_E::SAFETY_HELMET,
     ::Event::Type_E::REFLECTIVE_CLOTHING,
     ::Event::Type_E::HIGH_ALTITUDE_SEATBELT,
+    #ifdef SCENE_INTELLIGENCE
+    ::Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE,
+    #endif
 };
 
 /* 交通行为监管事件 */
@@ -100,7 +123,6 @@ static const Event::Type_E TRAFFIC_BEHAVIOR_MONITORING_EVENT_MAP[] = {
     ::Event::Type_E::EMERGENCY_LANE_OCCUPANCY,
     ::Event::Type_E::REVERSE_DIRECTION,
     ::Event::Type_E::NON_MOTOR_VEHICLE_INTRUSION,
-    ::Event::Type_E::ROAD_PONDING,
     ::Event::Type_E::CONGESTION,
     // ::Event::Type_E::ILLEGAL_PARKING,
     ::Event::Type_E::ILLEGAL_LANE_CHANGE,
@@ -113,6 +135,22 @@ static const Event::Type_E ATTRIBUTE_RECOGNITION_EVENT_MAP[] = {
     ::Event::Type_E::MOTORVEHICLE_ATTRIBUTE,
     ::Event::Type_E::NONMOTORVEHICLE_ATTRIBUTE
 };
+
+#ifdef SCENE_INTELLIGENCE
+/* 环境与设施异常（与 CEventResource::m_group_events 保持一致） */
+static const Event::Type_E ENV_FACILITY_ABNORMAL_EVENT_MAP[] = {
+    #if !CAP_AI_GARBAGE_DETECT
+    /* 垃圾事件已归目标检测 */
+    ::Event::Type_E::GARBAGE_EXPOSURE,
+    ::Event::Type_E::GARBAGE_OVERFLOW,
+    #endif
+    ::Event::Type_E::MANHOLE_COVER_ABNORMAL,
+    ::Event::Type_E::FIRE_EQUIPMENT_ABNORMAL,
+    ::Event::Type_E::ROAD_PONDING,
+    ::Event::Type_E::CHANNEL_OCCUPATION,
+    ::Event::Type_E::MOUSE_INFESTATION,
+};
+#endif
 
 /* 设置回放布局信息 */
 void Task::Replay::SetLayoutInfo::handle()
@@ -286,6 +324,17 @@ void Task::Replay::SetLayoutInfo::handle()
             }
             break;
         }
+#ifdef SCENE_INTELLIGENCE
+        case ::Replay::SummaryType_E::ENV_FACILITY_ABNORMAL_TYPE:
+        {
+            for (unsigned int i = 0; i < sizeof(ENV_FACILITY_ABNORMAL_EVENT_MAP) / sizeof(::Event::Type_E); i++)
+            {
+                stEventCond.enType = ENV_FACILITY_ABNORMAL_EVENT_MAP[i];
+                EventSearch::instance()->searchByEventType(stEventCond, eventInfos);
+            }
+            break;
+        }
+#endif
         default:
             dlog_debug("未识别的事件类型");
             break;

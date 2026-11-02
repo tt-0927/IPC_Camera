@@ -52,6 +52,11 @@ enum CommandCode : uint16_t
     /* 平台接入：Wi-Fi 可用后再连接平台，同样要求安全会话。 */
     CMD_PLATFORM_CONNECT = 0x0201,
     CMD_PLATFORM_GET_STATUS = 0x0202,
+    /* 设备主动通知：配网完成，随后只断开当前 BLE连接，不关闭适配器。 */
+    CMD_PROVISION_COMPLETE_EVENT = 0x0203,
+
+    /* 仅operation/control进程间使用，不允许App通过GATT调用。 */
+    CMD_INTERNAL_RELEASE_PROVISIONING = 0xfff0,
 
     /* 0x0300-0x6fff：后续设备功能；0x7000-0x7fff：厂商扩展。 */
 };
@@ -70,7 +75,9 @@ enum StatusCode : uint16_t
     STATUS_UNAUTHORIZED = 9,
     STATUS_AUTH_FAILED = 10,
     STATUS_AUTH_LOCKED = 11,
-    STATUS_REPLAY_DETECTED = 12
+    STATUS_REPLAY_DETECTED = 12,
+    /* 异步业务在约定时间内没有返回；迟到的业务回包会被丢弃。 */
+    STATUS_TIMEOUT = 13
 };
 
 struct CommandFrame

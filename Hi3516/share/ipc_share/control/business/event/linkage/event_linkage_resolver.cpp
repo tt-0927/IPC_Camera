@@ -636,6 +636,27 @@ int EventLinkageResolver::load_default_linkage_list(Event::Type_E enEventType, A
         stLinkageList = alarm.stLinkageList;
         break;
     }
+    case Event::Type_E::QUEUE_CROWDING:
+    {
+        Alarm::QueueCrowdingDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::FIGHT_DETECTION:
+    {
+        Alarm::FightDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
+    case Event::Type_E::MOUSE_INFESTATION:
+    {
+        Alarm::MouseDetection_S alarm;
+        CEventConfigure::instance()->get_configure(alarm);
+        stLinkageList = alarm.stLinkageList;
+        break;
+    }
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
 case Event::Type_E::SMOKE_FIRE:

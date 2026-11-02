@@ -618,6 +618,14 @@ typedef enum
     AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2824,
     /* 设置消防设施异常配置 */
     AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG = 2825,
+    /* 获取打架斗殴检测配置 */
+    AC_GET_FIGHT_DETECTION_CFG = 2826,
+    /* 设置打架斗殴检测配置 */
+    AC_SET_FIGHT_DETECTION_CFG = 2827,
+    /* 获取鼠患识别配置 */
+    AC_GET_MOUSE_DETECTION_INFO = 2828,
+    /* 设置鼠患识别配置 */
+    AC_SET_MOUSE_DETECTION_INFO = 2829,
 
     /**
      * @brief 预览相关
@@ -940,6 +948,8 @@ typedef enum
     AC_SET_CONFIG_WIFI_IPV4 = 6083,
     AC_GET_CONFIG_WIFI_IPV4 = 6084,
     AC_SCAN_WIFI_STA = 6085,
+     /* operation通知control释放BLE配网所有权，仅进程间内部使用。 */
+     AC_RELEASE_BLE_PROVISIONING = 6086,
 
     /// @brief 4G配置
     AC_GET_4G_INFO = 6072,

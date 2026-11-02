@@ -529,12 +529,12 @@ bool AIFaceManage::comparisonFaceLib(const std::vector<float> &vfData, FaceLibsI
     std::list<FaceLibsInfo_S> libAllInfo;
     m_FaceInfodb.getAllData(libAllInfo);
 
-    // std::cout << ">>> 输入比对向量 (Size: " << vfData.size() << "): ";
-    // for (size_t i = 0; i < vfData.size(); ++i) {
-    //     std::cout << vfData[i];
-    //     if (i < vfData.size() - 1) std::cout << ", ";
-    // }
-    // std::cout << std::endl;
+    std::cout << ">>> 输入比对向量 (Size: " << vfData.size() << "): ";
+    for (size_t i = 0; i < vfData.size(); ++i) {
+        std::cout << vfData[i];
+        if (i < vfData.size() - 1) std::cout << ", ";
+    }
+    std::cout << std::endl;
 
     for (const auto &libInfo : libAllInfo)
     {

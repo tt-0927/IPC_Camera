@@ -31,6 +31,7 @@
 #include "av_configure.h"
 #include "event_linkage_dict.h"
 #include "log_handler.h"
+#include "system_manage.h"
 #include "SipModule.h"
 
 #if CAP_GARBAGE_STATION_PLATFORM
@@ -628,7 +629,10 @@ int EventLinkageDirectAction::write_log(const Event::Info_S &stEventInfo, bool b
 
     stLogInfo.nAction = Log::to_action(stEventInfo.enType, !bEventEnded);
     stLogInfo.chnName = std::string("D") + std::to_string(stEventInfo.nChnId);
-    stLogInfo.context = EventLinkageDict::get_event_name(stEventInfo.enType);
+    /* 日志context按设备语言落库，语言跟随4009设置 */
+    System::DeviceConfig_S stDeviceConfig;
+    SystemManage::instance()->get_device_config(stDeviceConfig);
+    stLogInfo.context = EventLinkageDict::get_event_name(stDeviceConfig.enLanguage, stEventInfo.enType);
     LogHandler::instance()->write(stLogInfo);
     return OK;
 }

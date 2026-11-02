@@ -345,6 +345,12 @@ namespace Convert
     /* 后厨穿戴规范相关 */
     void deal(Json::Object *pRootJson, Alarm::KitchenClothingComplianceRule_S &stInfo, bool bOutStruct);
     void deal(Json::Object *pRootJson, Alarm::KitchenClothingCompliance_S &stInfo, bool bOutStruct);
+    /* 打架斗殴相关 */
+    void deal(Json::Object *pRootJson, Alarm::FightRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::FightDetection_S &stInfo, bool bOutStruct);
+    /* 鼠患识别相关 */
+    void deal(Json::Object *pRootJson, Alarm::MouseDetectionRule_S &stInfo, bool bOutStruct);
+    void deal(Json::Object *pRootJson, Alarm::MouseDetection_S &stInfo, bool bOutStruct);
 #endif
 
 }; // namespace Convert

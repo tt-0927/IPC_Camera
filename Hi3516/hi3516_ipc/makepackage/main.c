@@ -237,7 +237,12 @@ int upgrade_makePacket(char *path, char *out_name, char *version, char *buildTyp
 
 	Upgrade_Package_t pack = {0};
 	memset(&pack, 0, sizeof(pack));
-	strncpy(pack.version, version, sizeof(pack.version) - 1);
+	/* 适用型号从 version[1] 起写：version[0] 必须保持 NUL。
+	   strcpy(id) 写满 4 字符时结尾 NUL 会溢出到 version[0]，
+	   而 ONVIF 上传门 strcmp(pkg->id, UPGRADE_ID) 依赖这个 NUL
+	   作为 id 的字符串终止符——修复该溢出会导致老设备 ONVIF
+	   上传拒绝新包，属历史兼容行为，不可改动 */
+	strncpy(pack.version + 1, version, sizeof(pack.version) - 2);
 	pack.version[sizeof(pack.version) - 1] = '\0';
 	sprintf(cmd, "%s/%s", path, pack_name);
 	pack.len = get_file_size(cmd);

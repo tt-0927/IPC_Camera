@@ -802,7 +802,7 @@ void Convert::deal(Json::Object *pRootJson, Alarm::QueueCrowdingDetection_S &stI
 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
-    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }
@@ -2663,7 +2663,6 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalRule_S &
     Convert::CConvert convert(bOutStruct);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
-    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
 }
 
 void Convert::deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalDetection_S &stInfo, bool bOutStruct)
@@ -2675,7 +2674,62 @@ void Convert::deal(Json::Object *pRootJson, Alarm::FireEquipmentAbnormalDetectio
 
     Convert::CConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
-    convert.structure(pRootJson, "Rule", stInfo.aRule);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 打架斗殴相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::FightRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::FightDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, stInfo.aAlarmTime);
+    convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
+}
+
+/* 鼠患识别相关 */
+void Convert::deal(Json::Object *pRootJson, Alarm::MouseDetectionRule_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+}
+
+void Convert::deal(Json::Object *pRootJson, Alarm::MouseDetection_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    Convert::CConvert convert(bOutStruct);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, stInfo.aAlarmTime);
     convert.structure(pRootJson, "LinkageMode", stInfo.stLinkageList);
 }

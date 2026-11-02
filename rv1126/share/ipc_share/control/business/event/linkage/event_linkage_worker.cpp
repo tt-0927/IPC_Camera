@@ -335,9 +335,6 @@ bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 
 bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
 {
-    /* 声音联动改为“先到先播完”：只要已有 SOUND 正在播报（或已登记、处于启动窗口），
-     * 新到的 SOUND 任务一律丢弃——不按优先级抢占，也不做同音频合并。
-     * 原实现允许高优先级抢占，会让先到的告警永远播不完。 */
     if (stTask.enLinkageType == LinkageType_E::SOUND)
     {
         dlog_info("声音联动正在播报，丢弃新任务 - 事件: %s, 优先级: %d",

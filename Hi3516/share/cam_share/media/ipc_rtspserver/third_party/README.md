@@ -28,7 +28,11 @@ libevent       = 694decef35717d8955aa34ba4d2baaaf61c9e4a9
 
 smolrtsp 系列的本地修改必须登记在 `smolrtsp/PATCHES.md`；不能直接修改 vendor
 源码。libevent 的正式 source-of-truth 和 Hi3516 归档构建脚本位于
-`cam_opensource_library/libevent-openipc/`。
+`cam_opensource_library/libevent-openipc/`；libevent 的本地补丁以
+`0001-ws-rfc6455-continuation-final-frame.patch` 等 patch 文件管理在该目录
+`patches/` 下（原因与验证项见其 README"本地补丁"章节），本镜像 `libevent/`
+内的源码已同步应用，条目登记在 `libevent-openipc.lock.yaml` 的
+`local_patches`。
 
 ## License 与升级纪律
 

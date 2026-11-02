@@ -10,6 +10,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/detect_mode/detect_mode.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/common/common.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/interface/interface.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/stream_process/stream_process.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/algorithm_mode/algorithm_mode.cmake)
 
 
 # 头文件

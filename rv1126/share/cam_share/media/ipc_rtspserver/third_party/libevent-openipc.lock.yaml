@@ -5,7 +5,15 @@ version: 2.2-alpha-dev
 license: BSD-3-Clause
 source_package: cam_opensource_library/libevent-openipc/libevent-2.2.2-openipc.tar.gz
 source_sha256: d76d5103220ecfe3347d99f40cbab114fbea22d7f0cb9a26edb9bc0d315ee95b
-local_patches: []
+# 本地补丁登记（source-of-truth：cam_opensource_library/libevent-openipc/patches/，
+# 原因/验证项见其 README"本地补丁"章节；镜像 third_party/libevent/ws.c 已同步应用）
+local_patches:
+  - file: 0001-ws-rfc6455-continuation-final-frame.patch
+    reason: ws.c 不支持 RFC6455 分片消息末尾续帧（opcode 0+FIN），网页传大文件必断连
+    date: 2026-10-22
+  - file: 0002-ws-auto-pong-reply.patch
+    reason: ws.c 收到 PING 不回 PONG（lws 自动回），对齐后端替换行为
+    date: 2026-10-22
 delivery:
   default: static
   components:

@@ -662,6 +662,7 @@ extern "C" {
 #define NET_ALARM_DANGER_ZONE_STAY       (NET_ALARM_BASE_RULE + 0x08) // 危险区域滞留
 #define NET_ALARM_DANGER_ZONE_APPROACH   (NET_ALARM_BASE_RULE + 0x09) // 危险区域靠近
 
+
 /**
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
  * @struct NET_AlarmAiObjectInfo_S
@@ -1347,7 +1348,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_KEY_AREA_ABNORMAL_STAY_INFO   = 611,           /* 设置重点区域异常滞留配置 参见NET_KeyAreaAbnormalStayInfo_S */
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,           /* 获取明火离人配置 参见NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,           /* 设置明火离人配置 参见NET_OpenFlameLeaveInfo_S */
-
+ 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
 }NET_CONFIG_COMMAND_E;
@@ -7306,6 +7307,7 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetIllegalLaneInfoCb(NET_CB_GetDevConfigByCommand pCb);

@@ -80,10 +80,9 @@ function(add_yolo_ultralytics_module MODULE_TYPE MODULE_NAME)
     # 设置的源文件
     target_sources(${INFERENCE_NAME} INTERFACE ${MODULE_SOURCES_LOCAL})
 
-    # 链接库路径
-    target_link_libraries(${INFERENCE_NAME} INTERFACE 
-        securec
-    )
+    # 注：原此处 INTERFACE 链接裸名 securec（CMake 展开为 -lsecurec，动态取
+    # libsecurec.so）。securec 已在 main_app 的 ss_mpi 静态段以 -lsecurec(.a)
+    # 提供，此处重复链接会把 libsecurec.so 拖回 NEEDED，故移除。
 
     # 输出信息
     message("==========> [${PROJECT_NAME}] 使用[${INFERENCE_NAME}]模块 (${MODULE_TYPE}) <===========")

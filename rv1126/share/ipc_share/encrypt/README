@@ -1,3 +1,7 @@
 数据加解密、数据唯一值接口
 md5
     说明：md5加解密、字符串md5值
+sha256
+    说明：SHA-256 摘要（流式接口）、文件 sha256 值；与 cam_share/data/osa_base/hmac_sha
+    的 sha256 同为公有域实现，此处为独立目录引用，不与 hmac_sha 整目录（含 md5lib，
+    符号与 md5/ 冲突）混用

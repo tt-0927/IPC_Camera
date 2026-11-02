@@ -1687,10 +1687,10 @@ namespace Alarm
     typedef struct _QueueCrowdingDetection_S_
     {
         bool bEnable; /* 是否启用 */
+        /* 排队拥挤检测规则（单区域） */
+        QueueCrowdingRule_S stRule;
         /* 布防时间:一周7天，每天可以设置8个时间段 */
         std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
-        /* 排队拥挤检测规则，最多设置4个 QUEUE_CROWDING_DETECT_REGION_DEFAULT */
-        std::vector<QueueCrowdingRule_S> aRule;
         /* 联动 */
         LinkageList_S stLinkageList;
 
@@ -1698,7 +1698,6 @@ namespace Alarm
         _QueueCrowdingDetection_S_() : bEnable(0), stLinkageList()
         {
             aAlarmTime.clear();
-            aRule.clear();
         }
         /* 重载赋值运算符 */
         _QueueCrowdingDetection_S_ &operator=(const _QueueCrowdingDetection_S_ &x)
@@ -1706,8 +1705,8 @@ namespace Alarm
             if (this != &x)
             {
                 bEnable = x.bEnable;
+                stRule = x.stRule;
                 aAlarmTime = x.aAlarmTime;
-                aRule = x.aRule;
                 stLinkageList = x.stLinkageList;
             }
             return *this;
@@ -1717,18 +1716,8 @@ namespace Alarm
         static _QueueCrowdingDetection_S_ CreateWithDefaultRule()
         {
             _QueueCrowdingDetection_S_ obj;
-            for (size_t i = 0; i < QUEUE_CROWDING_DETECT_REGION_DEFAULT; ++i)
-            {
-                QueueCrowdingRule_S defRegion;
-                defRegion.stRegion.nPointNum = QUEUE_CROWDING_DETECT_REGION_DEFAULT;
-                for (size_t j = 0; j < defRegion.stRegion.nPointNum; ++j)
-                {
-                    Common::PosF_S defPoint;
-                    defRegion.stRegion.aPoint.push_back(defPoint);
-                }
-                defRegion.nSensitivity = 50;
-                obj.aRule.push_back(defRegion);
-            }
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.stRule.nSensitivity = 50;
             obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
             return obj;
         }
@@ -6275,10 +6264,9 @@ typedef struct _FaceCompare_S_
     {
         Region_S stRegion;           /* 区域定义 */
         unsigned int nSensitivity;   /* 灵敏度[1,100] */
-        unsigned int nTimeThreshold; /* 行为事件触发时间阈值，判断有效报警的时间[0,100]单位（秒） */
 
         /* 默认构造函数 */
-        _FireEquipmentAbnormalRule_S_() : stRegion(), nSensitivity(50), nTimeThreshold(5)
+        _FireEquipmentAbnormalRule_S_() : stRegion(), nSensitivity(50)
         {
         }
         /* 重载赋值运算符 */
@@ -6288,7 +6276,6 @@ typedef struct _FaceCompare_S_
             {
                 stRegion = x.stRegion;
                 nSensitivity = x.nSensitivity;
-                nTimeThreshold = x.nTimeThreshold;
             }
             return *this;
         }
@@ -6300,8 +6287,8 @@ typedef struct _FaceCompare_S_
         bool bEnable; /* 是否启用 */
         /* 布防时间:一周7天，每天可以设置8个时间段 */
         std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
-        /* 消防设施异常规则，最多设置4个 */
-        std::vector<FireEquipmentAbnormalRule_S> aRule;
+        /* 消防设施异常规则（单区域） */
+        FireEquipmentAbnormalRule_S stRule;
         /* 联动 */
         LinkageList_S stLinkageList;
 
@@ -6309,7 +6296,6 @@ typedef struct _FaceCompare_S_
         _FireEquipmentAbnormalDetection_S_() : bEnable(false), stLinkageList()
         {
             aAlarmTime.clear();
-            aRule.clear();
         }
         /* 重载赋值运算符 */
         _FireEquipmentAbnormalDetection_S_ &operator=(const _FireEquipmentAbnormalDetection_S_ &x)
@@ -6319,7 +6305,7 @@ typedef struct _FaceCompare_S_
                 bEnable = x.bEnable;
                 aAlarmTime = x.aAlarmTime;
                 stLinkageList = x.stLinkageList;
-                aRule = x.aRule;
+                stRule = x.stRule;
             }
             return *this;
         }
@@ -6328,9 +6314,7 @@ typedef struct _FaceCompare_S_
         static _FireEquipmentAbnormalDetection_S_ CreateWithDefaultRule()
         {
             _FireEquipmentAbnormalDetection_S_ obj;
-            FireEquipmentAbnormalRule_S defRegion;
-            defRegion.stRegion = Region_S::CreateWithDefaultRule(4);
-            obj.aRule.push_back(defRegion);
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
             obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
             return obj;
         }
@@ -6338,6 +6322,137 @@ typedef struct _FaceCompare_S_
 
     /************************ 消防设施异常 END ************************/
     
+   /************************打架斗殴相关 START *******************/
+    /* 打架斗殴参数 */
+    typedef struct FightRule
+    {
+         Region_S stRegion;         /* 区域定义 空区域表示整幅画面参与检测 */
+        /* 灵敏度[1,100] */
+        unsigned int nSensitivity = 50;
+        /* 最小持续时间配置*/
+        unsigned int nTimeThreshold = 5;
+        /* 默认构造函数 */
+        FightRule() : nSensitivity(50), nTimeThreshold(5)
+        {
+
+        }
+        /* 重载赋值运算符 */
+        FightRule &operator=(const FightRule &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+                nTimeThreshold = x.nTimeThreshold;
+            }
+            return *this;
+        }
+    } FightRule_S;
+
+    /*  打架斗殴检测配置 */
+    typedef struct _FightDetection_S_
+    {
+        /* 是否启用 */
+        bool bEnable;
+        /* 打架斗殴规则 */
+        FightRule_S stRule;
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        DefenseTime aAlarmTime;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+        /* 默认构造函数 */
+        _FightDetection_S_() : bEnable(false), stLinkageList()
+        {
+            aAlarmTime.clear();
+            // aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+        }
+        /* 重载赋值运算符 */
+        _FightDetection_S_ &operator=(const _FightDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                stRule = x.stRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _FightDetection_S_ CreateWithDefaultRule()
+        {
+            _FightDetection_S_ obj;
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+
+    } FightDetection_S;
+    /************************打架斗殴检测相关 END *******************/
+
+    /************************ 鼠患识别相关 START *******************/
+    /* 鼠患识别规则参数 */
+    typedef struct _MouseDetectionRule_S_
+    {
+        Region_S stRegion;         /* 区域定义（单区域） */
+        unsigned int nSensitivity; /* 灵敏度[1,100]，反向映射置信度门槛 */
+
+        /* 默认构造函数 */
+        _MouseDetectionRule_S_() : stRegion(), nSensitivity(50)
+        {
+        }
+        /* 重载赋值运算符 */
+        _MouseDetectionRule_S_ &operator=(const _MouseDetectionRule_S_ &x)
+        {
+            if (this != &x)
+            {
+                stRegion = x.stRegion;
+                nSensitivity = x.nSensitivity;
+            }
+            return *this;
+        }
+    } MouseDetectionRule_S;
+
+    /* 鼠患识别配置 */
+    typedef struct _MouseDetection_S_
+    {
+        bool bEnable; /* 是否启用 */
+        /* 布防时间:一周7天，每天可以设置8个时间段 */
+        std::vector<std::vector<Common::SchedTime_S>> aAlarmTime;
+        /* 鼠患识别规则，单区域 */
+        MouseDetectionRule_S stRule;
+        /* 联动 */
+        LinkageList_S stLinkageList;
+
+        /* 默认构造函数 */
+        _MouseDetection_S_() : bEnable(0), stLinkageList()
+        {
+            aAlarmTime.clear();
+        }
+        /* 重载赋值运算符 */
+        _MouseDetection_S_ &operator=(const _MouseDetection_S_ &x)
+        {
+            if (this != &x)
+            {
+                bEnable = x.bEnable;
+                aAlarmTime = x.aAlarmTime;
+                stRule = x.stRule;
+                stLinkageList = x.stLinkageList;
+            }
+            return *this;
+        }
+
+        /* 静态方法：返回一个带有默认规则的对象 */
+        static _MouseDetection_S_ CreateWithDefaultRule()
+        {
+            _MouseDetection_S_ obj;
+            obj.stRule.stRegion = Region_S::CreateWithDefaultRule(4);
+            obj.aAlarmTime.assign(7, std::vector<Common::SchedTime_S>(1));
+            return obj;
+        }
+    } MouseDetection_S;
+    /************************ 鼠患识别相关 END *******************/
+
     /************************ 平安校园相关 END ************************/
 #endif /* SCENE_INTELLIGENCE */
 

@@ -1,10 +1,9 @@
-/**
- * @file face_recognition.cpp
- * @brief 人脸识别算法运行模块
- * @Date 原始创建日期未记录
- * @Author ITC
- * @Change 2026-10-09 沿用旧算法的 SDK 组包与告警接口，补齐合并人脸配置的抓拍推送。
- * @Change 2026-10-09 补齐人脸识别事件的目标小图负载，保持小图与告警目标框一致。
+/*
+ * @Author: zhengxh
+ * @Date: 2026-09-24 08:45:07
+ * @LastEditors: zhengxh
+ * @LastEditTime: 2026-10-21 10:52:55
+ * @Description: 人脸相关事件处理
  */
 
 #include "face_recognition.hpp"
@@ -14,6 +13,7 @@
 #include "convert_interface.h"
 #include "dlog.h"
 #include "event_configure.h"
+#include "face_detect_model.hpp"
 #include "storage_manage.h"
 #include "stream_video.h"
 #include "task_publish.h"
@@ -40,13 +40,14 @@
 
 namespace
 {
-constexpr float FACE_DETECT_THRESHOLD = 0.5F;
+constexpr float FACE_DETECT_MODEL_THRESHOLD = 0.1F; /* 检测模型输入阈值，放宽到灵敏度映射下限 */
 constexpr float FACE_QUALITY_THRESHOLD = 0.05F;
 constexpr int FACE_QUALITY_WIDTH = 112;
 constexpr int FACE_QUALITY_HEIGHT = 112;
 constexpr int FACE_ATTRIBUTE_WIDTH = 192;
 constexpr int FACE_ATTRIBUTE_HEIGHT = 192;
-constexpr int DEFAULT_MIN_IPD = 20;
+constexpr int FACE_EXPRESSION_WIDTH = 224;
+constexpr int FACE_EXPRESSION_HEIGHT = 224;
 constexpr float FACE_CLOSEUP_MARGIN_X = 1.0F;
 constexpr float FACE_CLOSEUP_MARGIN_TOP = 0.8F;
 constexpr float FACE_CLOSEUP_MARGIN_BOTTOM = 1.5F;
@@ -93,7 +94,7 @@ static bool face_recognition_encode_capture_image(const cv::Mat &stImage,
  * @param [out] stCropRect 全景像素目标框，不等同于缩放或扩边后的 JPEG 尺寸。
  * @return 存在有效目标区域返回 true，否则返回 false。
  */
-static bool face_recognition_get_capture_rect(const FaceDetect_NS::Result_S &stResult,
+static bool face_recognition_get_capture_rect(const FaceDetectedTarget_S &stResult,
                                               const cv::Size &stImageSize,
                                               cv::Rect &stCropRect)
 {
@@ -158,9 +159,9 @@ cv::Scalar parseOverlayColor(const std::string &strColor)
 }
 
 int findSameFaceTargetIndex(
-    const std::vector<FaceDetect_NS::Result_S> &vstLastTargets,
+    const std::vector<FaceDetectedTarget_S> &vstLastTargets,
     const std::vector<bool> &vbMatchedTargets,
-    const FaceDetect_NS::Result_S &stCurrentTarget)
+    const FaceDetectedTarget_S &stCurrentTarget)
 {
     for (size_t i = 0; i < vstLastTargets.size(); ++i)
     {
@@ -235,11 +236,6 @@ CFaceRecognition::~CFaceRecognition()
         m_thread.join();
     }
 
-    std::vector<Common::RectInfo_S> vstEmptyRect;
-    send_detectionResult_to_osd(
-        CONFIG_PIXEL_WIDTH,
-        CONFIG_PIXEL_HEIGHT,
-        vstEmptyRect);
     m_faceRecognitionStateMachine.endAlarmImmediately(Event::Type_E::FACE_RECOGNITION);
     unInit();
     dlog_info("ai_app: 人脸识别算法模块释放");
@@ -266,68 +262,101 @@ void CFaceRecognition::recvMediaData(MediaData_S stMediaData)
 
 void CFaceRecognition::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
 {
-    if (!stAlgoConfig.nEnFaceRecognition)
+    const bool bFaceArmed = stAlgoConfig.nEnFaceRecognition != 0;
+    const bool bSocialArmed = stAlgoConfig.nSocialRelationshipAnalysis != 0;
+    const bool bKitchenArmed = stAlgoConfig.nKitchenUnrelatedPersonEntry != 0;
+
+    if (!bFaceArmed && !bSocialArmed && !bKitchenArmed)
     {
         m_bEnabled.store(false);
-        {
-            std::lock_guard<std::mutex> lock(m_attributeTargetMutex);
-            m_vstLastAttributeTargets.clear();
-        }
-        dlog_info("ai_app: 人脸识别退出布防时间");
+        m_vstLastAttributeTargets.clear();
+        dlog_info("ai_app: 人脸识别/社交关系分析/后厨无关人员进入退出布防时间");
         return;
     }
 
-    Alarm::FaceRecognition_S stConfig;
-    CEventConfigure::instance()->get_configure(stConfig);
-
-    bool bClearDynamicAnalysis = false;
+    bool bFaceEnabled = false;
+    if (bFaceArmed)
     {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        bClearDynamicAnalysis = m_stRuntimeConfig.bDynamicAnalysisEnable &&
-                                !stConfig.bDynamicAnalysisEnable;
+        Alarm::FaceRecognition_S stConfig;
+        CEventConfigure::instance()->get_configure(stConfig);
+        updateFaceConfig(stConfig);
+        bFaceEnabled = stConfig.bEnable;
     }
-    updateRuntimeConfig(stConfig);
-
-    if (bClearDynamicAnalysis)
+    else
     {
-        std::vector<Common::RectInfo_S> vstEmptyRect;
-        send_detectionResult_to_osd(
-            CONFIG_PIXEL_WIDTH,
-            CONFIG_PIXEL_HEIGHT,
-            vstEmptyRect);
+        m_stFaceConfig.bEnable = false;
     }
 
-    const bool bEnabled = stConfig.bEnable;
-    m_bEnabled.store(bEnabled);
-    dlog_info("ai_app: 更新人脸识别配置, 运行[%d] 抓拍[%d] 属性分析[%d] 动态分析[%d]",
-              bEnabled,
-              stConfig.bCaptureEnable,
-              stConfig.bAttributeAnalysisEnable,
-              stConfig.bDynamicAnalysisEnable);
+    bool bSocialEnabled = false;
+    if (bSocialArmed)
+    {
+        Alarm::SocialRelationshipAnalysis_S stSocialConfig;
+        CEventConfigure::instance()->get_configure(stSocialConfig);
+        setAlgoParamCfg(stSocialConfig);
+        bSocialEnabled = stSocialConfig.bEnable;
+    }
+    else
+    {
+        m_stSocialConfig.bEnable = false;
+    }
+
+    bool bKitchenEnabled = false;
+    if (bKitchenArmed)
+    {
+        Alarm::KitchenUnrelatedPersonEntry_S stKitchenConfig;
+        CEventConfigure::instance()->get_configure(stKitchenConfig);
+        setAlgoParamCfg(stKitchenConfig);
+        bKitchenEnabled = stKitchenConfig.bEnable;
+    }
+    else
+    {
+        m_stKitchenConfig.bEnable = false;
+    }
+
+    m_bEnabled.store(bFaceEnabled || bSocialEnabled || bKitchenEnabled);
+    dlog_info("ai_app: 更新人脸识别/社交关系分析/后厨无关人员进入配置, 人脸运行[%d] 社交运行[%d] 后厨运行[%d]",
+              bFaceEnabled,
+              bSocialEnabled,
+              bKitchenEnabled);
 }
 
-void CFaceRecognition::updateRuntimeConfig(const Alarm::FaceRecognition_S &stConfig)
+void CFaceRecognition::setAlgoParamCfg(
+    const Alarm::SocialRelationshipAnalysis_S &stAlgoCfg,
+    Event::Type_E enType)
 {
-    Alarm::FaceRecognition_S stRuntimeConfig = stConfig;
+    dlog_debug("ai_app: 设置社交关系分析参数, 类型[%d]", static_cast<int>(enType));
+    m_stSocialConfig = stAlgoCfg;
+    m_socialRelationshipProcessor.setRules(stAlgoCfg);
+}
+
+void CFaceRecognition::setAlgoParamCfg(
+    const Alarm::KitchenUnrelatedPersonEntry_S &stAlgoCfg,
+    Event::Type_E enType)
+{
+    dlog_debug("ai_app: 设置后厨无关人员进入参数, 类型[%d]", static_cast<int>(enType));
+    m_stKitchenConfig = stAlgoCfg;
+    m_kitchenUnrelatedProcessor.setRules(stAlgoCfg);
+}
+
+void CFaceRecognition::updateFaceConfig(const Alarm::FaceRecognition_S &stConfig)
+{
+    Alarm::FaceRecognition_S stFaceConfig = stConfig;
     const long lDetectIntervalMs =
-        static_cast<long>(std::max(1, stRuntimeConfig.stCaptureRule.nInterval)) * 1000L;
+        static_cast<long>(std::max(1, stFaceConfig.stCaptureRule.nInterval)) * 1000L;
 
-    bool bResetAttributeTargets = false;
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        bResetAttributeTargets =
-            m_stRuntimeConfig.bEnable != stRuntimeConfig.bEnable ||
-            m_stRuntimeConfig.bAttributeAnalysisEnable !=
-                stRuntimeConfig.bAttributeAnalysisEnable;
-        m_stRuntimeConfig = std::move(stRuntimeConfig);
-    }
+    const bool bResetAttributeTargets =
+        m_stFaceConfig.bEnable != stFaceConfig.bEnable ||
+        m_stFaceConfig.bAttributeAnalysisEnable !=
+            stFaceConfig.bAttributeAnalysisEnable;
+    m_stFaceConfig = std::move(stFaceConfig);
+    /* 处理器规则与模块配置同源更新 */
+    m_faceRecognitionProcessor.setRules(stConfig);
 
-    /* 抓拍间隔作为整个人脸识别事件的检测间隔使用。 */
-    m_recvManager.setTimeWindow(lDetectIntervalMs);
+    /* 抓拍间隔仅作为人脸识别事件的消费节拍，检测入口保持固定间隔 */
+    m_faceCaptureManager.setTimeWindow(lDetectIntervalMs);
 
     if (bResetAttributeTargets)
     {
-        std::lock_guard<std::mutex> lock(m_attributeTargetMutex);
         m_vstLastAttributeTargets.clear();
     }
 }
@@ -336,11 +365,7 @@ bool CFaceRecognition::init()
 {
     if (!m_pFaceDetectHandle)
     {
-        FaceDetect_NS::InParam_S stDetectParam;
-        stDetectParam.strModelPath = "/opt/cam/model/FaceDetect.json";
-        stDetectParam.bDebug = false;
-
-        m_pFaceDetectHandle = new FaceDetect_NS::CFaceDetectV1_0(stDetectParam);
+        m_pFaceDetectHandle = new CFaceDetectModel(FACE_DETECT_MODEL_CONFIG_PATH);
         if (!m_pFaceDetectHandle || !m_pFaceDetectHandle->init())
         {
             delete m_pFaceDetectHandle;
@@ -353,11 +378,7 @@ bool CFaceRecognition::init()
 
     if (!m_pFaceQualityHandle)
     {
-        FaceQualityAssessment_NS::InParam_S stQualityParam;
-        stQualityParam.strModelPath = "/opt/cam/model/FaceEvaluate.json";
-        stQualityParam.bDebug = false;
-
-        m_pFaceQualityHandle = new FaceQualityAssessment_NS::CFaceQualityAssessmentV1_0(stQualityParam);
+        m_pFaceQualityHandle = new CFaceQualityModel(FACE_QUALITY_MODEL_CONFIG_PATH);
         if (!m_pFaceQualityHandle || !m_pFaceQualityHandle->init())
         {
             delete m_pFaceQualityHandle;
@@ -390,6 +411,12 @@ void CFaceRecognition::unInit()
         delete m_pFaceAttributeHandle;
         m_pFaceAttributeHandle = nullptr;
     }
+
+    if (m_pFaceExpressionHandle)
+    {
+        delete m_pFaceExpressionHandle;
+        m_pFaceExpressionHandle = nullptr;
+    }
 }
 
 bool CFaceRecognition::initAttributeModel()
@@ -399,11 +426,7 @@ bool CFaceRecognition::initAttributeModel()
         return true;
     }
 
-    FaceAttribute_NS::InParam_S stAttributeParam;
-    stAttributeParam.strModelPath = "/opt/cam/model/FaceAttribute.json";
-    stAttributeParam.bDebug = false;
-
-    m_pFaceAttributeHandle = new FaceAttribute_NS::CFaceAttributeV1_0(stAttributeParam);
+    m_pFaceAttributeHandle = new CFaceAttributeModel(FACE_ATTRIBUTE_MODEL_CONFIG_PATH);
     if (!m_pFaceAttributeHandle || !m_pFaceAttributeHandle->init())
     {
         delete m_pFaceAttributeHandle;
@@ -416,68 +439,28 @@ bool CFaceRecognition::initAttributeModel()
     return true;
 }
 
-bool CFaceRecognition::isInRegion(const Alarm::Region_S &stRegion,
-                               const FaceDetect_NS::Result_S &stResult) const
+bool CFaceRecognition::initExpressionModel()
 {
-    if (!isRegionConfigured(stRegion))
+    if (m_pFaceExpressionHandle)
     {
+        return true;
+    }
+
+    m_pFaceExpressionHandle = new CFaceExpression(FACE_EXPRESSION_MODEL_CONFIG_PATH);
+    if (!m_pFaceExpressionHandle || !m_pFaceExpressionHandle->init())
+    {
+        delete m_pFaceExpressionHandle;
+        m_pFaceExpressionHandle = nullptr;
+        dlog_error("ai_app: 人脸识别表情模型初始化失败");
         return false;
     }
 
-    const float fCenterX = (stResult.fX1 + stResult.fX2) * 0.5F;
-    const float fCenterY = (stResult.fY1 + stResult.fY2) * 0.5F;
-    int nIntersectCount = 0;
-    constexpr float EPSILON = 1e-6F;
-
-    for (size_t i = 0; i < stRegion.nPointNum; ++i)
-    {
-        const Common::PosF_S &stPoint1 = stRegion.aPoint[i];
-        const Common::PosF_S &stPoint2 =
-            stRegion.aPoint[(i + 1) % stRegion.nPointNum];
-        const float fDeltaY = stPoint2.fY - stPoint1.fY;
-        if (std::abs(fDeltaY) < EPSILON)
-        {
-            continue;
-        }
-
-        if ((stPoint1.fY > fCenterY) != (stPoint2.fY > fCenterY))
-        {
-            const float fIntersectX = (stPoint2.fX - stPoint1.fX) *
-                                          (fCenterY - stPoint1.fY) / fDeltaY +
-                                      stPoint1.fX;
-            if (fCenterX < fIntersectX)
-            {
-                ++nIntersectCount;
-            }
-        }
-    }
-
-    return nIntersectCount % 2 == 1;
-}
-
-bool CFaceRecognition::isRegionConfigured(const Alarm::Region_S &stRegion) const
-{
-    if (!stRegion.IsValid())
-    {
-        return false;
-    }
-
-    double dTwiceArea = 0.0;
-    for (size_t i = 0; i < stRegion.nPointNum; ++i)
-    {
-        const Common::PosF_S &stPoint1 = stRegion.aPoint[i];
-        const Common::PosF_S &stPoint2 =
-            stRegion.aPoint[(i + 1) % stRegion.nPointNum];
-        dTwiceArea += static_cast<double>(stPoint1.fX) * stPoint2.fY -
-                      static_cast<double>(stPoint2.fX) * stPoint1.fY;
-    }
-
-    constexpr double MIN_REGION_TWICE_AREA = 1e-3;
-    return std::abs(dTwiceArea) > MIN_REGION_TWICE_AREA;
+    dlog_info("ai_app: 人脸识别表情模型初始化成功");
+    return true;
 }
 
 bool CFaceRecognition::evaluateFaceQuality(const cv::Mat &stRgbImage,
-                                            const FaceDetect_NS::Result_S &stResult,
+                                            const FaceDetectedTarget_S &stResult,
                                             float &fQualityScore)
 {
     if (!m_pFaceQualityHandle || stRgbImage.empty())
@@ -485,7 +468,7 @@ bool CFaceRecognition::evaluateFaceQuality(const cv::Mat &stRgbImage,
         return false;
     }
 
-    FaceQualityAssessment_NS::InData_S stQualityInput;
+    CFaceQualityModel::InData_S stQualityInput;
     if (!cropFaceForModel(
             stRgbImage,
             stResult,
@@ -496,11 +479,11 @@ bool CFaceRecognition::evaluateFaceQuality(const cv::Mat &stRgbImage,
         return false;
     }
 
-    return m_pFaceQualityHandle->process(stQualityInput, fQualityScore);
+    return m_pFaceQualityHandle->process(stQualityInput, fQualityScore) == 0;
 }
 
 bool CFaceRecognition::cropFaceForModel(const cv::Mat &stRgbImage,
-                                        const FaceDetect_NS::Result_S &stResult,
+                                        const FaceDetectedTarget_S &stResult,
                                         int nWidth,
                                         int nHeight,
                                         cv::Mat &stFaceImage) const
@@ -525,46 +508,17 @@ bool CFaceRecognition::cropFaceForModel(const cv::Mat &stRgbImage,
     return fillRGBToCenter(stRgbImage, stFaceRoi, stFaceImage);
 }
 
-bool CFaceRecognition::isCaptureCandidate(
-    const FaceDetect_NS::Result_S &stResult,
-    const Alarm::FaceRecognitionCaptureRule_S &stRule) const
-{
-    for (const auto &stShieldedRegion : stRule.vstShieldedRegion)
-    {
-        if (isRegionConfigured(stShieldedRegion) &&
-            isInRegion(stShieldedRegion, stResult))
-        {
-            return false;
-        }
-    }
-
-    int nMinIpd = DEFAULT_MIN_IPD;
-    if (!stRule.stMinIpdRect.isEmpty() &&
-        stRule.stMinIpdRect.IsValid())
-    {
-        nMinIpd = stRule.stMinIpdRect.nWidth;
-    }
-
-    if (stResult.vPoint.size() < 4)
-    {
-        return false;
-    }
-
-    const float fIpd = std::abs(stResult.vPoint[2] - stResult.vPoint[0]);
-    return fIpd >= static_cast<float>(nMinIpd);
-}
-
 bool CFaceRecognition::analyzeFaceAttribute(
     const cv::Mat &stRgbImage,
-    const FaceDetect_NS::Result_S &stResult,
-    FaceAttribute_NS::Result_S &stAttributeResult)
+    const FaceDetectedTarget_S &stResult,
+    FaceAttributeTarget_S &stAttributeResult)
 {
     if (!initAttributeModel())
     {
         return false;
     }
 
-    FaceAttribute_NS::InData_S stAttributeInput;
+    CFaceAttributeModel::InData_S stAttributeInput;
     if (!cropFaceForModel(
             stRgbImage,
             stResult,
@@ -575,15 +529,34 @@ bool CFaceRecognition::analyzeFaceAttribute(
         return false;
     }
 
-    std::vector<FaceAttribute_NS::Result_S> vstAttributeResult;
-    if (!m_pFaceAttributeHandle->process(stAttributeInput, vstAttributeResult) ||
-        vstAttributeResult.empty())
+    return m_pFaceAttributeHandle->process(stAttributeInput, stAttributeResult) == 0;
+}
+
+bool CFaceRecognition::analyzeFaceExpression(
+    const cv::Mat &stRgbImage,
+    const FaceDetectedTarget_S &stResult,
+    int &nExpressionLabel)
+{
+    nExpressionLabel = -1;
+
+    if (!initExpressionModel())
     {
         return false;
     }
 
-    stAttributeResult = vstAttributeResult.front();
-    return true;
+    CFaceExpression::InData_S stExpressionInput;
+    if (!cropFaceForModel(
+            stRgbImage,
+            stResult,
+            FACE_EXPRESSION_WIDTH,
+            FACE_EXPRESSION_HEIGHT,
+            stExpressionInput.inMat))
+    {
+        return false;
+    }
+
+    nExpressionLabel = m_pFaceExpressionHandle->process(stExpressionInput);
+    return nExpressionLabel >= 0;
 }
 
 bool CFaceRecognition::prepareFrameContext(
@@ -603,24 +576,6 @@ bool CFaceRecognition::prepareFrameContext(
     stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch())
                                 .count();
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        stContext.stConfig = m_stRuntimeConfig;
-    }
-    stContext.stConfig.stRegion.ConvertResolution(
-        CONFIG_PIXEL_WIDTH,
-        CONFIG_PIXEL_HEIGHT,
-        nFrameWidth,
-        nFrameHeight);
-    for (auto &stShieldedRegion :
-         stContext.stConfig.stCaptureRule.vstShieldedRegion)
-    {
-        stShieldedRegion.ConvertResolution(
-            CONFIG_PIXEL_WIDTH,
-            CONFIG_PIXEL_HEIGHT,
-            nFrameWidth,
-            nFrameHeight);
-    }
 
     CloseupFrame_S stCloseupFrame;
     if (CStreamVideo::instance()->grabFaceCloseupSource(
@@ -666,159 +621,102 @@ bool CFaceRecognition::prepareFrameContext(
             m_stPanoramaRgbImage,
             cv::COLOR_YUV2RGB_NV12);
     }
-    stContext.stPanoramaImage.stImage = m_stPanoramaRgbImage;
-    return !stContext.stPanoramaImage.stImage.empty();
+    stContext.matPanoramaImage = m_stPanoramaRgbImage;
+    return !stContext.matPanoramaImage.empty();
 }
 
-bool CFaceRecognition::detectFaces(FrameContext_S &stContext)
+void CFaceRecognition::detectFaces(DetectContext_S &stDetectContext)
 {
-    FaceDetect_NS::InData_S stDetectInput;
-    FaceDetect_NS::OutData_S stDetectOutput;
-    std::vector<FaceDetect_NS::Result_S> vstDetectedResults;
-    stDetectInput.nChnId = stContext.nChannelId;
-    stDetectInput.stParam.fBoxThreshold = FACE_DETECT_THRESHOLD;
-    stDetectInput.inMat = stContext.stPanoramaImage.stImage;
+    std::vector<FaceTargetResult_S> &vstTargetResults = stDetectContext.vstDetectResult;
+    vstTargetResults.clear();
 
-    if (!m_pFaceDetectHandle->process(
-            stDetectInput,
-            vstDetectedResults,
-            &stDetectOutput))
+    std::vector<FaceDetectedTarget_S> vstDetectedTargets;
+    CFaceDetectModel::InData_S stDetectInput;
+    stDetectInput.stParam.fBoxThreshold = FACE_DETECT_MODEL_THRESHOLD;
+    stDetectInput.inMat = stDetectContext.stFrame.matPanoramaImage;
+    if (m_pFaceDetectHandle->process(stDetectInput, vstDetectedTargets) != 0)
     {
         dlog_error("ai_app: 人脸识别检测失败");
-        return false;
+        return;
     }
 
-    stContext.vstTargets.clear();
-    stContext.vstTargets.reserve(vstDetectedResults.size());
-    for (auto &stResult : vstDetectedResults)
+    vstTargetResults.reserve(vstDetectedTargets.size());
+    for (auto &stDetected : vstDetectedTargets)
     {
-        stContext.vstTargets.emplace_back(std::move(stResult));
-    }
-    return true;
-}
-
-void CFaceRecognition::filterDetectionResults(FrameContext_S &stContext) const
-{
-    const bool bRegionConfigured = isRegionConfigured(stContext.stConfig.stRegion);
-    const auto iter = std::remove_if(
-        stContext.vstTargets.begin(),
-        stContext.vstTargets.end(),
-        [this, &stContext, bRegionConfigured](const TargetResult_S &stTarget) {
-            const FaceDetect_NS::Result_S &stResult = stTarget.stDetectResult;
-            return stResult.fBoxConfidence < FACE_DETECT_THRESHOLD ||
-                   (bRegionConfigured &&
-                    !isInRegion(stContext.stConfig.stRegion, stResult));
-        });
-    stContext.vstTargets.erase(iter, stContext.vstTargets.end());
-}
-
-void CFaceRecognition::processQualityAssessment(FrameContext_S &stContext)
-{
-    stContext.nBestTargetIndex = -1;
-
-    auto iter = stContext.vstTargets.begin();
-    while (iter != stContext.vstTargets.end())
-    {
+        /* 检测默认绑定质量评估，评估失败保持0分 */
         float fQualityScore = 0.0F;
-        if (!evaluateFaceQuality(
-                stContext.stPanoramaImage.stImage,
-                iter->stDetectResult,
-                fQualityScore) ||
-            fQualityScore < FACE_QUALITY_THRESHOLD)
-        {
-            iter = stContext.vstTargets.erase(iter);
-            continue;
-        }
-        iter->fQualityScore = fQualityScore;
-        ++iter;
+        evaluateFaceQuality(stDetectContext.stFrame.matPanoramaImage, stDetected, fQualityScore);
+        vstTargetResults.emplace_back(std::move(stDetected));
+        vstTargetResults.back().fQualityScore = fQualityScore;
     }
+}
 
-    for (size_t i = 0; i < stContext.vstTargets.size(); ++i)
+const FaceTargetResult_S *CFaceRecognition::getBestTarget(
+    const std::vector<FaceTargetResult_S> &vstTargetResults) const
+{
+    const FaceTargetResult_S *pBestTarget = nullptr;
+    for (const auto &stTarget : vstTargetResults)
     {
-        const TargetResult_S *pBestTarget = getBestTarget(stContext);
-        if (!pBestTarget ||
-            stContext.vstTargets[i].stDetectResult.fBoxConfidence >
-                pBestTarget->stDetectResult.fBoxConfidence)
+        if (pBestTarget == nullptr ||
+            stTarget.fQualityScore > pBestTarget->fQualityScore)
         {
-            stContext.nBestTargetIndex = static_cast<int>(i);
+            pBestTarget = &stTarget;
         }
     }
+    return pBestTarget;
 }
 
-CFaceRecognition::TargetResult_S *CFaceRecognition::getBestTarget(
-    FrameContext_S &stContext)
+void CFaceRecognition::processAlgorithms(DetectContext_S &stDetectContext)
 {
-    if (stContext.nBestTargetIndex < 0 ||
-        static_cast<size_t>(stContext.nBestTargetIndex) >= stContext.vstTargets.size())
-    {
-        return nullptr;
-    }
-    return &stContext.vstTargets[stContext.nBestTargetIndex];
+    detectFaces(stDetectContext);
+    // 属性识别
+    processAttributeAnalysis(stDetectContext);
+    // 情绪识别
+    processExpressionAnalysis(stDetectContext);
 }
 
-const CFaceRecognition::TargetResult_S *CFaceRecognition::getBestTarget(
-    const FrameContext_S &stContext) const
+void CFaceRecognition::processAttributeAnalysis(DetectContext_S &stDetectContext)
 {
-    if (stContext.nBestTargetIndex < 0 ||
-        static_cast<size_t>(stContext.nBestTargetIndex) >= stContext.vstTargets.size())
-    {
-        return nullptr;
-    }
-    return &stContext.vstTargets[stContext.nBestTargetIndex];
-}
-
-void CFaceRecognition::processAttributeAnalysis(FrameContext_S &stContext)
-{
-    if (!stContext.stConfig.bAttributeAnalysisEnable)
+    /* 属性分析按需事件的并集：人脸属性分析或后厨无口罩判定任一启用即执行 */
+    const bool bFaceAttributeNeeded = m_stFaceConfig.bEnable &&
+                                      m_stFaceConfig.bAttributeAnalysisEnable;
+    if (!bFaceAttributeNeeded && !m_stKitchenConfig.bEnable)
     {
         return;
     }
 
-    for (auto &stTarget : stContext.vstTargets)
+    for (auto &stTarget : stDetectContext.vstDetectResult)
     {
         stTarget.bAttributeReady = analyzeFaceAttribute(
-            stContext.stPanoramaImage.stImage,
+            stDetectContext.stFrame.matPanoramaImage,
             stTarget.stDetectResult,
             stTarget.stAttributeResult);
     }
 }
 
-bool CFaceRecognition::processAlgorithms(FrameContext_S &stContext)
+void CFaceRecognition::processExpressionAnalysis(DetectContext_S &stDetectContext)
 {
-    if (!detectFaces(stContext))
-    {
-        return false;
-    }
-
-    filterDetectionResults(stContext);
-    processQualityAssessment(stContext);
-    processAttributeAnalysis(stContext);
-    return true;
-}
-
-void CFaceRecognition::processCapturePolicy(FrameContext_S &stContext)
-{
-    if (!stContext.stConfig.bCaptureEnable || stContext.vstTargets.empty())
+    if (!m_stFaceConfig.bEnable || !m_stFaceConfig.bFaceExpressionEnable)
     {
         return;
     }
 
-    for (auto &stTarget : stContext.vstTargets)
+    for (auto &stTarget : stDetectContext.vstDetectResult)
     {
-        if (isCaptureCandidate(
-                stTarget.stDetectResult,
-                stContext.stConfig.stCaptureRule))
-        {
-            stTarget.bCaptureTriggered = true;
-        }
+        stTarget.bExpressionReady = analyzeFaceExpression(
+            stDetectContext.stFrame.matPanoramaImage,
+            stTarget.stDetectResult,
+            stTarget.nExpressionLabel);
     }
 }
 
-void CFaceRecognition::processAttributePushPolicy(FrameContext_S &stContext)
+void CFaceRecognition::updateAttributePushFlags(
+    const std::vector<FaceTargetResult_S> &vstTargets,
+    const Alarm::FaceRecognition_S &stConfig,
+    std::vector<bool> &vbPushFlags)
 {
-    std::lock_guard<std::mutex> lock(m_attributeTargetMutex);
-    if (!stContext.stConfig.bAttributeAnalysisEnable ||
-        stContext.vstTargets.empty())
+    vbPushFlags.assign(vstTargets.size(), false);
+    if (!stConfig.bEnable || !stConfig.bAttributeAnalysisEnable)
     {
         m_vstLastAttributeTargets.clear();
         return;
@@ -827,8 +725,9 @@ void CFaceRecognition::processAttributePushPolicy(FrameContext_S &stContext)
     std::vector<bool> vbMatchedTargets(
         m_vstLastAttributeTargets.size(),
         false);
-    for (auto &stTarget : stContext.vstTargets)
+    for (size_t i = 0; i < vstTargets.size(); ++i)
     {
+        const FaceTargetResult_S &stTarget = vstTargets[i];
         if (!stTarget.bAttributeReady)
         {
             continue;
@@ -838,7 +737,7 @@ void CFaceRecognition::processAttributePushPolicy(FrameContext_S &stContext)
             m_vstLastAttributeTargets,
             vbMatchedTargets,
             stTarget.stDetectResult);
-        stTarget.bAttributePushTriggered = nMatchedIndex < 0;
+        vbPushFlags[i] = nMatchedIndex < 0;
         if (nMatchedIndex >= 0)
         {
             vbMatchedTargets[static_cast<size_t>(nMatchedIndex)] = true;
@@ -846,8 +745,8 @@ void CFaceRecognition::processAttributePushPolicy(FrameContext_S &stContext)
     }
 
     m_vstLastAttributeTargets.clear();
-    m_vstLastAttributeTargets.reserve(stContext.vstTargets.size());
-    for (const auto &stTarget : stContext.vstTargets)
+    m_vstLastAttributeTargets.reserve(vstTargets.size());
+    for (const auto &stTarget : vstTargets)
     {
         if (stTarget.bAttributeReady)
         {
@@ -1000,16 +899,13 @@ bool CFaceRecognition::cropCloseupImageByRga(
     return true;
 }
 
-bool CFaceRecognition::ensureTargetImage(
-    FrameContext_S &stContext,
-    TargetResult_S &stTarget)
+cv::Mat CFaceRecognition::cropTargetImage(
+    const FrameContext_S &stContext,
+    const FaceTargetResult_S &stTarget) const
 {
-    if (!stTarget.stTargetImage.stImage.empty())
-    {
-        return true;
-    }
+    cv::Mat stTargetBgrImage;
 
-    const FaceDetect_NS::Result_S &stResult = stTarget.stDetectResult;
+    const FaceDetectedTarget_S &stResult = stTarget.stDetectResult;
     const cv::Rect2f stFaceRect(
         stResult.fX1,
         stResult.fY1,
@@ -1019,12 +915,11 @@ bool CFaceRecognition::ensureTargetImage(
     const CloseupSource_S &stCloseupSource = stContext.stCloseupSource;
     if (stCloseupSource.isValid())
     {
-        cv::Mat stCloseupBgrImage;
         bool bCropSuccess = cropCloseupImageByRga(
             stCloseupSource,
             stFaceRect,
-            stContext.stPanoramaImage.stImage.size(),
-            stCloseupBgrImage);
+            stContext.matPanoramaImage.size(),
+            stTargetBgrImage);
         if (!bCropSuccess)
         {
             bCropSuccess = cropTargetImageNv12(
@@ -1035,8 +930,8 @@ bool CFaceRecognition::ensureTargetImage(
                 stCloseupSource.nVirWidth,
                 stCloseupSource.nVirHeight,
                 stFaceRect,
-                stContext.stPanoramaImage.stImage.size(),
-                stCloseupBgrImage,
+                stContext.matPanoramaImage.size(),
+                stTargetBgrImage,
                 FACE_CLOSEUP_MARGIN_X,
                 FACE_CLOSEUP_MARGIN_TOP,
                 FACE_CLOSEUP_MARGIN_BOTTOM,
@@ -1045,42 +940,41 @@ bool CFaceRecognition::ensureTargetImage(
         if (bCropSuccess)
         {
             const int nShortSide = std::min(
-                stCloseupBgrImage.cols,
-                stCloseupBgrImage.rows);
+                stTargetBgrImage.cols,
+                stTargetBgrImage.rows);
             if (nShortSide > 0 && nShortSide < FACE_CLOSEUP_MIN_SIDE)
             {
                 const double dScale =
                     static_cast<double>(FACE_CLOSEUP_MIN_SIDE) / nShortSide;
                 cv::resize(
-                    stCloseupBgrImage,
-                    stCloseupBgrImage,
+                    stTargetBgrImage,
+                    stTargetBgrImage,
                     cv::Size(),
                     dScale,
                     dScale,
                     cv::INTER_CUBIC);
             }
-            stTarget.stTargetImage.stImage = std::move(stCloseupBgrImage);
-            return true;
+            return stTargetBgrImage;
         }
         dlog_warn("ai_app: 人脸识别特写源裁剪失败, 回退全景图裁剪");
     }
 
+    cv::Mat stFaceImage;
     if (!cropTargetImageFace(
-            stContext.stPanoramaImage.stImage,
+            stContext.matPanoramaImage,
             stFaceRect,
-            stContext.stPanoramaImage.stImage.size(),
-            stTarget.stTargetImage.stImage))
+            stContext.matPanoramaImage.size(),
+            stFaceImage))
     {
         dlog_warn("ai_app: 人脸识别目标小图裁剪失败");
-        return false;
+        return {};
     }
 
     cv::cvtColor(
-        stTarget.stTargetImage.stImage,
-        stTarget.stTargetImage.stImage,
+        stFaceImage,
+        stTargetBgrImage,
         cv::COLOR_RGB2BGR);
-
-    return true;
+    return stTargetBgrImage;
 }
 
 void CFaceRecognition::addCaptureOverlay(cv::Mat &stBgrImage) const
@@ -1243,168 +1137,136 @@ bool CFaceRecognition::saveCaptureRecord(
     return Db::CCaptureDatabase::instance()->update(stDirectoryInfo) >= 0;
 }
 
-void CFaceRecognition::ensureImageTimeInfo(
-    FrameContext_S &stContext,
-    ImageSaveInfo_S &stImageInfo) const
+void CFaceRecognition::saveAlarmImages(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets,
+    const Alarm::FaceRecognition_S &stConfig,
+    const std::vector<bool> &vbPushFlags,
+    FrameCaptureResult_S &stResult)
 {
-    ImageSaveInfo_S &stPanoramaImage = stContext.stPanoramaImage;
-    if (stPanoramaImage.strImageDate.empty())
-    {
-        stPanoramaImage.strImageDate = TimeUtils_NS::get_currentDate();
-        stPanoramaImage.strImageTime = TimeUtils_NS::get_currentTimeMs();
-        stPanoramaImage.strCaptureTime =
-            TimeUtils_NS::get_currentDateAndTimeNoT();
-    }
-
-    if (stImageInfo.strImageDate.empty())
-    {
-        stImageInfo.strImageDate = stPanoramaImage.strImageDate;
-        stImageInfo.strImageTime = stPanoramaImage.strImageTime;
-        stImageInfo.strCaptureTime = stPanoramaImage.strCaptureTime;
-    }
-}
-
-bool CFaceRecognition::ensurePanoramaImageSaved(FrameContext_S &stContext)
-{
-    ImageSaveInfo_S &stPanoramaImage = stContext.stPanoramaImage;
-    if (!stPanoramaImage.strImagePath.empty())
-    {
-        return true;
-    }
-    if (stPanoramaImage.stImage.empty())
-    {
-        return false;
-    }
-
-    ensureImageTimeInfo(stContext, stPanoramaImage);
-    cv::Mat stPanoramaBgrImage;
-    cv::cvtColor(
-        stPanoramaImage.stImage,
-        stPanoramaBgrImage,
-        cv::COLOR_RGB2BGR);
-    addCaptureOverlay(stPanoramaBgrImage);
-    stPanoramaImage.strImagePath = saveCaptureImage(
-        stPanoramaBgrImage,
-        Alarm::UPLOAD_PANORAMIC_IMAGE,
-        stPanoramaImage.strImageDate,
-        stPanoramaImage.strImageTime,
-        JPEG_QUALITY_PANORAMA);
-    if (stPanoramaImage.strImagePath.empty())
-    {
-        return false;
-    }
-
-    saveCaptureRecord(
-        stPanoramaImage.strImagePath,
-        stContext.nChannelId,
-        stPanoramaImage.strCaptureTime);
-    return true;
-}
-
-bool CFaceRecognition::ensureTargetImageSaved(
-    FrameContext_S &stContext,
-    TargetResult_S &stTarget,
-    int nTargetIndex)
-{
-    ImageSaveInfo_S &stTargetImage = stTarget.stTargetImage;
-    if (!stTargetImage.strImagePath.empty())
-    {
-        return true;
-    }
-
-    if (!ensureTargetImage(stContext, stTarget))
-    {
-        return false;
-    }
-
-    ensureImageTimeInfo(stContext, stTargetImage);
-    stTargetImage.strImagePath = saveCaptureImage(
-        stTargetImage.stImage,
-        Alarm::UPLOAD_TARGET_IMAGE,
-        stTargetImage.strImageDate,
-        stTargetImage.strImageTime,
-        JPEG_QUALITY_TARGET,
-        nTargetIndex);
-    if (stTargetImage.strImagePath.empty())
-    {
-        return false;
-    }
-
-    saveCaptureRecord(
-        stTargetImage.strImagePath,
-        stContext.nChannelId,
-        stTargetImage.strCaptureTime);
-    return true;
-}
-
-void CFaceRecognition::processCaptureResult(FrameContext_S &stContext)
-{
-    processCapturePolicy(stContext);
-
-    const auto &vstLinkage = stContext.stConfig.stLinkageList.tradition;
-    const bool bSavePanorama = std::find(
-                                   vstLinkage.begin(),
-                                   vstLinkage.end(),
-                                   static_cast<int>(Alarm::UPLOAD_PANORAMIC_IMAGE)) !=
-                               vstLinkage.end();
-    const bool bSaveTarget = std::find(
-                                vstLinkage.begin(),
-                                vstLinkage.end(),
-                                static_cast<int>(Alarm::UPLOAD_TARGET_IMAGE)) !=
-                            vstLinkage.end();
-    if (!bSavePanorama && !bSaveTarget)
+    /* 空目标帧不落盘，避免无意义的图片和数据库记录 */
+    if (vstTargets.empty())
     {
         return;
     }
 
-    const bool bHasTriggeredTarget = std::any_of(
-        stContext.vstTargets.begin(),
-        stContext.vstTargets.end(),
-        [](const TargetResult_S &stTarget) {
-            return stTarget.bCaptureTriggered;
-        });
-    if (!bHasTriggeredTarget)
+    stResult.vstTargets.assign(vstTargets.size(), CaptureRecord_S{});
+
+    /* 属性需推送的目标：抓拍开启时全推，关闭时仅新出现人脸 */
+    std::vector<bool> vbAttributePush(vstTargets.size(), false);
+    bool bAnyAttributePush = false;
+    for (size_t i = 0; i < vstTargets.size(); ++i)
+    {
+        vbAttributePush[i] = vstTargets[i].bAttributeReady &&
+                             (stConfig.bCaptureEnable || vbPushFlags[i]);
+        bAnyAttributePush = bAnyAttributePush || vbAttributePush[i];
+    }
+
+    const auto &vstLinkage = stConfig.stLinkageList.tradition;
+    const bool bLinkagePanorama = std::find(
+                                      vstLinkage.begin(),
+                                      vstLinkage.end(),
+                                      static_cast<int>(Alarm::UPLOAD_PANORAMIC_IMAGE)) !=
+                                  vstLinkage.end();
+    const bool bLinkageTarget = std::find(
+                                    vstLinkage.begin(),
+                                    vstLinkage.end(),
+                                    static_cast<int>(Alarm::UPLOAD_TARGET_IMAGE)) !=
+                                vstLinkage.end();
+
+    /* 抓拍链路按联动配置保存，属性推送需要消息附带图片路径 */
+    const bool bNeedPanorama =
+        (stConfig.bCaptureEnable && bLinkagePanorama) || bAnyAttributePush;
+    bool bAnyTargetSave = bAnyAttributePush;
+    std::vector<bool> vbNeedTargetSave(vstTargets.size(), false);
+    for (size_t i = 0; i < vstTargets.size(); ++i)
+    {
+        vbNeedTargetSave[i] =
+            (stConfig.bCaptureEnable && bLinkageTarget) || vbAttributePush[i];
+        bAnyTargetSave = bAnyTargetSave || vbNeedTargetSave[i];
+    }
+    if (!bNeedPanorama && !bAnyTargetSave)
     {
         return;
     }
 
-    if (bSavePanorama)
-    {
-        ensurePanoramaImageSaved(stContext);
-    }
+    /* 一帧统一时间基准，文件名与数据库记录共用 */
+    CaptureRecord_S stTimeBase;
+    stTimeBase.strImageDate = TimeUtils_NS::get_currentDate();
+    stTimeBase.strImageTime = TimeUtils_NS::get_currentTimeMs();
+    stTimeBase.strCaptureTime = TimeUtils_NS::get_currentDateAndTimeNoT();
 
-    if (!bSaveTarget)
+    if (bNeedPanorama && !stContext.matPanoramaImage.empty())
     {
-        return;
-    }
+        cv::Mat stPanoramaBgrImage;
+        cv::cvtColor(
+            stContext.matPanoramaImage,
+            stPanoramaBgrImage,
+            cv::COLOR_RGB2BGR);
+        addCaptureOverlay(stPanoramaBgrImage);
 
-    for (size_t i = 0; i < stContext.vstTargets.size(); ++i)
-    {
-        auto &stTarget = stContext.vstTargets[i];
-        if (stTarget.bCaptureTriggered)
+        stResult.stPanorama = stTimeBase;
+        stResult.stPanorama.strImagePath = saveCaptureImage(
+            stPanoramaBgrImage,
+            Alarm::UPLOAD_PANORAMIC_IMAGE,
+            stTimeBase.strImageDate,
+            stTimeBase.strImageTime,
+            JPEG_QUALITY_PANORAMA);
+        if (!stResult.stPanorama.strImagePath.empty())
         {
-            ensureTargetImageSaved(
-                stContext,
-                stTarget,
-                static_cast<int>(i));
+            saveCaptureRecord(
+                stResult.stPanorama.strImagePath,
+                stContext.nChannelId,
+                stTimeBase.strCaptureTime);
+        }
+    }
+
+    for (size_t i = 0; i < vstTargets.size(); ++i)
+    {
+        if (!vbNeedTargetSave[i])
+        {
+            continue;
+        }
+
+        const cv::Mat stTargetBgrImage = cropTargetImage(stContext, vstTargets[i]);
+        if (stTargetBgrImage.empty())
+        {
+            continue;
+        }
+
+        CaptureRecord_S &stRecord = stResult.vstTargets[i];
+        stRecord = stTimeBase;
+        stRecord.strImagePath = saveCaptureImage(
+            stTargetBgrImage,
+            Alarm::UPLOAD_TARGET_IMAGE,
+            stTimeBase.strImageDate,
+            stTimeBase.strImageTime,
+            JPEG_QUALITY_TARGET,
+            static_cast<int>(i));
+        if (!stRecord.strImagePath.empty())
+        {
+            saveCaptureRecord(
+                stRecord.strImagePath,
+                stContext.nChannelId,
+                stTimeBase.strCaptureTime);
         }
     }
 }
 
 void CFaceRecognition::pushAttributeResult(
     const FrameContext_S &stContext,
-    const TargetResult_S &stTarget) const
+    const FaceTargetResult_S &stTarget,
+    const CaptureRecord_S &stPanoramaRecord,
+    const CaptureRecord_S &stTargetRecord) const
 {
     if (!stTarget.bAttributeReady ||
-        (!stTarget.bCaptureTriggered &&
-         !stTarget.bAttributePushTriggered) ||
-        (stContext.stPanoramaImage.strImagePath.empty() &&
-         stTarget.stTargetImage.strImagePath.empty()))
+        (stPanoramaRecord.strImagePath.empty() &&
+         stTargetRecord.strImagePath.empty()))
     {
         return;
     }
 
-    const FaceAttribute_NS::Result_S &stAttribute = stTarget.stAttributeResult;
+    const FaceAttributeTarget_S &stAttribute = stTarget.stAttributeResult;
     Alarm::FaceAlarmInfo_S stFaceAlarmInfo;
     stFaceAlarmInfo.stFaceAlarmAttribute.bIsMale = stAttribute.bIsMale;
     stFaceAlarmInfo.stFaceAlarmAttribute.nAgeLabel = stAttribute.nAgeLabel;
@@ -1412,18 +1274,16 @@ void CFaceRecognition::pushAttributeResult(
     stFaceAlarmInfo.stFaceAlarmAttribute.bIsBeard = stAttribute.bIsBeard;
     stFaceAlarmInfo.stFaceAlarmAttribute.bIsMask = stAttribute.bIsMask;
     stFaceAlarmInfo.stFaceAlarmAttribute.nEmotionLabel = stAttribute.nEmotionLabel;
-    stFaceAlarmInfo.strCurrentPicture =
-        stContext.stPanoramaImage.strImagePath;
-    stFaceAlarmInfo.strFacePicture =
-        stTarget.stTargetImage.strImagePath;
+    stFaceAlarmInfo.strCurrentPicture = stPanoramaRecord.strImagePath;
+    stFaceAlarmInfo.strFacePicture = stTargetRecord.strImagePath;
     stFaceAlarmInfo.strTimeStamp = TimeUtils_NS::get_currentDateAndTimeNoT();
     stFaceAlarmInfo.bIsDownLoad =
         !stFaceAlarmInfo.strCurrentPicture.empty() ||
         !stFaceAlarmInfo.strFacePicture.empty();
 
-    const FaceDetect_NS::Result_S &stResult = stTarget.stDetectResult;
-    const int nFrameWidth = stContext.stPanoramaImage.stImage.cols;
-    const int nFrameHeight = stContext.stPanoramaImage.stImage.rows;
+    const FaceDetectedTarget_S &stResult = stTarget.stDetectResult;
+    const int nFrameWidth = stContext.matPanoramaImage.cols;
+    const int nFrameHeight = stContext.matPanoramaImage.rows;
     if (nFrameWidth > 0 && nFrameHeight > 0)
     {
         const float fLeft = std::max(
@@ -1451,90 +1311,87 @@ void CFaceRecognition::pushAttributeResult(
         Convert::to_string(stFaceAlarmInfo));
 }
 
-void CFaceRecognition::processAttributeResult(FrameContext_S &stContext)
+void CFaceRecognition::processAttributeResult(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets,
+    const Alarm::FaceRecognition_S &stConfig,
+    const std::vector<bool> &vbPushFlags,
+    const FrameCaptureResult_S &stSaveResult)
 {
-    processAttributePushPolicy(stContext);
+    /* 抓拍开启时目标组已过滤为抓拍候选，属性就绪即推送；
+       关闭时仅推送相对上一帧新出现的人脸；图片路径取自保存记录 */
+    const bool bPushAll = stConfig.bCaptureEnable;
 
-    for (size_t i = 0; i < stContext.vstTargets.size(); ++i)
+    for (size_t i = 0; i < vstTargets.size(); ++i)
     {
-        auto &stTarget = stContext.vstTargets[i];
+        const FaceTargetResult_S &stTarget = vstTargets[i];
         if (!stTarget.bAttributeReady ||
-            (!stTarget.bCaptureTriggered &&
-             !stTarget.bAttributePushTriggered))
+            (!bPushAll && !vbPushFlags[i]))
         {
             continue;
         }
 
-        ensurePanoramaImageSaved(stContext);
-        ensureTargetImageSaved(
+        pushAttributeResult(
             stContext,
             stTarget,
-            static_cast<int>(i));
-        pushAttributeResult(stContext, stTarget);
+            stSaveResult.stPanorama,
+            stSaveResult.vstTargets[i]);
     }
 }
 
 #ifdef ENABLE_TVSDK_SRC
 /**
  * @brief 沿用旧人脸抓拍协议直接组包，通过统一告警接口同步提交到 SDK。
- * @param [in,out] stContext 当前帧配置、检测和属性结果，按需准备 BGR 目标图。
+ * @param [in] stContext 当前帧信息，提供全景图与通道时间戳。
+ * @param [in] vstTargets 当前帧检测目标。
+ * @param [in] stConfig 人脸识别运行配置快照。
  * @param [out] 无。
  * @return 无，单个目标失败不阻断其余目标或网页、GAT1400 输出。
  */
-void CFaceRecognition::processTvSdkCaptureResult(FrameContext_S &stContext)
+void CFaceRecognition::processTvSdkCaptureResult(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets,
+    const Alarm::FaceRecognition_S &stConfig)
 {
-    if (!m_bEnabled.load() || !stContext.stConfig.bEnable ||
-        !stContext.stConfig.bCaptureEnable || stContext.stPanoramaImage.stImage.empty())
-    {
-        return;
-    }
-    const bool bHasTriggeredTarget = std::any_of(
-        stContext.vstTargets.begin(), stContext.vstTargets.end(),
-        [](const TargetResult_S &stTarget) { return stTarget.bCaptureTriggered; });
-    if (!bHasTriggeredTarget)
+    if (!m_bEnabled.load() || !stConfig.bEnable ||
+        !stConfig.bCaptureEnable || stContext.matPanoramaImage.empty() ||
+        vstTargets.empty())
     {
         return;
     }
 
     /* 算法工作线程每帧只编码一次全景，局部容器保持到所有同步推送完成。 */
     EventTvSdkImage_S stPanoramaImage{};
-    if (!face_recognition_encode_capture_image(stContext.stPanoramaImage.stImage,
+    if (!face_recognition_encode_capture_image(stContext.matPanoramaImage,
                                                JPEG_QUALITY_PANORAMA, true, stPanoramaImage))
     {
         dlog_warn("人脸抓拍全景图编码失败或超限: channel[%d]", stContext.nChannelId);
         return;
     }
-    const cv::Size stPanoramaSize = stContext.stPanoramaImage.stImage.size();
+    const cv::Size stPanoramaSize = stContext.matPanoramaImage.size();
     const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    for (size_t nTargetIndex = 0; nTargetIndex < stContext.vstTargets.size(); ++nTargetIndex)
+    for (size_t nTargetIndex = 0; nTargetIndex < vstTargets.size(); ++nTargetIndex)
     {
-        TargetResult_S &stTarget = stContext.vstTargets[nTargetIndex];
-        if (!stTarget.bCaptureTriggered)
-        {
-            continue;
-        }
+        const FaceTargetResult_S &stTarget = vstTargets[nTargetIndex];
         cv::Rect stCropRect{};
         if (!face_recognition_get_capture_rect(stTarget.stDetectResult, stPanoramaSize, stCropRect))
         {
             dlog_warn("人脸抓拍目标框无效: target[%zu]", nTargetIndex);
             continue;
         }
+        cv::Mat matTargetImage;
         try
         {
-            if (!ensureTargetImage(stContext, stTarget))
-            {
-                dlog_warn("人脸抓拍目标图准备失败: target[%zu]", nTargetIndex);
-                continue;
-            }
+            matTargetImage = cropTargetImage(stContext, stTarget);
         }
         catch (const cv::Exception &stException)
         {
-            dlog_warn("人脸抓拍目标图准备异常: target[%zu], reason[%s]",
+            dlog_warn("人脸抓拍目标图裁剪异常: target[%zu], reason[%s]",
                       nTargetIndex, stException.what());
             continue;
         }
         EventTvSdkImage_S stTargetImage{};
-        if (!face_recognition_encode_capture_image(stTarget.stTargetImage.stImage,
+        if (!face_recognition_encode_capture_image(matTargetImage,
                                                    JPEG_QUALITY_TARGET, false, stTargetImage))
         {
             dlog_warn("人脸抓拍目标图编码失败或超限: target[%zu]", nTargetIndex);
@@ -1557,18 +1414,18 @@ void CFaceRecognition::processTvSdkCaptureResult(FrameContext_S &stContext)
         stCropImage.uCropWidth = static_cast<UINT32>(stCropRect.width);
         stCropImage.uCropHeight = static_cast<UINT32>(stCropRect.height);
         stCropImage.uTargetType = NET_CAPTURE_TYPE_FACE;
-        stCropImage.fConfidence = std::isfinite(stTarget.stDetectResult.fBoxConfidence)
-                                     ? std::clamp(stTarget.stDetectResult.fBoxConfidence, 0.0F, 1.0F)
+        stCropImage.fConfidence = std::isfinite(stTarget.stDetectResult.fConfidence)
+                                     ? std::clamp(stTarget.stDetectResult.fConfidence, 0.0F, 1.0F)
                                      : 0.0F;
         stCropImage.nTrackID = -1;
         stCropImage.stImage.pData = stTargetImage.vecJpeg.data();
         stCropImage.stImage.uDataLen = static_cast<UINT32>(stTargetImage.vecJpeg.size());
 
-        const bool bAttributeReady = stContext.stConfig.bAttributeAnalysisEnable && stTarget.bAttributeReady;
+        const bool bAttributeReady = stConfig.bAttributeAnalysisEnable && stTarget.bAttributeReady;
         /* 旧协议没有属性有效位；未分析时保持零值，不伪造属性结果。 */
         if (bAttributeReady)
         {
-            const FaceAttribute_NS::Result_S &stAttribute = stTarget.stAttributeResult;
+            const FaceAttributeTarget_S &stAttribute = stTarget.stAttributeResult;
             stInfo.stExtraInfo.bMale = stAttribute.bIsMale ? TRUE : FALSE;
             stInfo.stExtraInfo.nAgeLabel = stAttribute.nAgeLabel;
             stInfo.stExtraInfo.bGlasses = stAttribute.bIsGlasses ? TRUE : FALSE;
@@ -1612,10 +1469,12 @@ void CFaceRecognition::processTvSdkCaptureResult(FrameContext_S &stContext)
 }
 #endif
 
-void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
+void CFaceRecognition::processGat1400Result(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets)
 {
 #ifdef ENABLE_GAT1400_SRC
-    if (stContext.vstTargets.empty())
+    if (vstTargets.empty())
     {
         return;
     }
@@ -1627,11 +1486,7 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
         return;
     }
 
-    for (auto &stTarget : stContext.vstTargets)
-    {
-        ensureTargetImage(stContext, stTarget);
-    }
-    if (stContext.stPanoramaImage.stImage.empty())
+    if (stContext.matPanoramaImage.empty())
     {
         dlog_error("ai_app: GAT1400人脸全景图为空");
         return;
@@ -1668,7 +1523,7 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
 
     cv::Mat stPanoramaBgrImage;
     cv::cvtColor(
-        stContext.stPanoramaImage.stImage,
+        stContext.matPanoramaImage,
         stPanoramaBgrImage,
         cv::COLOR_RGB2BGR);
     security_subimage_info_t stPanoramaImage;
@@ -1683,13 +1538,13 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
     }
 
     security_faces_t vstFaces;
-    for (const auto &stTarget : stContext.vstTargets)
+    for (const auto &stTarget : vstTargets)
     {
         security_face_t stFace;
         stFace.InfoKind = SecurityInfoType::Auto;
-        const FaceDetect_NS::Result_S &stResult = stTarget.stDetectResult;
-        const int nFrameWidth = stContext.stPanoramaImage.stImage.cols;
-        const int nFrameHeight = stContext.stPanoramaImage.stImage.rows;
+        const FaceDetectedTarget_S &stResult = stTarget.stDetectResult;
+        const int nFrameWidth = stContext.matPanoramaImage.cols;
+        const int nFrameHeight = stContext.matPanoramaImage.rows;
         stFace.LeftTopX = std::max(
             0,
             std::min(nFrameWidth, static_cast<int>(std::lround(stResult.fX1))));
@@ -1705,7 +1560,7 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
 
         if (stTarget.bAttributeReady)
         {
-            const FaceAttribute_NS::Result_S &stAttribute =
+            const FaceAttributeTarget_S &stAttribute =
                 stTarget.stAttributeResult;
             stFace.GenderCode = stAttribute.bIsMale ? "1" : "2";
             if (stAttribute.nAgeLabel > 0 &&
@@ -1724,11 +1579,12 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
         }
 
         stFace.SubImageList.push_back(stPanoramaImage);
-        if (!stTarget.stTargetImage.stImage.empty())
+        const cv::Mat stTargetBgrImage = cropTargetImage(stContext, stTarget);
+        if (!stTargetBgrImage.empty())
         {
             security_subimage_info_t stTargetImage;
             if (encodeBgrImage(
-                    stTarget.stTargetImage.stImage,
+                    stTargetBgrImage,
                     JPEG_QUALITY_TARGET,
                     IMAGE_TYPE_FACE,
                     stTargetImage))
@@ -1751,19 +1607,17 @@ void CFaceRecognition::processGat1400Result(FrameContext_S &stContext)
     }
 #else
     (void)stContext;
+    (void)vstTargets;
 #endif
 }
 
-void CFaceRecognition::outputOsd(const FrameContext_S &stContext)
+void CFaceRecognition::outputOsd(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets)
 {
-    if (!stContext.stConfig.bDynamicAnalysisEnable)
-    {
-        return;
-    }
-
     std::vector<Common::RectInfo_S> vstAcceptedRect;
-    vstAcceptedRect.reserve(stContext.vstTargets.size());
-    for (const auto &stTarget : stContext.vstTargets)
+    vstAcceptedRect.reserve(vstTargets.size());
+    for (const auto &stTarget : vstTargets)
     {
         Common::RectInfo_S stRectInfo;
         stRectInfo.nX1 = stTarget.stDetectResult.fX1;
@@ -1774,39 +1628,42 @@ void CFaceRecognition::outputOsd(const FrameContext_S &stContext)
     }
 
     send_detectionResult_to_osd(
-        stContext.stPanoramaImage.stImage.cols,
-        stContext.stPanoramaImage.stImage.rows,
+        stContext.matPanoramaImage.cols,
+        stContext.matPanoramaImage.rows,
         vstAcceptedRect);
 }
 
 /**
  * @brief 在算法工作线程组装人脸识别事件，按联动选项附加全景图和同一目标的小图。
- * @param [in,out] stContext 当前帧配置和检测结果，按需复用或准备最佳目标的 BGR 小图。
+ * @param [in] stContext 当前帧信息。
+ * @param [in] vstTargets 当前帧检测目标。
+ * @param [in] stConfig 人脸识别运行配置快照。
+ * @param [in] stSaveResult 本帧图片保存记录，事件附带路径取自全景记录。
  * @param [out] 无，图片由事件上下文的容器持有，不向异步联动传递临时图片指针。
  * @return 无，小图处理失败仅记录日志，不中断全景图及事件状态处理。
  */
 void CFaceRecognition::processFaceRecognitionEvent(
-    FrameContext_S &stContext)
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstTargets,
+    const Alarm::FaceRecognition_S &stConfig,
+    const FrameCaptureResult_S &stSaveResult)
 {
-    TargetResult_S *pBestTarget = getBestTarget(stContext);
+    const FaceTargetResult_S *pBestTarget = getBestTarget(vstTargets);
 
     EventTriggerContext_S stEventContext;
     stEventContext.enEventType = Event::Type_E::FACE_RECOGNITION;
     stEventContext.nChnId = stContext.nChannelId;
     stEventContext.llTimestamp = stContext.llTimestamp;
     stEventContext.mapAttrs["capture_enabled"] =
-        stContext.stConfig.bCaptureEnable ? "1" : "0";
+        stConfig.bCaptureEnable ? "1" : "0";
     stEventContext.mapAttrs["attribute_enabled"] =
-        stContext.stConfig.bAttributeAnalysisEnable ? "1" : "0";
-    const bool bCaptureTriggered = std::any_of(
-        stContext.vstTargets.begin(),
-        stContext.vstTargets.end(),
-        [](const TargetResult_S &stTarget) {
-            return stTarget.bCaptureTriggered;
-        });
+        stConfig.bAttributeAnalysisEnable ? "1" : "0";
+    /* 抓拍开启时目标组已过滤为候选，非空即存在抓拍目标 */
+    const bool bCaptureTriggered = stConfig.bCaptureEnable &&
+                                   !vstTargets.empty();
     stEventContext.mapAttrs["capture_triggered"] =
         bCaptureTriggered ? "1" : "0";
-    const auto &vstLinkage = stContext.stConfig.stLinkageList.tradition;
+    const auto &vstLinkage = stConfig.stLinkageList.tradition;
     const bool bAttachPanorama =
         bCaptureTriggered &&
         std::find(
@@ -1817,7 +1674,7 @@ void CFaceRecognition::processFaceRecognitionEvent(
 
     if (pBestTarget && pBestTarget->bAttributeReady)
     {
-        const FaceAttribute_NS::Result_S &stAttribute =
+        const FaceAttributeTarget_S &stAttribute =
             pBestTarget->stAttributeResult;
         stEventContext.mapAttrs["attribute_ready"] = "1";
         stEventContext.mapAttrs["gender"] = stAttribute.bIsMale ? "male" : "female";
@@ -1834,34 +1691,34 @@ void CFaceRecognition::processFaceRecognitionEvent(
 
     if (pBestTarget)
     {
-        const FaceDetect_NS::Result_S &stDetectResult = pBestTarget->stDetectResult;
+        const FaceDetectedTarget_S &stDetectResult = pBestTarget->stDetectResult;
         stEventContext.nTargetId = -1;
         stEventContext.nObjectType = 1;
-        stEventContext.fConfidence = stDetectResult.fBoxConfidence;
+        stEventContext.fConfidence = stDetectResult.fConfidence;
         stEventContext.nLeft = static_cast<int>(stDetectResult.fX1);
         stEventContext.nTop = static_cast<int>(stDetectResult.fY1);
         stEventContext.nRight = static_cast<int>(stDetectResult.fX2);
         stEventContext.nBottom = static_cast<int>(stDetectResult.fY2);
 
         if (bAttachPanorama &&
-            !stContext.stPanoramaImage.strImagePath.empty())
+            !stSaveResult.stPanorama.strImagePath.empty())
         {
             stEventContext.mapAttrs["CaptureImagePath"] =
-                stContext.stPanoramaImage.strImagePath;
+                stSaveResult.stPanorama.strImagePath;
         }
 
         if (bAttachPanorama &&
-            !stContext.stPanoramaImage.stImage.empty())
+            !stContext.matPanoramaImage.empty())
         {
             encode_mat_to_tvsdk_image(
-                stContext.stPanoramaImage.stImage,
+                stContext.matPanoramaImage,
                 stEventContext.stPanoramaImage,
                 JPEG_QUALITY_PANORAMA);
         }
 
         /* 只附加当前告警目标的小图，禁止使用其他人脸的小图匹配当前目标框。 */
         const bool bAttachTarget =
-            pBestTarget->bCaptureTriggered &&
+            bCaptureTriggered &&
             std::find(vstLinkage.begin(), vstLinkage.end(),
                       static_cast<int>(Alarm::UPLOAD_TARGET_IMAGE)) != vstLinkage.end();
         if (bAttachTarget)
@@ -1869,42 +1726,121 @@ void CFaceRecognition::processFaceRecognitionEvent(
             try
             {
                 EventTvSdkImage_S stTargetImage{};
-                if (ensureTargetImage(stContext, *pBestTarget) &&
-                    encode_mat_to_tvsdk_image(pBestTarget->stTargetImage.stImage,
-                                             stTargetImage, JPEG_QUALITY_TARGET, false) &&
+                if (encode_mat_to_tvsdk_image(cropTargetImage(stContext, *pBestTarget),
+                                              stTargetImage, JPEG_QUALITY_TARGET, false) &&
                     !stTargetImage.vecJpeg.empty())
                 {
                     stEventContext.stTargetImage = std::move(stTargetImage);
                 }
                 else
                 {
-                    dlog_warn("人脸识别事件目标小图准备或编码失败: channel[%d], target[%d]",
-                              stContext.nChannelId, stContext.nBestTargetIndex);
+                    dlog_warn("人脸识别事件目标小图裁剪或编码失败: channel[%d]",
+                              stContext.nChannelId);
                 }
             }
             catch (const cv::Exception &stException)
             {
-                dlog_warn("人脸识别事件目标小图处理异常: channel[%d], target[%d], reason[%s]",
-                          stContext.nChannelId, stContext.nBestTargetIndex, stException.what());
+                dlog_warn("人脸识别事件目标小图处理异常: channel[%d], reason[%s]",
+                          stContext.nChannelId, stException.what());
             }
         }
     }
 
     m_faceRecognitionStateMachine.handleAlarmState(
-        !stContext.vstTargets.empty(),
+        !vstTargets.empty(),
         stEventContext);
 }
 
-void CFaceRecognition::processBusinessOutput(FrameContext_S &stContext)
+/**
+ * @brief 处理社交关系分析事件：配置启用且处理器候选非空时上报。
+ * @param [in] stContext 当前帧信息。
+ * @param [in] vstTargets 当前帧检测目标。
+ * @param [out] 无。
+ * @return 无，报警节奏由独立状态机的冷却与结束阈值控制。
+ */
+void CFaceRecognition::processSocialRelationshipEvent(
+    const DetectContext_S &stDetectContext)
 {
-    outputOsd(stContext);
-    processCaptureResult(stContext);
-    processAttributeResult(stContext);
+    /* 配置未启用退出 */
+    if (!m_stSocialConfig.bEnable)
+    {
+        return;
+    }
+
+    /* 事件处理器处理社交关系分析事件 */
+    std::vector<FaceTargetResult_S> vstCandidates;
+    m_socialRelationshipProcessor.process(stDetectContext, vstCandidates);
+
+    // TODO: 附带目标小图
+
+    /* 上报社交关系分析事件 */
+    m_socialRelationshipStateMachine.handleAlarmState(
+        !vstCandidates.empty(), Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS);
+}
+
+/**
+ * @brief 处理后厨无关人员进入事件：配置启用且处理器候选非空时上报。
+ * @param [in] stDetectContext 单帧检测上下文。
+ * @param [out] 无。
+ * @return 无，报警节奏由独立状态机的冷却与结束阈值控制。
+ */
+void CFaceRecognition::processKitchenUnrelatedEvent(
+    const DetectContext_S &stDetectContext)
+{
+    /* 配置未启用退出 */
+    if (!m_stKitchenConfig.bEnable)
+    {
+        return;
+    }
+
+    /* 事件处理器处理后厨无关人员进入事件 */
+    std::vector<FaceTargetResult_S> vstCandidates;
+    m_kitchenUnrelatedProcessor.process(stDetectContext, vstCandidates);
+
+    // TODO: 附带目标小图
+
+    /* 上报后厨无关人员进入事件 */
+    m_kitchenUnrelatedStateMachine.handleAlarmState(
+        !vstCandidates.empty(), Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY);
+}
+
+void CFaceRecognition::processBusinessOutput(
+    const DetectContext_S &stDetectContext)
+{
+    /* 配置直接引用成员，本帧业务分支统一使用 */
+    const Alarm::FaceRecognition_S &stConfig = m_stFaceConfig;
+
+    // 配置未启用退出
+    if (!stConfig.bEnable)
+    {
+        return;
+    }
+
+    // 人脸识别处理器处理, 输出目标符合规则要求
+    std::vector<FaceTargetResult_S> vstRuleTargets;
+    m_faceRecognitionProcessor.process(stDetectContext, vstRuleTargets);
+
+    // 输出OSD
+    if (stConfig.bDynamicAnalysisEnable && !vstRuleTargets.empty())
+    {
+        outputOsd(stDetectContext.stFrame, vstRuleTargets);
+    }
+
+    // 判断是否需要保存数据库
+    std::vector<bool> vbPushFlags;
+    updateAttributePushFlags(vstRuleTargets, stConfig, vbPushFlags);
+    FrameCaptureResult_S stSaveResult;
+    saveAlarmImages(stDetectContext.stFrame, vstRuleTargets, stConfig, vbPushFlags, stSaveResult);
+    // 判断是否需要推送属性信息
+    processAttributeResult(stDetectContext.stFrame, vstRuleTargets, stConfig,
+                           vbPushFlags, stSaveResult);
 #ifdef ENABLE_TVSDK_SRC
-    //processTvSdkCaptureResult(stContext);
+    //processTvSdkCaptureResult(stDetectContext.stFrame, stDetectContext.vstDetectResult, stConfig);
 #endif
-    processGat1400Result(stContext);
-    processFaceRecognitionEvent(stContext);
+    // GAT1400推送
+    processGat1400Result(stDetectContext.stFrame, vstRuleTargets);
+    // 处理人脸识别事件
+    processFaceRecognitionEvent(stDetectContext.stFrame, vstRuleTargets, stConfig, stSaveResult);
 }
 
 void CFaceRecognition::run()
@@ -1932,15 +1868,22 @@ void CFaceRecognition::run()
             continue;
         }
 
-        FrameContext_S stContext;
-        if (!prepareFrameContext(stMediaData, stContext))
+        DetectContext_S stDetectContext;
+        if (!prepareFrameContext(stMediaData, stDetectContext.stFrame))
         {
             continue;
         }
-        if (!processAlgorithms(stContext))
+
+        processAlgorithms(stDetectContext);
+
+        // 处理社交关系分析事件
+        processSocialRelationshipEvent(stDetectContext);
+        // 处理后厨无关人员进入事件
+        processKitchenUnrelatedEvent(stDetectContext);
+        // 人脸识别事件按抓拍间隔节拍消费
+        if (m_faceCaptureManager.handleEvent(stDetectContext.stFrame.nChannelId))
         {
-            continue;
+            processBusinessOutput(stDetectContext);
         }
-        processBusinessOutput(stContext);
     }
 }

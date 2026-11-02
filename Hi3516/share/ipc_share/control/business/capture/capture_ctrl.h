@@ -167,7 +167,8 @@ public:
      * @brief   : 获取人脸抓拍当前全景图片文件名
      * @return   {string} 人脸抓拍当前全景图片文件名
      */
-    std::string get_face_capture_file();
+    // std::string get_face_capture_file();
+    std::string get_face_capture_file(Event::Type_E enEventType);
     int write_to_file(std::string filePath, unsigned char *pData, int nDataLen);
 
     /**
@@ -340,7 +341,9 @@ private:
     static constexpr int CAPTURE_QUEUE_POP_TIMEOUT_MS = 1000;
 
     /* 人脸抓拍当前图片文件名 */
-    std::string m_strFaceCaptureFile;
+    // std::string m_strFaceCaptureFile;
+    /* 人脸事件首张图片路径，按事件类型隔离，避免 FACE_CAPTURE/FACE_COMPARE 串图 */
+    std::map<Event::Type_E, std::string> m_mapFaceCaptureFiles;
 };
 
 #endif /* CAP_LOCAL_STORAGE */

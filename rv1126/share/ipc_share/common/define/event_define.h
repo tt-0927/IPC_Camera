@@ -51,7 +51,7 @@ namespace Event
         FACE_RECOGNITION = 13,     /* 人脸识别 */
 #ifdef SCENE_INTELLIGENCE
         SMART_RECOGNITION = 14,    /* 智能识别（行人/机动车/非机动车属性） */
-        SAFE_CAMPUS = 15,          /* 平安校园（临时） */
+        ENV_FACILITY_ABNORMAL = 15, /* 环境与设施异常 */
 #endif
     } SmartCategory_E;
 
@@ -181,6 +181,8 @@ namespace Event
         FIRE_EQUIPMENT_ABNORMAL = 69,          /* 消防设施异常 */
         ACCESS_CONTROL_ABNORMAL_PASSAGE = 70,  /* 门禁异常通行 */
         SOCIAL_RELATIONSHIP_ANALYSIS = 71,     /* 社交关系分析 */
+        FIGHT_DETECTION = 72,                     /* 打架斗殴识别 */
+        MOUSE_INFESTATION = 73,                /* 鼠患识别 */
 
         /**
          * @brief   : 事件其他特殊类型
@@ -312,6 +314,8 @@ namespace Event
         case Type::SOCIAL_RELATIONSHIP_ANALYSIS:
         case Type::FIRE_EQUIPMENT_ABNORMAL:
         case Type::KITCHEN_CLOTHING_COMPLIANCE:
+        case Type::FIGHT_DETECTION:
+        case Type::MOUSE_INFESTATION:
 #if CAP_AI_PEOPLE_STATISTICS
         case Type::PEOPLE_FLOW_STATISTICS:
         case Type::PEOPLE_DENSITY_DETECTION:
@@ -602,7 +606,9 @@ namespace Event
         int nAccessControlAbnormalPassage = 0;  /* 门禁异常通行 */
         int nSocialRelationshipAnalysis = 0;    /* 社交关系分析 */
         int nKitchenClothingCompliance = 0;     /* 后厨穿戴规范 */
-        int nEnFireEquipmentAbnormal = 0;      /* 消防设施异常 */
+        int nEnFireEquipmentAbnormal = 0;       /* 消防设施异常 */
+        int nEnFight= 0;                        /* 打架斗殴异常 */
+        int nMouseDetection = 0;                /* 鼠患识别 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         int nEnSmokeFire = 0;      /* 烟火识别 */
@@ -750,6 +756,8 @@ namespace Event
         bool bAccessControlAbnormalPassage = false;         /* 门禁异常通行 */
         bool bSocialRelationshipAnalysis = false;           /* 社交关系分析 */
         bool bKitchenClothingCompliance = false;            /* 后厨穿戴规范 */
+        bool bFightDetection = false;                       /* 打架斗殴识别*/
+        bool bMouseDetection = false;                       /* 鼠患识别 */
 #endif
 #if defined(SCENE_INTELLIGENCE) || CAP_AI_SMOKE_FIRE_DETECT
         bool bSmokeFire = false;                            /* 烟火识别 */

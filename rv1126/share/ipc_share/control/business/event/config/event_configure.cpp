@@ -110,7 +110,9 @@ CEventConfigure::CEventConfigure():
       m_accessControlAbnormalPassage(EVENT_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO_FILE),
       m_socialRelationshipAnalysis(EVENT_SOCIAL_RELATIONSHIP_ANALYSIS_INFO_FILE),
       m_kitchenClothingCompliance(EVENT_KITCHEN_CLOTHING_COMPLIANCE_INFO_FILE),
-      m_fireEquipmentAbnormal(EVENT_FIRE_EQUIPMENT_ABNORMAL_INFO_FILE)
+      m_fireEquipmentAbnormal(EVENT_FIRE_EQUIPMENT_ABNORMAL_INFO_FILE),
+      m_fight(EVENT_FIGHT_DETCTION_INFO_FILE),
+      m_mouseDetection(EVENT_MOUSE_DETECTION_INFO_FILE)
 #endif
 {
 }
@@ -972,5 +974,25 @@ int CEventConfigure::set_configure(const Alarm::FireEquipmentAbnormalDetection_S
 int CEventConfigure::get_configure(Alarm::FireEquipmentAbnormalDetection_S &alarm) const
 {
     return m_fireEquipmentAbnormal.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::FightDetection_S &alarm)
+{
+    return m_fight.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::FightDetection_S &alarm) const
+{
+    return m_fight.get(alarm);
+}
+
+int CEventConfigure::set_configure(const Alarm::MouseDetection_S &alarm)
+{
+    return m_mouseDetection.set(alarm);
+}
+
+int CEventConfigure::get_configure(Alarm::MouseDetection_S &alarm) const
+{
+    return m_mouseDetection.get(alarm);
 }
 #endif

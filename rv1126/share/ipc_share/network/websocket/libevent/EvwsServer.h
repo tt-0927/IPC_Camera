@@ -105,8 +105,15 @@ private:
 
     void run();
     bool setup_http();
+    /* evws 会话建立公共入口：/file-upload 路径与 file-upload 子协议两条
+       路由最终都走到这里（bUpload 决定上传/消息会话） */
+    void setup_ws_session(struct evhttp_request *pReq, bool bUpload);
+    static bool is_file_upload_request(struct evhttp_request *pReq);
     void register_conn(struct evws_connection *pEvws, ConnCtx_S *pCtx);
-    void emit_status(ConnCtx_S *pCtx, Net::Status_E enStatus);
+    /* pHandle 缺省取连接当前句柄；断开上报时句柄已置空，须显式传入
+       回调入参 pConn（对齐 lws 版以 wsi 作为断开句柄上报的行为，
+       保证业务层连接表能正确移除） */
+    void emit_status(ConnCtx_S *pCtx, Net::Status_E enStatus, void *pHandle = nullptr);
     void emit_message(ConnCtx_S *pCtx, const void *pData, size_t nLen);
     int send_to_conn(ConnCtx_S *pCtx, const Net::Message_S &stMessage);
     void handle_upload_text(ConnCtx_S *pCtx, const unsigned char *pData, size_t nLen);

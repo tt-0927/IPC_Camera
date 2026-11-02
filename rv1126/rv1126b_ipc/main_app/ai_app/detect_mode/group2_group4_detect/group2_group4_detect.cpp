@@ -233,7 +233,7 @@ void CGroup2_Group4Detect::recvMediaData(MediaData_S stMediaData)
 {
     if (!m_stAlgoCrossCfg.bEnable && !m_stAlgoIntruCfg.bEnable && !m_stAlgoEntryCfg.bEnable && !m_stAlgoExitCfg.bEnable && !m_stAlgoEmergencyLaneOccupancyCfg.bEnable && !m_stPersonFallDownCfg.bEnable &&
         !m_stAlgoNonMotorVehicleIntrusionCfg.bEnable && !m_stAlgoElectricScooterCfg.bEnable && !m_stDrivingAgainstTrafficDetectionCfg.bEnable && !m_stAlgoIllegalLaneChangeDetectionCfg.bEnable &&
-        !m_stAlgoCongestionDetectionCfg.bEnable && !m_stAlgoParkingDetectionCfg.bEnable && !m_stLoiteringCfg.bEnable && !m_stFenceClimbingCfg.bEnable && !m_stLeavePostCfg.bEnable && !m_stAlgoLicensePlateCognitionCfg.bEnable &&
+        !m_stAlgoCongestionDetectionCfg.bEnable && !m_stAlgoParkingDetectionCfg.bEnable && !m_stFenceClimbingCfg.bEnable && !m_stLeavePostCfg.bEnable && !m_stAlgoLicensePlateCognitionCfg.bEnable &&
         !m_stPedestrianIntrusionCfg.bEnable && !m_stCrowdGatheringDetCfg.bEnable && !m_stAlgoSmokingCfg.bEnable && !m_stAlgoSleepOnDutyCfg.bEnable && !m_stPhoneUsageCfg.bEnable && !m_stAlgoTripCfg.bEnable &&
         !m_stPersonAttributeCfg.bEnable && !m_stMotorVehicleAttributeCfg.bEnable && !m_stNonMotorVehicleAttributeCfg.bEnable)
     {
@@ -260,7 +260,6 @@ void CGroup2_Group4Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConf
     m_stAlgoEntryCfg.bEnable = stAlgoConfig.nEnEnterRegion;
     m_stAlgoExitCfg.bEnable  = stAlgoConfig.nEnLeaveRegion;
 
-    m_stLoiteringCfg.bEnable           = stAlgoConfig.nEnLoiteringDetect;
     m_stFenceClimbingCfg.bEnable       = stAlgoConfig.nEnFenceClimbing;
     m_stLeavePostCfg.bEnable           = stAlgoConfig.nEnLeavePost;
     m_stPedestrianIntrusionCfg.bEnable = stAlgoConfig.nEnPedestrianIntrusion;
@@ -310,12 +309,6 @@ void CGroup2_Group4Detect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConf
         setAlgoParamCfg(stInfo);
     }
 
-    if (m_stLoiteringCfg.bEnable)
-    {
-        Alarm::LoiteringDetection_S stInfo;
-        CEventConfigure::instance()->get_configure(stInfo);
-        setAlgoParamCfg(stInfo);
-    }
     if (m_stFenceClimbingCfg.bEnable)
     {
         Alarm::FenceClimbingDetection_S stInfo;
@@ -490,14 +483,6 @@ void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::ExitingDetection_S &stAl
     m_stAlgoExitCfg = stAlgoCfg;
     m_vstExitRule.clear();
     convertResolutionAndEnable(m_stAlgoExitCfg, enType);
-}
-
-void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::LoiteringDetection_S &stAlgoCfg, Event::Type_E enType)
-{
-    dlog_debug("ai_app:  设置徘徊侦测区域参数");
-    m_stLoiteringCfg = stAlgoCfg;
-    m_vstLoiteringRule.clear();
-    convertResolutionAndEnable(m_stLoiteringCfg, enType);
 }
 
 void CGroup2_Group4Detect::setAlgoParamCfg(const Alarm::FenceClimbingDetection_S &stAlgoCfg, Event::Type_E enType)
@@ -1041,7 +1026,7 @@ void CGroup2_Group4Detect::run()
     {
         if (m_stAlgoCrossCfg.bEnable || m_stAlgoIntruCfg.bEnable || m_stAlgoEntryCfg.bEnable || m_stAlgoExitCfg.bEnable || m_stAlgoEmergencyLaneOccupancyCfg.bEnable || m_stPersonFallDownCfg.bEnable ||
             m_stAlgoNonMotorVehicleIntrusionCfg.bEnable || m_stAlgoElectricScooterCfg.bEnable || m_stDrivingAgainstTrafficDetectionCfg.bEnable || m_stAlgoIllegalLaneChangeDetectionCfg.bEnable ||
-            m_stAlgoCongestionDetectionCfg.bEnable || m_stAlgoParkingDetectionCfg.bEnable || m_stLoiteringCfg.bEnable || m_stFenceClimbingCfg.bEnable || m_stLeavePostCfg.bEnable ||
+            m_stAlgoCongestionDetectionCfg.bEnable || m_stAlgoParkingDetectionCfg.bEnable || m_stFenceClimbingCfg.bEnable || m_stLeavePostCfg.bEnable ||
             m_stPedestrianIntrusionCfg.bEnable || m_stCrowdGatheringDetCfg.bEnable || m_stAlgoSmokingCfg.bEnable || m_stPhoneUsageCfg.bEnable || m_stAlgoLicensePlateCognitionCfg.bEnable ||
             m_stPersonAttributeCfg.bEnable || m_stMotorVehicleAttributeCfg.bEnable || m_stNonMotorVehicleAttributeCfg.bEnable)
         {
@@ -1449,34 +1434,6 @@ void CGroup2_Group4Detect::run()
                     }
                 }
 
-                /* 徘徊侦测规则 */
-                if (m_stLoiteringCfg.bEnable)
-                {
-                    for (auto &LoiteringRule : m_vstLoiteringRule)
-                    {
-                        Group2Detect_NS::LoiteringParam_S stLoiteringParam;
-                        if (!LoiteringRule.areas.empty() && LoiteringRule.bEnable)
-                        {
-                            bPersonDetect                        = true;
-                            stLoiteringParam.bEnable             = true;
-                            stLoiteringParam.nTimeThreshold      = LoiteringRule.nTimeThreshold;
-                            stLoiteringParam.fLoiteringThreshold = sensitivityToConfidence(LoiteringRule.nSensitivity);
-                            for (const auto &point : LoiteringRule.areas[0])
-                            {
-                                stLoiteringParam.vecPoints.push_back(cv::Point(point.nX, point.nY));
-                            }
-                        }
-                        else
-                        {
-                            stLoiteringParam.bEnable = false;
-                        }
-                        if (access("/PrintstAlgoCfg", F_OK) == 0)
-                        {
-                            dlog_debug("徘徊侦测 灵敏度 fBoxThreshold = %f nSensitivity = %d", stLoiteringParam.fLoiteringThreshold, LoiteringRule.nSensitivity);
-                        }
-                        stInData.stParam.vsLoiteringParam.push_back(stLoiteringParam);
-                    }
-                }
                 /* 翻越围栏规则 */
                 if (m_stFenceClimbingCfg.bEnable)
                 {
@@ -3147,53 +3104,6 @@ void CGroup2_Group4Detect::processGroup2Detect(const Group2Detect_NS::OutData_S 
         m_ExitAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeaveFlag, stContext);
 #else
         m_ExitAlarmStateMachine.handleAlarmState(stGroup2OutData.bLeaveFlag, Event::Type_E::LEAVE_REGION);
-#endif
-    }
-    if (m_stLoiteringCfg.bEnable)
-    {
-    /* 上报事件 */
-#ifdef ENABLE_TVSDK_SRC
-        EventTriggerContext_S stContext;
-        stContext.enEventType = Event::Type_E::LOITERING_DETECT;
-        stContext.nChnId = m_nChannelId;
-        stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                   std::chrono::system_clock::now().time_since_epoch())
-                                   .count();
-        if (!m_fullRgbMat.empty())
-        {
-            auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-            pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-            if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
-            {
-                stContext.pTvSdkPayload = pPayload;
-            }
-            if (!vecResult.empty())
-            {
-                const auto& result = vecResult[0];
-                int nX1 = static_cast<int>(result.fX1);
-                int nY1 = static_cast<int>(result.fY1);
-                int nX2 = static_cast<int>(result.fX2);
-                int nY2 = static_cast<int>(result.fY2);
-                stContext.nLeft = nX1;
-                stContext.nTop = nY1;
-                stContext.nRight = nX2;
-                stContext.nBottom = nY2;
-                stContext.nObjectType = (result.nID == 0) ? 1 : (result.nID == 1) ? 2 : 3;
-                stContext.fConfidence = result.fBoxConfidence;
-                if (nX1 >= 0 && nY1 >= 0 && nX2 > nX1 && nY2 > nY1
-                    && nX2 <= m_fullRgbMat.cols && nY2 <= m_fullRgbMat.rows) {
-                    cv::Rect roi(nX1, nY1, nX2 - nX1, nY2 - nY1);
-                    cv::Mat targetMat = m_fullRgbMat(roi).clone();
-                    EventTvSdkImage_S stTarget;
-                    if (encode_mat_to_tvsdk_image(targetMat, stTarget, JPEG_QUALITY_TARGET)) {
-                        stContext.stTargetImage = std::move(stTarget);
-                    }
-                }
-            }
-        }
-        m_LoiteringAlarmStateMachine.handleAlarmState(stGroup2OutData.bLoiteringFlag, stContext);
-#else
-        m_LoiteringAlarmStateMachine.handleAlarmState(stGroup2OutData.bLoiteringFlag, Event::Type_E::LOITERING_DETECT);
 #endif
     }
     if (m_stFenceClimbingCfg.bEnable)
@@ -4888,14 +4798,6 @@ void CGroup2_Group4Detect::convertResolutionAndEnable(T &stConfig, Event::Type_E
                 break;
             }
 
-            case Event::Type_E::LOITERING_DETECT: {
-                m_vstLoiteringRule.push_back(stRule);
-#if Group2_Group4_Detect_DEBUG
-                dlog_debug("=====================打印徘徊侦测区域area=================");
-                printArea(area);
-#endif
-                break;
-            }
             case Event::Type_E::FENCE_CLIMBING: {
                 m_vstFenceClimbingRule.push_back(stRule);
 #if Group2_Group4_Detect_DEBUG
@@ -5259,10 +5161,6 @@ int CGroup2_Group4Detect::checkPushState(const Group2Detect_NS::OutData_S &stGro
         {
             flag |= 1 << it;
         }
-    }
-    if (m_stLoiteringCfg.bEnable && m_LoiteringUploadStateMachine.handleAlarmState(stGroup2OutData.bLoiteringFlag))
-    {
-        flag |= nPerson;
     }
     if (m_stFenceClimbingCfg.bEnable && m_FenceClimbingUploadStateMachine.handleAlarmState(stGroup2OutData.bFenceClimbFlag))
     {

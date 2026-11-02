@@ -99,11 +99,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     void setAlgoParamCfg(const Alarm::ExitingDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::LEAVE_REGION);
 
     /**
-     * @brief   : 更新徘徊侦测区域参数
-     * @param    {LoiteringDetection_S} &徘徊侦测区域
-     */
-    void setAlgoParamCfg(const Alarm::LoiteringDetection_S &stAlgoCfg, Event::Type_E enType = Event::Type_E::LOITERING_DETECT);
-    /**
      * @brief   : 更新翻越围栏参数
      * @param    {FenceClimbingDetection_S} &翻越围栏区域
      */
@@ -639,8 +634,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     /* 离开区域配置 */
     Alarm::ExitingDetection_S m_stAlgoExitCfg;
 
-    /* 徘徊侦测相关配置 */
-    Alarm::LoiteringDetection_S m_stLoiteringCfg;
     /* 翻越围栏配置 */
     Alarm::FenceClimbingDetection_S m_stFenceClimbingCfg;
     /* 离岗配置 */
@@ -693,7 +686,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     std::vector<PMNMDetectRuleInfo_S> m_vstEntryRule;
     std::vector<PMNMDetectRuleInfo_S> m_vstExitRule;
 
-    std::vector<Event::RuleInfo> m_vstLoiteringRule;
     std::vector<Event::RuleInfo> m_vstFenceClimbingRule;
     std::vector<Event::RuleInfo> m_vstLeavePostRule;
     std::vector<Event::RuleInfo> m_vstPedestrianIntrusionRule;
@@ -712,7 +704,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     CAlarmStateMachine m_EntryAlarmStateMachine;
     CAlarmStateMachine m_ExitAlarmStateMachine;
 
-    CAlarmStateMachine m_LoiteringAlarmStateMachine;
     CAlarmStateMachine m_FenceClimbingAlarmStateMachine;
     CAlarmStateMachine m_LeavePostAlarmStateMachine;
     CAlarmStateMachine m_PedestrianIntrusionAlarmStateMachine;
@@ -746,7 +737,6 @@ class CGroup2_Group4Detect : public CAlgorithm {
     CUploadStateMachine m_IntruUploadStateMachine;                    /* 区域入侵 */
     CUploadStateMachine m_EntryUploadStateMachine;                    /* 进入区域 */
     CUploadStateMachine m_ExitUploadStateMachine;                     /* 离开区域 */
-    CUploadStateMachine m_LoiteringUploadStateMachine;                /* 徘徊侦测 */
     CUploadStateMachine m_FenceClimbingUploadStateMachine;            /* 翻越围栏 */
     CUploadStateMachine m_LeavePostUploadStateMachine;                /* 离岗 */
     CUploadStateMachine m_PedestrianIntrusionUploadStateMachine;      /* 行人闯入 */

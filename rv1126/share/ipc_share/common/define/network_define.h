@@ -637,6 +637,14 @@ namespace Network
         WIFI_CONNECT_ENABLE_NETWORK_FAILED = 14,     // 解除网络禁用状态失败
         WIFI_CONNECT_RECONNECT_FAILED = 15           // RECONNECT 命令失败
     };
+
+    /** Wi-Fi 配网入口来源，用于阻止网页和 BLE 同时修改无线配置。 */
+    enum WifiProvisioningOwner
+    {
+        WIFI_PROVISIONING_NONE = 0,
+        WIFI_PROVISIONING_WEB = 1,
+        WIFI_PROVISIONING_BLE = 2
+    };
     struct WifiConnectResult
     {
         bool success;           // 连接是否成功

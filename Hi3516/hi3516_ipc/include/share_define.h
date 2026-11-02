@@ -38,7 +38,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.6"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.7"
 #elif defined(DEVICE_TV_3852TLW)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TLW"
@@ -51,7 +51,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.6"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.7"
 #elif defined(DEVICE_TV_3852TL4G)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TL4G"
@@ -64,7 +64,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.6"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.7"
 #elif defined(DEVICE_TV_3852TL)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852TL"
@@ -77,7 +77,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.6"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.7"
 #elif defined(DEVICE_TV_3852H) || defined(DEVICE_TV_3852HZT)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852H"
@@ -90,7 +90,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.1.5"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.1.6"
 #elif defined(DEVICE_TV_3852T)
 /* 设备型号 */
 #define DEVICE_PROFILE_CODE             "TV-3852T"
@@ -103,7 +103,7 @@ extern "C"{
 /* 硬件版本 */
 #define DEVICE_PROFILE_HARDWARE_VERSION "V1.0.0"
 /* 系统版本 */
-#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.7"
+#define DEVICE_PROFILE_SYSTEM_VERSION   "V1.0.8"
 #else
 /* 未指定型号时，默认按 TV-3852T 兜底，保证公共设备画像字段完整 */
 /* 设备型号 */

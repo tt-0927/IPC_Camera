@@ -57,7 +57,9 @@ void printAlgoCfg(const Event::AlgorithmConfig_S &config)
                "普通[%d %d %d %d %d %d %d %d] "
                "周界[%d %d %d %d] "
                "Smart[%d %d %d %d %d %d %d %d %d %d]"
-               "场景智能分析[%d %d %d]",
+               "场景智能分析[%d %d %d]"
+               "平安校园[%d %d %d %d %d %d %d] "
+               "门禁异常通行[%d]",
 
                /* 普通事件 */
                config.nEnMotionDetect, config.nEnOcclusionDetect,
@@ -80,6 +82,11 @@ void printAlgoCfg(const Event::AlgorithmConfig_S &config)
                ,config.nEnLLmInference,config.nEnLLmInference, 
                config.nEnAISceneAnalysis
             #endif
+               /* 平安校园 */
+               ,config.nChannelOccupation, config.nClimbDetection, config.nDangerZoneApproach,
+               config.nLongTimeStay, config.nDangerZoneStay, config.nKeyAreaAbnormalStay, config.nRooftopStay
+               /* 门禁异常通行 */
+               ,config.nAccessControlAbnormalPassage
             );
 }
 

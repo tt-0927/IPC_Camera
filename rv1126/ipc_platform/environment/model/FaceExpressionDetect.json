@@ -1,0 +1,25 @@
+﻿{
+    "version": "v1.0",
+    "model": "Expression",
+    "notes": "表情识别",
+    "model_path": "/opt/cam/model/RV1126B_FaceExpression_V1.rknn",
+    "pre_process": {
+        "size": [
+            112,
+            112
+        ],
+        "channel": 3,
+        "type": "rgb",
+        "mean": [127.5, 127.5, 127.5],
+        "std": [127.5, 127.5, 127.5],
+        "padding": 0
+    },
+    "inference": {
+        "framework": "rv1126b",
+        "output_shape":[
+            [1,7]
+        ]    
+    },
+    "post_precess": {
+    }
+}

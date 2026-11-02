@@ -23,8 +23,20 @@
 
 #define TMP_STATUS    "/tmp/upgrade_tmp"
 
-/* 运行期间的临时上传目录，升级失败或成功后只清理该目录内容 */
-#define UPLOAD_RUNTIME_PATH "/tmp/upload"
+/* ===== 升级文件清单（manifest）相关 ===== */
+
+/* 清单目录相对安装根的路径。! 不能用 opt/cam/upgrade：板上该路径是指向
+   /tmp 的软链（重启即丢，清单无法持久）；opt/cam/manifest 为持久 flash 目录 */
+#define MANIFEST_DIR_REL     "opt/cam/manifest"
+/* 清单文件名规则：manifest_<scope>.txt，scope 对应打包类型 */
+#define MANIFEST_NAME_PREFIX "manifest_"
+#define MANIFEST_NAME_SUFFIX ".txt"
+/* 清单单行最大长度：64 位哈希 + 分隔 + 路径 + 余量 */
+#define MANIFEST_LINE_MAX    (1024)
+/* 清单文件大小上限，防御异常大文件占满内存 */
+#define MANIFEST_FILE_MAX    (4 * 1024 * 1024)
+/* 单份清单最大条目数，防御异常清单 */
+#define MANIFEST_ENTRY_MAX   (100000)
 
 /* 升级状态 */
 typedef enum _TiUpgradeRuslut_

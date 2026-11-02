@@ -12,6 +12,7 @@
 #include "operation_communicate.h"
 #include "system_convert.h"
 #include "convert_interface.h"
+#include "network_define.h"
 
 #include "TCPServer.h"
 #include "UDSServer.h"
@@ -104,6 +105,9 @@ void OperationServer::deal_message(
     /* 发送的信息 */
     std::string strSend;
     std::string strData;
+#if CAP_BLUETOOTH
+    unsigned int nUniqueId = 0;
+#endif
     if (stMessage.nActionCode != AC_UPLOAD_OPERATION_LOG)
     {
         dlog_debug("接收到[%d]消息：%s", stMessage.nActionCode, stMessage.pData);
@@ -120,6 +124,9 @@ void OperationServer::deal_message(
 
         Json::Object *pJsonData = Json::get(pJsonRoot, "Data");
         data = Json::to_string(pJsonData);
+#if CAP_BLUETOOTH
+        Json::get(pJsonRoot, "UniqueId", nUniqueId);
+#endif
         Json::deinit(pJsonRoot);
     }
 
@@ -130,15 +137,19 @@ void OperationServer::deal_message(
     case AC_CONNECT_WIFI_STA:
     {
         bool success = false;
+        int errorCode = ::Network::WIFI_CONNECT_SUCCESS;
         Json::Object *root = Json::init(data);
         if (root)
         {
             Json::get(root, "success", success);
+            Json::get(root, "error_code", errorCode);
             Json::deinit(root);
         }
         BleProvisioning::BleGattServer::instance().onExternalCommandResult(
-            BleProvisioning::CMD_WIFI_CONNECT, success,
-            success ? "wifi_connected" : "wifi_connect_failed");
+            BleProvisioning::CMD_WIFI_CONNECT, nUniqueId, success,
+            success ? "wifi_connected" :
+            (errorCode == ::Network::WIFI_CONNECT_BUSY
+                 ? "provisioning_busy" : "wifi_connect_failed"));
         break;
     }
     case AC_PLATFORM_CONN:
@@ -151,7 +162,7 @@ void OperationServer::deal_message(
             Json::deinit(root);
         }
         BleProvisioning::BleGattServer::instance().onExternalCommandResult(
-            BleProvisioning::CMD_PLATFORM_CONNECT, success,
+            BleProvisioning::CMD_PLATFORM_CONNECT, nUniqueId, success,
             success ? "platform_connected" : "platform_connect_failed");
         break;
     }
@@ -165,22 +176,27 @@ void OperationServer::deal_message(
             Json::deinit(root);
         }
         BleProvisioning::BleGattServer::instance().onExternalCommandResult(
-            BleProvisioning::CMD_PLATFORM_GET_STATUS, connected,
+            BleProvisioning::CMD_PLATFORM_GET_STATUS, nUniqueId, connected,
             connected ? "platform_connected" : "platform_offline");
         break;
     }
     case AC_SCAN_WIFI_STA:
     {
         bool success = false;
+        bool provisioningBusy = false;
         Json::Object *root = Json::init(data);
         if (root)
         {
             success = Json::get(root, "list") != NULL;
+            std::string status;
+            Json::get(root, "status", status);
+            provisioningBusy = status == "provisioning_busy";
             Json::deinit(root);
         }
         BleProvisioning::BleGattServer::instance().onExternalCommandResult(
-            BleProvisioning::CMD_WIFI_SCAN, success,
-            success ? data : "wifi_scan_failed");
+            BleProvisioning::CMD_WIFI_SCAN, nUniqueId, success,
+            success ? data :
+            (provisioningBusy ? "provisioning_busy" : "wifi_scan_failed"));
         break;
     }
 #endif
@@ -301,6 +317,26 @@ void OperationServer::fill_head(std::string &data, int nActionCode)
     data = Json::to_string(pJsonRoot);
     Json::deinit(pJsonRoot);
 }
+
+#if CAP_BLUETOOTH
+void OperationServer::fill_head(std::string &data, int nActionCode,
+                                unsigned int nUniqueId)
+{
+    Json::Object *pJsonRoot = Json::init();
+    Json::add(pJsonRoot, "ActionCode", nActionCode);
+    Json::add(pJsonRoot, "DeviceName", "");
+    Json::add(pJsonRoot, "UserName", "");
+    if (nUniqueId != 0)
+        Json::add(pJsonRoot, "UniqueId", nUniqueId);
+
+    Json::Object *pJsonData = Json::init(data);
+    if (pJsonData)
+        Json::add(pJsonRoot, "Data", pJsonData);
+
+    data = Json::to_string(pJsonRoot);
+    Json::deinit(pJsonRoot);
+}
+#endif
 
 void OperationServer::fill_returnHead(std::string &data, int nActionCode, int nRet)
 {

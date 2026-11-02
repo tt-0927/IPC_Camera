@@ -91,6 +91,9 @@ namespace Task
         TaskSubClass(SetConfigWifiIpv4)
         TaskSubClass(GetConfigWifiIpv4)
         TaskSubClass(ScanWifiSta)
+#if CAP_BLUETOOTH
+        TaskSubClass(ReleaseBleProvisioning)
+#endif
 #endif
 
 #if CAP_NETWORK_4G

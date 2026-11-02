@@ -294,6 +294,10 @@
 #define EVENT_KITCHEN_CLOTHING_COMPLIANCE_INFO_FILE      USER_DATA_PATH "event_kitchen_clothing_compliance_info.json"
 /* 消防设施异常 */
 #define EVENT_FIRE_EQUIPMENT_ABNORMAL_INFO_FILE      USER_DATA_PATH "event_fire_equipment_abnormal_info.json"
+/* 打架斗殴检测*/
+#define EVENT_FIGHT_DETCTION_INFO_FILE               USER_DATA_PATH "event_fight_detection_info.json"
+/* 鼠患识别 */
+#define EVENT_MOUSE_DETECTION_INFO_FILE              USER_DATA_PATH "event_mouse_detection_info.json"
 
 /* 人流统计 */
 #define EVENT_PEOPLE_FLOW_STATISTICS_CONFIG_FILE        USER_DATA_PATH "event_people_flow_statistics.json"

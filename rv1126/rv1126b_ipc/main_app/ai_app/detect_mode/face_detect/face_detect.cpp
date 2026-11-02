@@ -270,8 +270,6 @@ bool CFaceDetect::init()
             if (m_pFaceAttribute->init())
             {
                 dlog_debug("ai_app:  人脸属性算法初始化成功, %s", stInParam.strModelPath.c_str());
-              
-                return true;
             }
             else
             {
@@ -282,8 +280,7 @@ bool CFaceDetect::init()
         }
     }
 
-
-    return false;
+    return (m_pFaceDetectHandle && m_pFaceQuaHandle && m_pFaceAttribute);
 }
 
 bool CFaceDetect::unInit()

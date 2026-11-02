@@ -63,7 +63,12 @@ struct evws_connection {
 	/* for server connections, the http server they are connected with */
 	struct evhttp *http_server;
 
+	/* Reassembly buffer for a fragmented message (RFC6455 section 5.4);
+	 * non-NULL while a fragmented message is in progress. */
 	struct evbuffer *incomplete_frames;
+	/* Opcode of the first frame (TEXT_FRAME/BINARY_FRAME) of the message
+	 * being reassembled; only meaningful while incomplete_frames != NULL. */
+	unsigned char msg_type;
 	bool closed;
 };
 
@@ -75,6 +80,11 @@ enum WebSocketFrameType {
 
 	INCOMPLETE_FRAME = 0x81,
 
+	/* Opcode 0x0: continuation of a fragmented message (RFC6455 5.2).
+	 * get_ws_frame() returns it only for the final fragment (FIN=1);
+	 * non-final fragments are reported as INCOMPLETE_FRAME. */
+	CONTINUATION_FRAME = 0x0,
+
 	TEXT_FRAME = 0x1,
 	BINARY_FRAME = 0x2,
 
@@ -85,6 +95,9 @@ enum WebSocketFrameType {
 
 static void evws_send(struct evws_connection *evws,
 	enum WebSocketFrameType frame_type, const char *packet_str, size_t str_len);
+static void
+make_ws_frame(struct evbuffer *output, enum WebSocketFrameType frame_type,
+	unsigned char *packet_str, size_t str_len);
 
 /*
  * Clean up a WebSockets connection object
@@ -232,7 +245,7 @@ ws_message_limit_exceeded_(struct evws_connection *evws, size_t msg_len)
  */
 static enum WebSocketFrameType
 get_ws_frame(unsigned char *in_buffer, size_t buf_len,
-	unsigned char **payload_ptr, size_t *out_len)
+	unsigned char **payload_ptr, size_t *out_len, unsigned char *out_opcode)
 {
 	unsigned char opcode;
 	unsigned char fin;
@@ -246,6 +259,8 @@ get_ws_frame(unsigned char *in_buffer, size_t buf_len,
 	}
 
 	opcode = in_buffer[0] & 0x0F;
+	if (out_opcode != NULL)
+		*out_opcode = opcode;
 	fin = (in_buffer[0] >> 7) & 0x01;
 	masked = (in_buffer[1] >> 7) & 0x01;
 
@@ -327,6 +342,7 @@ ws_evhttp_read_cb(struct bufferevent *bufev, void *arg)
 	struct evws_connection *evws = arg;
 	unsigned char *payload;
 	enum WebSocketFrameType type;
+	unsigned char opcode;
 	size_t msg_len, in_len, header_sz;
 	struct evbuffer *input = bufferevent_get_input(evws->bufev);
 
@@ -337,7 +353,7 @@ ws_evhttp_read_cb(struct bufferevent *bufev, void *arg)
 			goto bailout;
 		}
 
-		type = get_ws_frame(data, in_len, &payload, &msg_len);
+		type = get_ws_frame(data, in_len, &payload, &msg_len, &opcode);
 		if (type == INCOMPLETE_DATA) {
 			/* incomplete data received, wait for next chunk */
 			goto bailout;
@@ -347,35 +363,56 @@ ws_evhttp_read_cb(struct bufferevent *bufev, void *arg)
 		data = evbuffer_pullup(input, -1);
 
 		switch (type) {
+		case CONTINUATION_FRAME:
+			/* Final fragment of a fragmented message: concatenate it
+			 * with the buffered fragments and deliver the message
+			 * with the type of its first frame (RFC6455 5.4). */
+			if (evws->incomplete_frames == NULL) {
+				/* continuation without a fragmented
+				 * message in progress */
+				evws_force_disconnect_(evws);
+				break;
+			}
+			if (ws_message_limit_exceeded_(evws, msg_len)) {
+				break;
+			}
+			evbuffer_add(evws->incomplete_frames, data, msg_len);
+
+			data = evbuffer_pullup(evws->incomplete_frames, -1);
+
+			evws->cb(evws, (enum WebSocketFrameType)evws->msg_type, data,
+				evbuffer_get_length(evws->incomplete_frames), evws->cb_arg);
+			evbuffer_free(evws->incomplete_frames);
+			evws->incomplete_frames = NULL;
+			break;
 		case TEXT_FRAME:
 		case BINARY_FRAME:
 			if (evws->incomplete_frames != NULL) {
-				if (ws_message_limit_exceeded_(evws, msg_len)) {
-					break;
-				}
-				/* we already have incomplete frames in internal buffer
-				 * and need to concatenate them with final one */
-				evbuffer_add(evws->incomplete_frames, data, msg_len);
-
-				data = evbuffer_pullup(evws->incomplete_frames, -1);
-
-				evws->cb(evws, type, data,
-					evbuffer_get_length(evws->incomplete_frames), evws->cb_arg);
-				evbuffer_free(evws->incomplete_frames);
-				evws->incomplete_frames = NULL;
-			} else {
-				evws->cb(evws, type, data, msg_len, evws->cb_arg);
+				/* a new data frame while a fragmented message is
+				 * in progress is a protocol violation
+				 * (RFC6455 5.4) */
+				evws_force_disconnect_(evws);
+				break;
 			}
+			evws->cb(evws, type, data, msg_len, evws->cb_arg);
 			break;
 		case INCOMPLETE_FRAME:
 			/* we received full frame until get fin and need to
 			 * postpone callback until all data arrives */
 			if (evws->incomplete_frames == NULL) {
+				if (opcode != TEXT_FRAME &&
+				    opcode != BINARY_FRAME) {
+					/* only a TEXT/BINARY frame may start a
+					 * fragmented message (RFC6455 5.4) */
+					evws_force_disconnect_(evws);
+					break;
+				}
 				evws->incomplete_frames = evbuffer_new();
-			}
-			if (evws->incomplete_frames == NULL) {
-				evws_force_disconnect_(evws);
-				break;
+				if (evws->incomplete_frames == NULL) {
+					evws_force_disconnect_(evws);
+					break;
+				}
+				evws->msg_type = opcode;
 			}
 			if (ws_message_limit_exceeded_(evws, msg_len)) {
 				break;
@@ -387,8 +424,17 @@ ws_evhttp_read_cb(struct bufferevent *bufev, void *arg)
 			evws_force_disconnect_(evws);
 			break;
 		case PING_FRAME:
+			/* Auto-reply PONG with the same payload (RFC6455 5.5.2),
+			 * matching libwebsockets behavior. We already hold the
+			 * bufferevent lock here, so write the frame directly
+			 * instead of going through evws_send(). */
+			if (!evws->closed) {
+				make_ws_frame(bufferevent_get_output(evws->bufev),
+					PONG_FRAME, data, msg_len);
+			}
+			break;
 		case PONG_FRAME:
-			/* ping or pong frame */
+			/* pong frame */
 			break;
 		default:
 			event_warn("%s: unexpected frame type %d\n", __func__, type);
@@ -459,6 +505,7 @@ evws_new_session(
 
 	evws->cb = cb;
 	evws->cb_arg = arg;
+	evws->msg_type = TEXT_FRAME;
 
 	evcon = evhttp_request_get_connection(req);
 	ws_http_server = evcon->http_server;

@@ -21,6 +21,7 @@
 #include "wifi_manage.h" 
 #include "platform_manager.h"
 #include "rtsp_server.h"
+#include "network_manage.h"
 #if CAP_LOCAL_STORAGE
 /* 本地 SD 存储链路：重启前停录停抓，能力关闭时无录制/抓图系统可停 */
 #include "record_ctrl.h"
@@ -558,6 +559,77 @@ void CWifiManager::handleDisconnect() {
                   attempt, result.error_code);
     }
 }
+#if CAP_BLUETOOTH
+bool CWifiManager::beginProvisioningOperation(
+    ::Network::WifiProvisioningOwner owner)
+{
+    if (owner == ::Network::WIFI_PROVISIONING_NONE)
+        return false;
+
+    std::lock_guard<std::mutex> lock(m_provisioningMutex);
+    const std::chrono::steady_clock::time_point now =
+        std::chrono::steady_clock::now();
+    if (m_provisioningOwner != ::Network::WIFI_PROVISIONING_NONE &&
+        !m_provisioningOperationBusy && now >= m_provisioningDeadline)
+    {
+        dlog_warn("[WiFi配网] 所有权超时释放 owner=%d",
+                  static_cast<int>(m_provisioningOwner));
+        m_provisioningOwner = ::Network::WIFI_PROVISIONING_NONE;
+        m_provisioningReleasePending = false;
+    }
+
+    if (m_provisioningOperationBusy ||
+        (m_provisioningOwner != ::Network::WIFI_PROVISIONING_NONE &&
+         m_provisioningOwner != owner))
+    {
+        dlog_warn("[WiFi配网] 拒绝并发请求 current=%d request=%d busy=%d",
+                  static_cast<int>(m_provisioningOwner),
+                  static_cast<int>(owner), m_provisioningOperationBusy ? 1 : 0);
+        return false;
+    }
+
+    m_provisioningOwner = owner;
+    m_provisioningOperationBusy = true;
+    m_provisioningReleasePending = false;
+    m_provisioningDeadline = now + std::chrono::minutes(5);
+    dlog_info("[WiFi配网] 获得操作权 owner=%d", static_cast<int>(owner));
+    return true;
+}
+
+void CWifiManager::endProvisioningOperation(
+    ::Network::WifiProvisioningOwner owner, bool keepOwnership)
+{
+    std::lock_guard<std::mutex> lock(m_provisioningMutex);
+    if (m_provisioningOwner != owner)
+        return;
+    m_provisioningOperationBusy = false;
+    if (!keepOwnership || m_provisioningReleasePending)
+    {
+        dlog_info("[WiFi配网] 释放所有权 owner=%d", static_cast<int>(owner));
+        m_provisioningOwner = ::Network::WIFI_PROVISIONING_NONE;
+        m_provisioningReleasePending = false;
+        return;
+    }
+    m_provisioningDeadline = std::chrono::steady_clock::now() +
+                             std::chrono::minutes(5);
+}
+
+void CWifiManager::releaseProvisioningOwner(
+    ::Network::WifiProvisioningOwner owner)
+{
+    std::lock_guard<std::mutex> lock(m_provisioningMutex);
+    if (m_provisioningOwner != owner)
+        return;
+    if (m_provisioningOperationBusy)
+    {
+        m_provisioningReleasePending = true;
+        return;
+    }
+    dlog_info("[WiFi配网] 主动释放所有权 owner=%d", static_cast<int>(owner));
+    m_provisioningOwner = ::Network::WIFI_PROVISIONING_NONE;
+    m_provisioningReleasePending = false;
+}
+#endif
 
 
 // 保存配置到文件

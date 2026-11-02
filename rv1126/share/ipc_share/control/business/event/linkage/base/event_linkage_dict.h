@@ -13,11 +13,20 @@
 
 #include "event_define.h"
 #include "event_linkage_types.h"
+#include "system_define.h"
 
 namespace EventLinkageDict
 {
 /**
- * @brief   : 获取事件名称
+ * @brief   : 获取事件名称（按设备语言）
+ * @param    {System::Language_E} enLanguage 设备语言，日志context落库语言跟随4009设置
+ * @param    {Event::Type_E} enType 事件类型
+ * @return   {std::string} 对应语言的事件名称
+ */
+std::string get_event_name(System::Language_E enLanguage, Event::Type_E enType);
+
+/**
+ * @brief   : 获取事件名称（中文，兼容旧调用方：dlog调试与联动上报链路）
  * @param    {Event::Type_E} enType 事件类型
  * @return   {std::string} 中文事件名称
  */

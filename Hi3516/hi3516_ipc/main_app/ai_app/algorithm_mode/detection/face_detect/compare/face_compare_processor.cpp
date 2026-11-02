@@ -520,6 +520,7 @@ void CFaceCompareProcessor::handleCompareLinkage(bool bSuccess,
                                                  std::vector<std::string> &vecImageFile)
 {
     const FaceDetectInternal::FaceCompareLinkageOptions_S stOptions = buildLinkageOptions(bSuccess);
+    (void) stImageCache;
     const long long llEventTimestamp = llTimestamp > 0 ? llTimestamp : TimeUtils_NS::get_currentTimestampMs();
     std::string strUploadImagePath;
     FaceDataDB_NS::FaceLibsInfo_S stMatchedFaceInfo;
@@ -564,7 +565,8 @@ void CFaceCompareProcessor::handleCompareLinkage(bool bSuccess,
      * 人脸比对不区分目标图和全景图。勾选上传SD卡后只走通用抓图链路，
      * 并将其首张图片同时提供给平台上传和邮件，避免重复编码JPEG。
      */
-    std::string strPanoramaImagePath = stImageCache.strPanoramaImagePath;
+    /* 人脸比对必须生成自己的 211 图片，不能复用同帧人脸抓拍事件 21 的全景路径。 */
+    std::string strPanoramaImagePath;
     Event::Info_S stEventInfo;
     stEventInfo.enType = Event::Type_E::FACE_COMPARE;
     stEventInfo.strDate = TimeUtils_NS::get_currentDate();
@@ -573,15 +575,21 @@ void CFaceCompareProcessor::handleCompareLinkage(bool bSuccess,
     stEventInfo.strStartTime = TimeUtils_NS::get_currentDateWithDash() + " " + TimeUtils_NS::get_currentTimeWithColon();
     stEventInfo.strEndTime = stEventInfo.strStartTime;
 
-    if (stOptions.bUploadSdCard && strPanoramaImagePath.empty() &&
-        CStorageManage::instance()->get_SdCardStatus() == SD_CARD_STATUS_E::NORMAL &&
-        CCaptureCtrl::instance()->set_event_capture(false, stEventInfo) == OK)
+    if (stOptions.bUploadSdCard && CStorageManage::instance()->get_SdCardStatus() == SD_CARD_STATUS_E::NORMAL)
     {
-        strPanoramaImagePath = CCaptureCtrl::instance()->get_face_capture_file();
-        CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
-        if (!strPanoramaImagePath.empty())
+        const int nCaptureRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
+        if (nCaptureRet == OK)
         {
-            stImageCache.strPanoramaImagePath = strPanoramaImagePath;
+            strPanoramaImagePath = CCaptureCtrl::instance()->get_face_capture_file(Event::Type_E::FACE_COMPARE);
+            CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
+            if (strPanoramaImagePath.empty())
+            {
+                dlog_warn("[人脸比对] 事件211全景图未生成");
+            }
+        }
+        else
+        {
+            dlog_error("[人脸比对] 事件211启动抓图失败: ret[%d]", nCaptureRet);
         }
     }
 
@@ -604,8 +612,8 @@ void CFaceCompareProcessor::handleCompareLinkage(bool bSuccess,
     {
         auto pPayload = std::make_shared<EventTvSdkPayload_S>();
         pPayload->enType = get_tvsdk_payload_type(stExposureContext.enEventType);
-        const bool bImageReady = (!stImageCache.strPanoramaImagePath.empty() &&
-                                  loadJpegFileToEventImage(stImageCache.strPanoramaImagePath, pFrameInfo, pPayload->stPanoramaImage)) ||
+        const bool bImageReady = (!strPanoramaImagePath.empty() &&
+                                  loadJpegFileToEventImage(strPanoramaImagePath, pFrameInfo, pPayload->stPanoramaImage)) ||
                                  (AiAppCommon::encode_video_frame_to_jpeg_memory(pFrameInfo, pPayload->stPanoramaImage) == OK);
         if (bImageReady)
         {

@@ -339,6 +339,12 @@ int get_configure(Alarm::SmokeFireDetection_S &alarm) const;
     /* 消防设施异常配置 */
     int set_configure(const Alarm::FireEquipmentAbnormalDetection_S &alarm);
     int get_configure(Alarm::FireEquipmentAbnormalDetection_S &alarm) const;
+    /* 打架斗殴检测配置 */
+    int set_configure(const Alarm::FightDetection_S &alarm);
+    int get_configure(Alarm::FightDetection_S &alarm) const;
+    /* 鼠患识别配置 */
+    int set_configure(const Alarm::MouseDetection_S &alarm);
+    int get_configure(Alarm::MouseDetection_S &alarm) const;
 #endif
 
 private:
@@ -549,6 +555,10 @@ private:
     ConfigStorage<Alarm::KitchenClothingCompliance_S, StorageType_E::Single> m_kitchenClothingCompliance;
     /* 消防设施异常配置 */
     ConfigStorage<Alarm::FireEquipmentAbnormalDetection_S, StorageType_E::Single> m_fireEquipmentAbnormal;
+    /* 打架斗殴检测配置 */
+    ConfigStorage<Alarm::FightDetection_S, StorageType_E::Single> m_fight;
+    /* 鼠患识别配置 */
+    ConfigStorage<Alarm::MouseDetection_S, StorageType_E::Single> m_mouseDetection;
 #endif
 
 };

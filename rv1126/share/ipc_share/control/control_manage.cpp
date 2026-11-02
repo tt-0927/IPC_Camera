@@ -3,7 +3,7 @@
  * @Author       : huangjunda
  * @Date         : 2025-03-27 19:38:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-10-13 14:32:02
+ * @LastEditTime : 2026-10-26 09:49:18
  * @Description  : 控制事务任务管理
  */
 
@@ -910,7 +910,9 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::GetHotspotConn>(AC_GET_HOTSPOT_CONN);
     pTaskManage->bind<Task::Network::GetHotspot>(AC_GET_HOTSPOT_INFO);
     #endif
-
+    #if CAP_BLUETOOTH
+    pTaskManage->bind<Task::Network::ReleaseBleProvisioning>(AC_RELEASE_BLE_PROVISIONING);
+    #endif
     #if CAP_GARBAGE_STATION_PLATFORM
     /* 平台管理 */
     pTaskManage->bind<Task::Network::ConnPlatform>(AC_PLATFORM_CONN);
@@ -1369,7 +1371,13 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 消防设施异常 */
     pTaskManage->bind<Task::Event::GetFireEquipmentAbnormalInfo>(AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG);
     pTaskManage->bind<Task::Event::SetFireEquipmentAbnormalInfo>(AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG);
-#endif
+    /* 打架斗殴检测 */
+    pTaskManage->bind<Task::Event::GetFightDetectionInfo>(AC_GET_FIGHT_DETECTION_CFG);
+    pTaskManage->bind<Task::Event::SetFightDetectionInfo>(AC_SET_FIGHT_DETECTION_CFG);
+    /* 鼠患识别 */
+    pTaskManage->bind<Task::Event::GetMouseDetectionInfo>(AC_GET_MOUSE_DETECTION_INFO);
+    pTaskManage->bind<Task::Event::SetMouseDetectionInfo>(AC_SET_MOUSE_DETECTION_INFO);
+    #endif
 
     TaskPublish::instance()->set_manage(pTaskManage);
 }

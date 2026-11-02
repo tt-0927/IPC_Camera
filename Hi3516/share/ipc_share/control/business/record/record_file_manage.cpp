@@ -34,6 +34,7 @@
 #include "event_database_manage.h"
 #include "record_ctrl.h"
 #include "storage_manage.h"
+#include "system_manage.h"
 #include "time_utils.h"
 #include "event_linkage.h"
 #include "event_define.h"
@@ -43,6 +44,14 @@
 #include <cstring>
 
 using namespace Db;
+
+/* 报警日志context"人员"文案按设备语言输出，语言跟随4009设置 */
+static std::string get_log_context_people()
+{
+    System::DeviceConfig_S stDeviceConfig;
+    SystemManage::instance()->get_device_config(stDeviceConfig);
+    return (System::Language_E::ENGLISH == stDeviceConfig.enLanguage) ? "Person" : "人员";
+}
 
 int RecordFileManage::init()
 {
@@ -779,7 +788,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
                 stLogInfo.nType = Log::Type::ALARM;
                 stLogInfo.nAction = Log::to_action(stEventFile.stEventInfo.enType, false /* isStart */);
                 stLogInfo.chnName = std::string("D") + std::to_string(stEventType.nChnId);
-                stLogInfo.context = "人员";
+                stLogInfo.context = get_log_context_people();
                 LogHandler::instance()->write(stLogInfo);  
 
                 it = m_eventFileMap.erase(it);
@@ -815,7 +824,7 @@ int RecordFileManage::deal_eventFile(Record_NS::TsFileInfo_S stTsFileInfo, int &
             stLogInfo.nType = Log::Type::ALARM;
             stLogInfo.nAction = Log::to_action(Event::Type(stEventType.nType), false /* isStart */);
             stLogInfo.chnName = std::string("D") + std::to_string(stEventType.nChnId);
-            stLogInfo.context = "人员";
+            stLogInfo.context = get_log_context_people();
             LogHandler::instance()->write(stLogInfo);
             it = m_eventFileMap.erase(it);
             dlog_warn("事件结束");
@@ -885,7 +894,7 @@ int RecordFileManage::create_eventVideo(Event::Info_S &stEventInfo)
         stLogInfo.nType = Log::Type::ALARM;
         stLogInfo.nAction = Log::to_action(Event::Type(stEventType.nType), false /* isStart */);
         stLogInfo.chnName = std::string("D") + std::to_string(stEventType.nChnId);
-        stLogInfo.context = "人员";
+        stLogInfo.context = get_log_context_people();
         LogHandler::instance()->write(stLogInfo);
         return -1;
     }

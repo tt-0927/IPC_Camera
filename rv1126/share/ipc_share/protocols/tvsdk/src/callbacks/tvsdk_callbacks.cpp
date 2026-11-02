@@ -1370,7 +1370,6 @@ static int execute_get_result(int actionCode, const std::string &inJson, std::st
 {
     return execute_get_result_with_ip(actionCode, inJson, outJson, std::string());
 }
-
 /*
  * 功能：执行智能事件配置任务，并将业务结果转换为 SDK 错误码。
  * 作者：Codex
@@ -5704,7 +5703,6 @@ static NET_COMMON_ECODE_E set_alarm_config_data(INT32 nActionCode, const std::st
 
     return tvsdk_set_event_config(nActionCode, strDataJson);
 }
-
 /**
  * @brief 获取 IPC 的声音告警配置。
  * @author ITC
@@ -6293,10 +6291,6 @@ static NET_COMMON_ECODE_E cb_set_upgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     dlog_info("[TVSDK][Upgrade] recv local-path=%s, exec-name=%s",
               strLocalPath.c_str(), stCfg.strUpgradePath.c_str());
 
-    /* AC_SET_UPGRADE / AC_CHECK_UPGRADE 在 IPC 侧是恒返回错误的占位实现
-     * （Task 内直接 result(ERR_IMPORT_UPGRADE / ERR_CHECK_UPGRADE)），
-     * 这里不再经过它们，直接走与 Web / ONVIF / MQTT 网关相同的 AC_DO_UPGRADE 通路。
-     * 包合法性（包头 id / MD5）由升级进程在扫描阶段校验，结果通过 GetUpgradeStatus 返回。 */
     return tvsdk_set_event_config(AC_DO_UPGRADE, Convert::to_string(stCfg));
 }
 
@@ -6353,6 +6347,33 @@ static NET_COMMON_ECODE_E cb_get_capture_plan_info(INT32 dwChannelID, LPVOID lpO
 
 /* --------------------------- 设置抓图计划信息 --------------------------- */
 
+/*
+ * @brief 校验抓图计划的时间段是否合法。
+ * @param [in] stPlan SDK 传入的抓图计划。
+ * @return 每个已配置时间段的开始时间均早于结束时间时返回 true。
+ */
+static bool is_valid_capture_plan(const NET_CapturePlanInfo_S &stPlan)
+{
+    for (size_t i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
+    {
+        const NET_CaptureDaySchedule_S &stDay = stPlan.astDaySchedules[i];
+        size_t unTimeCount = stDay.udwTimeCount;
+        if (unTimeCount > NET_PLAN_TIME_SECTION_NUM_ADAY)
+        {
+            unTimeCount = NET_PLAN_TIME_SECTION_NUM_ADAY;
+        }
+
+        for (size_t j = 0; j < unTimeCount; ++j)
+        {
+            if (stDay.astTimes[j].nStartTime >= stDay.astTimes[j].nEndTime)
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 static NET_COMMON_ECODE_E cb_set_capture_plan_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -6360,6 +6381,12 @@ static NET_COMMON_ECODE_E cb_set_capture_plan_info(INT32 dwChannelID, LPVOID lpI
         return NET_E_INVALID_PARAM;
 
     const NET_CapturePlanInfo_S *pIn = (const NET_CapturePlanInfo_S *)lpInBuffer;
+    if (!is_valid_capture_plan(*pIn))
+    {
+        dlog_warn("TVSDK设置抓图计划被拒绝：开始时间必须小于结束时间");
+        return NET_E_INVALID_PARAM;
+    }
+
     Capture_NS::CapturePlan_S stCfg;
     TvSdkConvert::ToCapturePlan(*pIn, stCfg);
 

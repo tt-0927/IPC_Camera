@@ -6,7 +6,9 @@
 #include <vector>
 #include <thread>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <mutex>
 #include "network_define.h"
 #include "path_define.h"
 #include "convert_interface.h"
@@ -145,6 +147,15 @@ private:
     std::atomic<bool> m_wifiNetworkAvailable{ false };
     bool m_lastWifiNetworkAvailable = false;
     std::mutex m_routeMutex; /* 串行化地址设置与路由状态切换 */
+#if CAP_BLUETOOTH
+    /* 网页与 BLE 共用的配网仲裁状态；BLE所有权最长保留5分钟。 */
+    std::mutex m_provisioningMutex;
+    ::Network::WifiProvisioningOwner m_provisioningOwner{
+        ::Network::WIFI_PROVISIONING_NONE};
+    bool m_provisioningOperationBusy{false};
+    bool m_provisioningReleasePending{false};
+    std::chrono::steady_clock::time_point m_provisioningDeadline;
+#endif
 
     // 私有辅助函数
     void execShell(const std::string &cmd);
@@ -182,6 +193,16 @@ public:
 
     // 1. 初始化：启动进程并开始监听
     int init();
+
+#if CAP_BLUETOOTH
+    /** 获取一次配网操作权；异来源或已有操作执行中时返回false。 */
+    bool beginProvisioningOperation(::Network::WifiProvisioningOwner owner);
+    /** 结束本次操作；BLE保留会话所有权，网页立即释放。 */
+    void endProvisioningOperation(::Network::WifiProvisioningOwner owner,
+                                  bool keepOwnership);
+    /** 配网完成、BLE断开或取消时释放BLE会话所有权。 */
+    void releaseProvisioningOwner(::Network::WifiProvisioningOwner owner);
+#endif
 
     void deinit();
 

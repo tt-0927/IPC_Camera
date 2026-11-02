@@ -478,7 +478,8 @@ void CFaceCaptureProcessor::handleLinkage(bool bAlarm,
             const int nRet = CCaptureCtrl::instance()->set_event_capture(false, stEventInfo);
             if (nRet == OK)
             {
-                stContext.stImageCache.strPanoramaImagePath = CCaptureCtrl::instance()->get_face_capture_file();
+                stContext.stImageCache.strPanoramaImagePath =
+                    CCaptureCtrl::instance()->get_face_capture_file(Event::Type_E::FACE_CAPTURE);
                 CCaptureCtrl::instance()->set_event_capture(true, stEventInfo);
                 if (stContext.stImageCache.strPanoramaImagePath.empty())
                 {

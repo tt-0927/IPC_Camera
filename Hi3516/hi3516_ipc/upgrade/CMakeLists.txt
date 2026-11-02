@@ -9,6 +9,7 @@ include(${IPC_SHARE_PATH}/common/common.cmake)
 include(${IPC_SHARE_PATH}/design/design.cmake)
 include(${IPC_SHARE_PATH}/ret/ret.cmake)
 include(${IPC_SHARE_PATH}/encrypt/md5/md5.cmake)
+include(${IPC_SHARE_PATH}/encrypt/sha256/sha256.cmake)
 include(${IPC_SHARE_PATH}/network/tcp/tcp.cmake)
 include(${IPC_SHARE_PATH}/data_format/json/json.cmake)
 # include(${IPC_SHARE_PATH}/network/network.cmake)
@@ -32,6 +33,7 @@ set (INCLUDE_PATH
 # 源文件
 set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/common
     ${CMAKE_CURRENT_LIST_DIR}/communication
     ${CMAKE_CURRENT_LIST_DIR}/manage
 
