@@ -1350,3 +1350,85 @@ NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConf
 {
     return registerSetCmdCb(NET_SET_OPEN_FLAME_LEAVE_INFO, pCb);
 }
+
+/* ---- 平安校园扩展事件：排队拥挤 / 后厨无关人员 / 门禁异常 / 社交关系 /
+ *      后厨穿戴 / 消防设施 / 打架斗殴 / 鼠患（均为单区域配置） ---- */
+NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_QUEUE_CROWDING_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_QUEUE_CROWDING_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_KITCHEN_UNRELATED_PERSON_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenUnrelatedPersonInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_KITCHEN_UNRELATED_PERSON_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetAccessControlAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_ACCESS_CONTROL_ABNORMAL_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetAccessControlAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_ACCESS_CONTROL_ABNORMAL_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetSocialRelationshipInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_SOCIAL_RELATIONSHIP_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetSocialRelationshipInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_SOCIAL_RELATIONSHIP_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenClothingInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_KITCHEN_CLOTHING_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenClothingInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_KITCHEN_CLOTHING_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetFireEquipmentAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetFireEquipmentAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_FIGHT_DETECTION_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_FIGHT_DETECTION_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_MOUSE_DETECTION_INFO, pCb);
+}
+
+NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_MOUSE_DETECTION_INFO, pCb);
+}

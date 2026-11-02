@@ -186,6 +186,14 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_DANGER_ZONE_STAY_INFO:       return GetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_KEY_AREA_ABNORMAL_STAY_INFO: return GetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_OPEN_FLAME_LEAVE_INFO:       return GetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_QUEUE_CROWDING_INFO:          return GetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_KITCHEN_UNRELATED_PERSON_INFO: return GetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_ACCESS_CONTROL_ABNORMAL_INFO: return GetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_SOCIAL_RELATIONSHIP_INFO:     return GetDevConfig_Impl<NET_SocialRelationshipInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_KITCHEN_CLOTHING_INFO:        return GetDevConfig_Impl<NET_KitchenClothingInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO: return GetDevConfig_Impl<NET_FireEquipmentAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_FIGHT_DETECTION_INFO:         return GetDevConfig_Impl<NET_FightDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_MOUSE_DETECTION_INFO:         return GetDevConfig_Impl<NET_MouseDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;
@@ -339,6 +347,14 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_DANGER_ZONE_STAY_INFO:       return SetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_KEY_AREA_ABNORMAL_STAY_INFO: return SetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_OPEN_FLAME_LEAVE_INFO:       return SetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_QUEUE_CROWDING_INFO:          return SetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_KITCHEN_UNRELATED_PERSON_INFO: return SetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_ACCESS_CONTROL_ABNORMAL_INFO: return SetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_SOCIAL_RELATIONSHIP_INFO:     return SetDevConfig_Impl<NET_SocialRelationshipInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_KITCHEN_CLOTHING_INFO:        return SetDevConfig_Impl<NET_KitchenClothingInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO: return SetDevConfig_Impl<NET_FireEquipmentAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_FIGHT_DETECTION_INFO:         return SetDevConfig_Impl<NET_FightDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_MOUSE_DETECTION_INFO:         return SetDevConfig_Impl<NET_MouseDetectionInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         default:
             CErrorManage::instance()->SetLastError(NET_E_CMD_NOT_SUPPORT);
             return FALSE;

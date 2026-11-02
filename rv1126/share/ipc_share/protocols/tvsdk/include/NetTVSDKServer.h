@@ -1348,6 +1348,24 @@ typedef enum tagNETTVCfgCmd
     NET_SET_KEY_AREA_ABNORMAL_STAY_INFO   = 611,           /* 设置重点区域异常滞留配置 参见NET_KeyAreaAbnormalStayInfo_S */
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,           /* 获取明火离人配置 参见NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,           /* 设置明火离人配置 参见NET_OpenFlameLeaveInfo_S */
+
+    /* ---- 平安校园扩展事件（614~629）：单区域 + 灵敏度，打架斗殴额外带时间阈值 ---- */
+    NET_GET_QUEUE_CROWDING_INFO           = 614,           /* 获取排队拥挤配置 参见NET_QueueCrowdingInfo_S */
+    NET_SET_QUEUE_CROWDING_INFO           = 615,           /* 设置排队拥挤配置 参见NET_QueueCrowdingInfo_S */
+    NET_GET_KITCHEN_UNRELATED_PERSON_INFO = 616,           /* 获取后厨无关人员进入配置 参见NET_KitchenUnrelatedPersonInfo_S */
+    NET_SET_KITCHEN_UNRELATED_PERSON_INFO = 617,           /* 设置后厨无关人员进入配置 参见NET_KitchenUnrelatedPersonInfo_S */
+    NET_GET_ACCESS_CONTROL_ABNORMAL_INFO  = 618,           /* 获取门禁异常通行配置 参见NET_AccessControlAbnormalInfo_S */
+    NET_SET_ACCESS_CONTROL_ABNORMAL_INFO  = 619,           /* 设置门禁异常通行配置 参见NET_AccessControlAbnormalInfo_S */
+    NET_GET_SOCIAL_RELATIONSHIP_INFO      = 620,           /* 获取社交关系分析配置 参见NET_SocialRelationshipInfo_S */
+    NET_SET_SOCIAL_RELATIONSHIP_INFO      = 621,           /* 设置社交关系分析配置 参见NET_SocialRelationshipInfo_S */
+    NET_GET_KITCHEN_CLOTHING_INFO         = 622,           /* 获取后厨穿戴规范配置 参见NET_KitchenClothingInfo_S */
+    NET_SET_KITCHEN_CLOTHING_INFO         = 623,           /* 设置后厨穿戴规范配置 参见NET_KitchenClothingInfo_S */
+    NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO  = 624,           /* 获取消防设施异常配置 参见NET_FireEquipmentAbnormalInfo_S */
+    NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO  = 625,           /* 设置消防设施异常配置 参见NET_FireEquipmentAbnormalInfo_S */
+    NET_GET_FIGHT_DETECTION_INFO          = 626,           /* 获取打架斗殴配置 参见NET_FightDetectionInfo_S */
+    NET_SET_FIGHT_DETECTION_INFO          = 627,           /* 设置打架斗殴配置 参见NET_FightDetectionInfo_S */
+    NET_GET_MOUSE_DETECTION_INFO          = 628,           /* 获取鼠患识别配置 参见NET_MouseDetectionInfo_S */
+    NET_SET_MOUSE_DETECTION_INFO          = 629,           /* 设置鼠患识别配置 参见NET_MouseDetectionInfo_S */
  
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -5398,6 +5416,102 @@ typedef struct tagNET_OpenFlameLeaveInfo
 
 typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
 
+/* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
+typedef struct tagNET_QueueCrowdingInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_QueueCrowdingInfo_S;
+typedef NET_QueueCrowdingInfo_S* pNET_QueueCrowdingInfo_S;
+
+typedef struct tagNET_KitchenUnrelatedPersonInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_KitchenUnrelatedPersonInfo_S;
+typedef NET_KitchenUnrelatedPersonInfo_S* pNET_KitchenUnrelatedPersonInfo_S;
+
+typedef struct tagNET_AccessControlAbnormalInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_AccessControlAbnormalInfo_S;
+typedef NET_AccessControlAbnormalInfo_S* pNET_AccessControlAbnormalInfo_S;
+
+typedef struct tagNET_SocialRelationshipInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_SocialRelationshipInfo_S;
+typedef NET_SocialRelationshipInfo_S* pNET_SocialRelationshipInfo_S;
+
+typedef struct tagNET_KitchenClothingInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_KitchenClothingInfo_S;
+typedef NET_KitchenClothingInfo_S* pNET_KitchenClothingInfo_S;
+
+typedef struct tagNET_FireEquipmentAbnormalInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_FireEquipmentAbnormalInfo_S;
+typedef NET_FireEquipmentAbnormalInfo_S* pNET_FireEquipmentAbnormalInfo_S;
+
+typedef struct tagNET_FightDetectionInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    INT32               nTimeThreshold;  /* 最小持续时间，单位秒 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_FightDetectionInfo_S;
+typedef NET_FightDetectionInfo_S* pNET_FightDetectionInfo_S;
+
+typedef struct tagNET_MouseDetectionInfo
+{
+    UINT32              uChannel;
+    BOOL                bEnable;
+    INT32               nSensitivity;    /* 1~100 */
+    NET_SmartRegion_S   stRegion;
+    NET_AlarmSchedule_S stAlarmSchedule;
+    NET_LinkageList_S   stLinkageList;
+    BYTE                byReserved[256];
+}NET_MouseDetectionInfo_S;
+typedef NET_MouseDetectionInfo_S* pNET_MouseDetectionInfo_S;
+
 /**
  * @struct tagNET_SmokeFireCfg
  * @brief 烟火识别配置信息 Smoke fire detection configuration
@@ -5590,7 +5704,8 @@ typedef struct tagNET_FaceCaptureInfo
 {
     UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                        bEnable;                             /* 是否启用 0-不启用 1-启用 */
-    NET_FaceCaptureRule_S  stRule;                             /* 人脸抓拍规则 */
+    BOOL                        bFaceExpressionEnable;               /* 是否启用面部情绪分析 0-不启用 1-启用 */
+    NET_FaceCaptureRule_S  stRule;                             /* 人脸抓拍 规则 */
     NET_AlarmSchedule_S     stAlarmSchedule;                    /* 布防时间 */
     NET_LinkageList_S       stLinkageList;                      /* 联动配置 */
     BYTE                        byRes[256];                         /* 保留字段 */
@@ -7307,6 +7422,22 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenUnrelatedPersonInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAccessControlAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAccessControlAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSocialRelationshipInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSocialRelationshipInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenClothingInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenClothingInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFireEquipmentAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFireEquipmentAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);

@@ -245,6 +245,24 @@ void ToKeyAreaAbnormalStay(const NET_KeyAreaAbnormalStayInfo_S &src, Alarm::KeyA
 void FillOpenFlameLeaveInfo(const Alarm::OpenFlameLeaveDetection_S &src, NET_OpenFlameLeaveInfo_S &dst);
 void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeaveDetection_S &dst);
 
+/* ---- 平安校园扩展：单区域事件 ---- */
+void FillQueueCrowdingInfo(const Alarm::QueueCrowdingDetection_S &src, NET_QueueCrowdingInfo_S &dst);
+void ToQueueCrowding(const NET_QueueCrowdingInfo_S &src, Alarm::QueueCrowdingDetection_S &dst);
+void FillKitchenUnrelatedPersonInfo(const Alarm::KitchenUnrelatedPersonEntry_S &src, NET_KitchenUnrelatedPersonInfo_S &dst);
+void ToKitchenUnrelatedPerson(const NET_KitchenUnrelatedPersonInfo_S &src, Alarm::KitchenUnrelatedPersonEntry_S &dst);
+void FillAccessControlAbnormalInfo(const Alarm::AccessControlAbnormalPassage_S &src, NET_AccessControlAbnormalInfo_S &dst);
+void ToAccessControlAbnormal(const NET_AccessControlAbnormalInfo_S &src, Alarm::AccessControlAbnormalPassage_S &dst);
+void FillSocialRelationshipInfo(const Alarm::SocialRelationshipAnalysis_S &src, NET_SocialRelationshipInfo_S &dst);
+void ToSocialRelationship(const NET_SocialRelationshipInfo_S &src, Alarm::SocialRelationshipAnalysis_S &dst);
+void FillKitchenClothingInfo(const Alarm::KitchenClothingCompliance_S &src, NET_KitchenClothingInfo_S &dst);
+void ToKitchenClothing(const NET_KitchenClothingInfo_S &src, Alarm::KitchenClothingCompliance_S &dst);
+void FillFireEquipmentAbnormalInfo(const Alarm::FireEquipmentAbnormalDetection_S &src, NET_FireEquipmentAbnormalInfo_S &dst);
+void ToFireEquipmentAbnormal(const NET_FireEquipmentAbnormalInfo_S &src, Alarm::FireEquipmentAbnormalDetection_S &dst);
+void FillFightDetectionInfo(const Alarm::FightDetection_S &src, NET_FightDetectionInfo_S &dst);
+void ToFightDetection(const NET_FightDetectionInfo_S &src, Alarm::FightDetection_S &dst);
+void FillMouseDetectionInfo(const Alarm::MouseDetection_S &src, NET_MouseDetectionInfo_S &dst);
+void ToMouseDetection(const NET_MouseDetectionInfo_S &src, Alarm::MouseDetection_S &dst);
+
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

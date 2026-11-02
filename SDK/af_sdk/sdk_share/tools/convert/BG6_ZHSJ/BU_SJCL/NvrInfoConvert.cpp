@@ -380,6 +380,7 @@ void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruc
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "FaceExpressionEnable", stInfo.bFaceExpressionEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -1637,6 +1638,134 @@ void deal(Json::Object* pRootJson, NET_ForceKeyFrameInfo_S& stInfo, bool bOutStr
 
 /* ---- 平安校园：单区域 + 三档灵敏度事件 ---- */
 void deal(Json::Object* pRootJson, NET_ChannelOccupationInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+/* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
+void deal(Json::Object* pRootJson, NET_QueueCrowdingInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_KitchenUnrelatedPersonInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_AccessControlAbnormalInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_SocialRelationshipInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_KitchenClothingInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_FireEquipmentAbnormalInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_FightDetectionInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
+    convert.field(pRootJson, "TimeThreshold", stInfo.nTimeThreshold);
+    convert.structure(pRootJson, "Region", stInfo.stRegion);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
+void deal(Json::Object* pRootJson, NET_MouseDetectionInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
     {

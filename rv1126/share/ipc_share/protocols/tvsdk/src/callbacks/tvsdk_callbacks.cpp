@@ -5244,6 +5244,331 @@ static NET_COMMON_ECODE_E cb_set_open_flame_leave_info(INT32 dwChannelID, LPVOID
     TvSdkConvert::ToOpenFlameLeave(*pIn, stCfg);
     return tvsdk_set_event_config(AC_SET_OPEN_FLAME_LEAVE_CFG, Convert::to_string(stCfg));
 }
+
+/* ================= 平安校园扩展事件（排队拥挤/后厨无关人员/门禁异常/社交关系/
+ *   后厨穿戴/消防设施/打架斗殴/鼠患） ================= */
+
+/* 排队拥挤 */
+static NET_COMMON_ECODE_E cb_get_queue_crowding_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_QUEUE_CROWDING_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::QueueCrowdingDetection_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillQueueCrowdingInfo(stCfg, *(pNET_QueueCrowdingInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_queue_crowding_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_QueueCrowdingInfo_S *pIn = (const NET_QueueCrowdingInfo_S *)lpInBuffer;
+
+    /* 单区域事件：灵敏度 1~100，区域复用统一多边形校验（0 点表示整幅画面） */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 排队拥挤参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::QueueCrowdingDetection_S stCfg = {};
+    TvSdkConvert::ToQueueCrowding(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_QUEUE_CROWDING_INFO, Convert::to_string(stCfg));
+}
+
+/* 后厨无关人员进入（IPC 侧无区域） */
+static NET_COMMON_ECODE_E cb_get_kitchen_unrelated_person_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::KitchenUnrelatedPersonEntry_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillKitchenUnrelatedPersonInfo(stCfg, *(pNET_KitchenUnrelatedPersonInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_kitchen_unrelated_person_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_KitchenUnrelatedPersonInfo_S *pIn = (const NET_KitchenUnrelatedPersonInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 后厨无关人员进入参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::KitchenUnrelatedPersonEntry_S stCfg = {};
+    TvSdkConvert::ToKitchenUnrelatedPerson(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_KITCHEN_UNRELATED_PERSON_ENTRY_INFO, Convert::to_string(stCfg));
+}
+
+/* 门禁异常通行 */
+static NET_COMMON_ECODE_E cb_get_access_control_abnormal_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::AccessControlAbnormalPassage_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillAccessControlAbnormalInfo(stCfg, *(pNET_AccessControlAbnormalInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_access_control_abnormal_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_AccessControlAbnormalInfo_S *pIn = (const NET_AccessControlAbnormalInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 门禁异常通行参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::AccessControlAbnormalPassage_S stCfg = {};
+    TvSdkConvert::ToAccessControlAbnormal(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_ACCESS_CONTROL_ABNORMAL_PASSAGE_INFO, Convert::to_string(stCfg));
+}
+
+/* 社交关系分析（IPC 侧无区域） */
+static NET_COMMON_ECODE_E cb_get_social_relationship_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::SocialRelationshipAnalysis_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillSocialRelationshipInfo(stCfg, *(pNET_SocialRelationshipInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_social_relationship_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_SocialRelationshipInfo_S *pIn = (const NET_SocialRelationshipInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 社交关系分析参数非法: enable[%d] sensitivity[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::SocialRelationshipAnalysis_S stCfg = {};
+    TvSdkConvert::ToSocialRelationship(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_SOCIAL_RELATIONSHIP_ANALYSIS_INFO, Convert::to_string(stCfg));
+}
+
+/* 后厨穿戴规范 */
+static NET_COMMON_ECODE_E cb_get_kitchen_clothing_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_KITCHEN_CLOTHING_COMPLIANCE_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::KitchenClothingCompliance_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillKitchenClothingInfo(stCfg, *(pNET_KitchenClothingInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_kitchen_clothing_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_KitchenClothingInfo_S *pIn = (const NET_KitchenClothingInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 后厨穿戴规范参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::KitchenClothingCompliance_S stCfg = {};
+    TvSdkConvert::ToKitchenClothing(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_KITCHEN_CLOTHING_COMPLIANCE_INFO, Convert::to_string(stCfg));
+}
+
+/* 消防设施异常 */
+static NET_COMMON_ECODE_E cb_get_fire_equipment_abnormal_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_FIRE_EQUIPMENT_ABNORMAL_CFG, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::FireEquipmentAbnormalDetection_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillFireEquipmentAbnormalInfo(stCfg, *(pNET_FireEquipmentAbnormalInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_fire_equipment_abnormal_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_FireEquipmentAbnormalInfo_S *pIn = (const NET_FireEquipmentAbnormalInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 消防设施异常参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::FireEquipmentAbnormalDetection_S stCfg = {};
+    TvSdkConvert::ToFireEquipmentAbnormal(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_FIRE_EQUIPMENT_ABNORMAL_CFG, Convert::to_string(stCfg));
+}
+
+/* 打架斗殴（额外校验持续时间阈值） */
+static NET_COMMON_ECODE_E cb_get_fight_detection_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_FIGHT_DETECTION_CFG, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::FightDetection_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillFightDetectionInfo(stCfg, *(pNET_FightDetectionInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_fight_detection_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_FightDetectionInfo_S *pIn = (const NET_FightDetectionInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        pIn->nTimeThreshold < tvsdk_rule_min_time(AC_SET_FIGHT_DETECTION_CFG) ||
+        pIn->nTimeThreshold > tvsdk_rule_max_time(AC_SET_FIGHT_DETECTION_CFG) ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 打架斗殴参数非法: enable[%d] sensitivity[%d] time[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity,
+                  pIn->nTimeThreshold, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::FightDetection_S stCfg = {};
+    TvSdkConvert::ToFightDetection(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_FIGHT_DETECTION_CFG, Convert::to_string(stCfg));
+}
+
+/* 鼠患识别 */
+static NET_COMMON_ECODE_E cb_get_mouse_detection_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_MOUSE_DETECTION_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::MouseDetection_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillMouseDetectionInfo(stCfg, *(pNET_MouseDetectionInfo_S)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+static NET_COMMON_ECODE_E cb_set_mouse_detection_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_MouseDetectionInfo_S *pIn = (const NET_MouseDetectionInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        pIn->nSensitivity < 1 || pIn->nSensitivity > 100 ||
+        !tvsdk_valid_polygon(pIn->stRegion) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 鼠患识别参数非法: enable[%d] sensitivity[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->nSensitivity, pIn->stRegion.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::MouseDetection_S stCfg = {};
+    TvSdkConvert::ToMouseDetection(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_MOUSE_DETECTION_INFO, Convert::to_string(stCfg));
+}
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS
@@ -7101,6 +7426,12 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
         return NET_E_INVALID_PARAM;
     }
     const NET_FaceCaptureInfo_S *pIn = static_cast<const NET_FaceCaptureInfo_S *>(lpInBuffer);
+    /* 面部情绪分析开关只接受 0/1（复用命令码，不单独下发） */
+    if (pIn->bFaceExpressionEnable != 0 && pIn->bFaceExpressionEnable != 1)
+    {
+        dlog_warn("TVSDK 面部情绪分析开关非法: %d", static_cast<int>(pIn->bFaceExpressionEnable));
+        return NET_E_INVALID_PARAM;
+    }
 #if CAP_AI_FACE_RECOGNITION
     const int nSetActionCode = AC_SET_FACE_RECOGNITION_INFO;
     std::string strCurrentJson;
@@ -7933,6 +8264,23 @@ void register_all()
     NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(cb_set_key_area_abnormal_stay_info);
     NET_serverRegisterGetOpenFlameLeaveInfoCb(cb_get_open_flame_leave_info);
     NET_serverRegisterSetOpenFlameLeaveInfoCb(cb_set_open_flame_leave_info);
+    /* 平安校园扩展事件（614~629） */
+    NET_serverRegisterGetQueueCrowdingInfoCb(cb_get_queue_crowding_info);
+    NET_serverRegisterSetQueueCrowdingInfoCb(cb_set_queue_crowding_info);
+    NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(cb_get_kitchen_unrelated_person_info);
+    NET_serverRegisterSetKitchenUnrelatedPersonInfoCb(cb_set_kitchen_unrelated_person_info);
+    NET_serverRegisterGetAccessControlAbnormalInfoCb(cb_get_access_control_abnormal_info);
+    NET_serverRegisterSetAccessControlAbnormalInfoCb(cb_set_access_control_abnormal_info);
+    NET_serverRegisterGetSocialRelationshipInfoCb(cb_get_social_relationship_info);
+    NET_serverRegisterSetSocialRelationshipInfoCb(cb_set_social_relationship_info);
+    NET_serverRegisterGetKitchenClothingInfoCb(cb_get_kitchen_clothing_info);
+    NET_serverRegisterSetKitchenClothingInfoCb(cb_set_kitchen_clothing_info);
+    NET_serverRegisterGetFireEquipmentAbnormalInfoCb(cb_get_fire_equipment_abnormal_info);
+    NET_serverRegisterSetFireEquipmentAbnormalInfoCb(cb_set_fire_equipment_abnormal_info);
+    NET_serverRegisterGetFightDetectionInfoCb(cb_get_fight_detection_info);
+    NET_serverRegisterSetFightDetectionInfoCb(cb_set_fight_detection_info);
+    NET_serverRegisterGetMouseDetectionInfoCb(cb_get_mouse_detection_info);
+    NET_serverRegisterSetMouseDetectionInfoCb(cb_set_mouse_detection_info);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

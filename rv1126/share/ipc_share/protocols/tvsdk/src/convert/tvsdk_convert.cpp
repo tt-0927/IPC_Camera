@@ -3693,6 +3693,164 @@ void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeave
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/* ---- 平安校园扩展：排队拥挤 ---- */
+void FillQueueCrowdingInfo(const Alarm::QueueCrowdingDetection_S &src, NET_QueueCrowdingInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToQueueCrowding(const NET_QueueCrowdingInfo_S &src, Alarm::QueueCrowdingDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：后厨无关人员进入（无区域） ---- */
+void FillKitchenUnrelatedPersonInfo(const Alarm::KitchenUnrelatedPersonEntry_S &src, NET_KitchenUnrelatedPersonInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToKitchenUnrelatedPerson(const NET_KitchenUnrelatedPersonInfo_S &src, Alarm::KitchenUnrelatedPersonEntry_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：门禁异常通行 ---- */
+void FillAccessControlAbnormalInfo(const Alarm::AccessControlAbnormalPassage_S &src, NET_AccessControlAbnormalInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToAccessControlAbnormal(const NET_AccessControlAbnormalInfo_S &src, Alarm::AccessControlAbnormalPassage_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：社交关系分析（无区域） ---- */
+void FillSocialRelationshipInfo(const Alarm::SocialRelationshipAnalysis_S &src, NET_SocialRelationshipInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToSocialRelationship(const NET_SocialRelationshipInfo_S &src, Alarm::SocialRelationshipAnalysis_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：后厨穿戴规范 ---- */
+void FillKitchenClothingInfo(const Alarm::KitchenClothingCompliance_S &src, NET_KitchenClothingInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToKitchenClothing(const NET_KitchenClothingInfo_S &src, Alarm::KitchenClothingCompliance_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：消防设施异常 ---- */
+void FillFireEquipmentAbnormalInfo(const Alarm::FireEquipmentAbnormalDetection_S &src, NET_FireEquipmentAbnormalInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToFireEquipmentAbnormal(const NET_FireEquipmentAbnormalInfo_S &src, Alarm::FireEquipmentAbnormalDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：打架斗殴（含持续时间阈值） ---- */
+void FillFightDetectionInfo(const Alarm::FightDetection_S &src, NET_FightDetectionInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    dst.nTimeThreshold = (INT32)src.stRule.nTimeThreshold;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToFightDetection(const NET_FightDetectionInfo_S &src, Alarm::FightDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    dst.stRule.nTimeThreshold = (unsigned int)src.nTimeThreshold;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+/* ---- 平安校园扩展：鼠患识别 ---- */
+void FillMouseDetectionInfo(const Alarm::MouseDetection_S &src, NET_MouseDetectionInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.nSensitivity = (INT32)src.stRule.nSensitivity;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRegion.uPointCount, dst.stRegion.afPointX, dst.stRegion.afPointY);
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToMouseDetection(const NET_MouseDetectionInfo_S &src, Alarm::MouseDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.nSensitivity;
+    ToRegionFromPolygon(src.stRegion.uPointCount, src.stRegion.afPointX, src.stRegion.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
 #endif
 
 // --------- AudioAnomaly (IPC AudioAnomaly_S <-> SDK NET_AudioAnomalyAlarmInfo_S) ---------
@@ -4838,6 +4996,8 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
     stCaptureConfig.aAlarmTime = stSource.aAlarmTime;
     stCaptureConfig.stLinkageList = stSource.stLinkageList;
     FillFaceCaptureInfo(stCaptureConfig, stDestination);
+    /* 面部情绪分析开关：仅人脸识别配置上的附加开关，不单独占用命令码 */
+    stDestination.bFaceExpressionEnable = stSource.bFaceExpressionEnable ? TRUE : FALSE;
 }
 
 /**
@@ -4856,6 +5016,8 @@ void TvSdkConvert::ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
 
     stDestination = stCurrent;
     stDestination.bCaptureEnable = stCaptureConfig.bEnable;
+    /* 面部情绪分析开关随人脸识别配置一并下发 */
+    stDestination.bFaceExpressionEnable = (stSource.bFaceExpressionEnable == TRUE);
     stDestination.nSensitivity = stCaptureConfig.stRule.nSensitivity;
     stDestination.stRegion = stCaptureConfig.stRule.stRegion;
     stDestination.stCaptureRule.vstShieldedRegion = stCaptureConfig.stRule.vstShieldedRegion;

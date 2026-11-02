@@ -1442,6 +1442,24 @@ typedef enum tagNETTVCfgCmd
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,    /* 获取明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,    /* 设置明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
 
+    /* ---- 平安校园扩展事件（614~629）：均为单区域 + 灵敏度，打架斗殴额外带时间阈值 ---- */
+    NET_GET_QUEUE_CROWDING_INFO           = 614,    /* 获取排队拥挤配置, 参见 #NET_QueueCrowdingInfo_S */
+    NET_SET_QUEUE_CROWDING_INFO           = 615,    /* 设置排队拥挤配置, 参见 #NET_QueueCrowdingInfo_S */
+    NET_GET_KITCHEN_UNRELATED_PERSON_INFO = 616,    /* 获取后厨无关人员进入配置, 参见 #NET_KitchenUnrelatedPersonInfo_S */
+    NET_SET_KITCHEN_UNRELATED_PERSON_INFO = 617,    /* 设置后厨无关人员进入配置, 参见 #NET_KitchenUnrelatedPersonInfo_S */
+    NET_GET_ACCESS_CONTROL_ABNORMAL_INFO  = 618,    /* 获取门禁异常通行配置, 参见 #NET_AccessControlAbnormalInfo_S */
+    NET_SET_ACCESS_CONTROL_ABNORMAL_INFO  = 619,    /* 设置门禁异常通行配置, 参见 #NET_AccessControlAbnormalInfo_S */
+    NET_GET_SOCIAL_RELATIONSHIP_INFO      = 620,    /* 获取社交关系分析配置, 参见 #NET_SocialRelationshipInfo_S */
+    NET_SET_SOCIAL_RELATIONSHIP_INFO      = 621,    /* 设置社交关系分析配置, 参见 #NET_SocialRelationshipInfo_S */
+    NET_GET_KITCHEN_CLOTHING_INFO         = 622,    /* 获取后厨穿戴规范配置, 参见 #NET_KitchenClothingInfo_S */
+    NET_SET_KITCHEN_CLOTHING_INFO         = 623,    /* 设置后厨穿戴规范配置, 参见 #NET_KitchenClothingInfo_S */
+    NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO  = 624,    /* 获取消防设施异常配置, 参见 #NET_FireEquipmentAbnormalInfo_S */
+    NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO  = 625,    /* 设置消防设施异常配置, 参见 #NET_FireEquipmentAbnormalInfo_S */
+    NET_GET_FIGHT_DETECTION_INFO          = 626,    /* 获取打架斗殴配置, 参见 #NET_FightDetectionInfo_S */
+    NET_SET_FIGHT_DETECTION_INFO          = 627,    /* 设置打架斗殴配置, 参见 #NET_FightDetectionInfo_S */
+    NET_GET_MOUSE_DETECTION_INFO          = 628,    /* 获取鼠患识别配置, 参见 #NET_MouseDetectionInfo_S */
+    NET_SET_MOUSE_DETECTION_INFO          = 629,    /* 设置鼠患识别配置, 参见 #NET_MouseDetectionInfo_S */
+
     NET_CFG_INVALID                       = 0xFFFF  /* 无效值 */
 
 }NET_CONFIG_COMMAND_E;
@@ -6096,6 +6114,149 @@ typedef struct tagNET_OpenFlameLeaveInfo
 typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
 
 /**
+ * @struct tagNET_QueueCrowdingInfo
+ * @brief 排队拥挤检测配置信息 Queue crowding detection configuration
+ * @note 用于NET_GET_QUEUE_CROWDING_INFO/NET_SET_QUEUE_CROWDING_INFO；单区域规则
+ */
+typedef struct tagNET_QueueCrowdingInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_QueueCrowdingInfo_S;
+
+typedef NET_QueueCrowdingInfo_S* pNET_QueueCrowdingInfo_S;
+
+/**
+ * @struct tagNET_KitchenUnrelatedPersonInfo
+ * @brief 后厨无关人员进入配置信息 Kitchen unrelated person entry configuration
+ * @note 用于NET_GET_KITCHEN_UNRELATED_PERSON_INFO/NET_SET_KITCHEN_UNRELATED_PERSON_INFO；单区域规则
+ */
+typedef struct tagNET_KitchenUnrelatedPersonInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_KitchenUnrelatedPersonInfo_S;
+
+typedef NET_KitchenUnrelatedPersonInfo_S* pNET_KitchenUnrelatedPersonInfo_S;
+
+/**
+ * @struct tagNET_AccessControlAbnormalInfo
+ * @brief 门禁异常通行配置信息 Access control abnormal passage configuration
+ * @note 用于NET_GET_ACCESS_CONTROL_ABNORMAL_INFO/NET_SET_ACCESS_CONTROL_ABNORMAL_INFO；单区域规则
+ */
+typedef struct tagNET_AccessControlAbnormalInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_AccessControlAbnormalInfo_S;
+
+typedef NET_AccessControlAbnormalInfo_S* pNET_AccessControlAbnormalInfo_S;
+
+/**
+ * @struct tagNET_SocialRelationshipInfo
+ * @brief 社交关系分析配置信息 Social relationship analysis configuration
+ * @note 用于NET_GET_SOCIAL_RELATIONSHIP_INFO/NET_SET_SOCIAL_RELATIONSHIP_INFO
+ */
+typedef struct tagNET_SocialRelationshipInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_SocialRelationshipInfo_S;
+
+typedef NET_SocialRelationshipInfo_S* pNET_SocialRelationshipInfo_S;
+
+/**
+ * @struct tagNET_KitchenClothingInfo
+ * @brief 后厨穿戴规范配置信息 Kitchen clothing compliance configuration
+ * @note 用于NET_GET_KITCHEN_CLOTHING_INFO/NET_SET_KITCHEN_CLOTHING_INFO；单区域规则
+ */
+typedef struct tagNET_KitchenClothingInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_KitchenClothingInfo_S;
+
+typedef NET_KitchenClothingInfo_S* pNET_KitchenClothingInfo_S;
+
+/**
+ * @struct tagNET_FireEquipmentAbnormalInfo
+ * @brief 消防设施异常配置信息 Fire equipment abnormal configuration
+ * @note 用于NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO/NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO；单区域规则
+ */
+typedef struct tagNET_FireEquipmentAbnormalInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_FireEquipmentAbnormalInfo_S;
+
+typedef NET_FireEquipmentAbnormalInfo_S* pNET_FireEquipmentAbnormalInfo_S;
+
+/**
+ * @struct tagNET_FightDetectionInfo
+ * @brief 打架斗殴检测配置信息 Fight detection configuration
+ * @note 用于NET_GET_FIGHT_DETECTION_INFO/NET_SET_FIGHT_DETECTION_INFO；单区域规则 + 持续时间阈值
+ */
+typedef struct tagNET_FightDetectionInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100 */
+    INT32               nTimeThreshold;  /* 最小持续时间，单位秒 */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_FightDetectionInfo_S;
+
+typedef NET_FightDetectionInfo_S* pNET_FightDetectionInfo_S;
+
+/**
+ * @struct tagNET_MouseDetectionInfo
+ * @brief 鼠患识别配置信息 Mouse detection configuration
+ * @note 用于NET_GET_MOUSE_DETECTION_INFO/NET_SET_MOUSE_DETECTION_INFO；单区域规则
+ */
+typedef struct tagNET_MouseDetectionInfo
+{
+    UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
+    INT32               nSensitivity;    /* 灵敏度 1~100（反向映射置信度门槛） */
+    NET_SmartRegion_S   stRegion;        /* 检测区域，点数为0表示整幅画面 */
+    NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    BYTE                byReserved[256]; /* 保留字段 */
+}NET_MouseDetectionInfo_S;
+
+typedef NET_MouseDetectionInfo_S* pNET_MouseDetectionInfo_S;
+
+/**
  * @struct tagNET_SmokeFireCfg
  * @brief 烟火识别配置信息 Smoke fire detection configuration
  * @note 用于NET_GET_SMOKE_FIRE_CFG/NET_SET_SMOKE_FIRE_CFG
@@ -6286,6 +6447,7 @@ typedef struct tagNET_FaceCaptureInfo
 {
     UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    BOOL                  bFaceExpressionEnable; /* 是否启用面部情绪分析 0-不启用 1-启用 */
     NET_FaceCaptureRule_S stRule;          /* 人脸抓拍规则 */
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */

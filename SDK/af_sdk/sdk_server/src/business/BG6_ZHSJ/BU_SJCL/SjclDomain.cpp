@@ -104,6 +104,14 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_DANGER_ZONE_STAY_INFO]        = &CSjclDomain::TemplatedGet<NET_DangerZoneStayInfo_S>;
     m_getTable[NET_GET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedGet<NET_KeyAreaAbnormalStayInfo_S>;
     m_getTable[NET_GET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedGet<NET_OpenFlameLeaveInfo_S>;
+    m_getTable[NET_GET_QUEUE_CROWDING_INFO]            = &CSjclDomain::TemplatedGet<NET_QueueCrowdingInfo_S>;
+    m_getTable[NET_GET_KITCHEN_UNRELATED_PERSON_INFO]  = &CSjclDomain::TemplatedGet<NET_KitchenUnrelatedPersonInfo_S>;
+    m_getTable[NET_GET_ACCESS_CONTROL_ABNORMAL_INFO]   = &CSjclDomain::TemplatedGet<NET_AccessControlAbnormalInfo_S>;
+    m_getTable[NET_GET_SOCIAL_RELATIONSHIP_INFO]       = &CSjclDomain::TemplatedGet<NET_SocialRelationshipInfo_S>;
+    m_getTable[NET_GET_KITCHEN_CLOTHING_INFO]          = &CSjclDomain::TemplatedGet<NET_KitchenClothingInfo_S>;
+    m_getTable[NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO]   = &CSjclDomain::TemplatedGet<NET_FireEquipmentAbnormalInfo_S>;
+    m_getTable[NET_GET_FIGHT_DETECTION_INFO]           = &CSjclDomain::TemplatedGet<NET_FightDetectionInfo_S>;
+    m_getTable[NET_GET_MOUSE_DETECTION_INFO]           = &CSjclDomain::TemplatedGet<NET_MouseDetectionInfo_S>;
 
     /* ===== 设备状态/串口参数 ===== */
     m_getTable[NET_GET_DEVICE_STATUS]     = &CSjclDomain::TemplatedGet<NET_DeviceStatusInfo_S>;
@@ -228,6 +236,14 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_DANGER_ZONE_STAY_INFO]        = &CSjclDomain::TemplatedSet<NET_DangerZoneStayInfo_S>;
     m_setTable[NET_SET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedSet<NET_KeyAreaAbnormalStayInfo_S>;
     m_setTable[NET_SET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedSet<NET_OpenFlameLeaveInfo_S>;
+    m_setTable[NET_SET_QUEUE_CROWDING_INFO]            = &CSjclDomain::TemplatedSet<NET_QueueCrowdingInfo_S>;
+    m_setTable[NET_SET_KITCHEN_UNRELATED_PERSON_INFO]  = &CSjclDomain::TemplatedSet<NET_KitchenUnrelatedPersonInfo_S>;
+    m_setTable[NET_SET_ACCESS_CONTROL_ABNORMAL_INFO]   = &CSjclDomain::TemplatedSet<NET_AccessControlAbnormalInfo_S>;
+    m_setTable[NET_SET_SOCIAL_RELATIONSHIP_INFO]       = &CSjclDomain::TemplatedSet<NET_SocialRelationshipInfo_S>;
+    m_setTable[NET_SET_KITCHEN_CLOTHING_INFO]          = &CSjclDomain::TemplatedSet<NET_KitchenClothingInfo_S>;
+    m_setTable[NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO]   = &CSjclDomain::TemplatedSet<NET_FireEquipmentAbnormalInfo_S>;
+    m_setTable[NET_SET_FIGHT_DETECTION_INFO]           = &CSjclDomain::TemplatedSet<NET_FightDetectionInfo_S>;
+    m_setTable[NET_SET_MOUSE_DETECTION_INFO]           = &CSjclDomain::TemplatedSet<NET_MouseDetectionInfo_S>;
 
     /* ===== 通道名称 ===== */
     m_setTable[NET_SET_CHANNEL_NAME] = &CSjclDomain::TemplatedSet<NET_ChannelNameInfo_S>;

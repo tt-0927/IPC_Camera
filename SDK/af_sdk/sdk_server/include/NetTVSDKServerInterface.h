@@ -767,6 +767,24 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
+/* ---- 平安校园扩展事件（614~629） ---- */
+NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenUnrelatedPersonInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetAccessControlAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetAccessControlAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetSocialRelationshipInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetSocialRelationshipInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetKitchenClothingInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetKitchenClothingInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFireEquipmentAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFireEquipmentAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetIllegalLaneInfoCb(NET_CB_GetDevConfigByCommand pCb);
