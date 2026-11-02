@@ -5267,7 +5267,7 @@ static NET_COMMON_ECODE_E cb_get_queue_crowding_info(INT32 dwChannelID, LPVOID l
 
     Alarm::QueueCrowdingDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillQueueCrowdingInfo(stCfg, *(pNET_QueueCrowdingInfo_S)lpOutBuffer);
+    TvSdkConvert::FillQueueCrowdingInfo(stCfg, *(NET_QueueCrowdingInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5320,7 +5320,7 @@ static NET_COMMON_ECODE_E cb_get_kitchen_unrelated_person_info(INT32 dwChannelID
 
     Alarm::KitchenUnrelatedPersonEntry_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillKitchenUnrelatedPersonInfo(stCfg, *(pNET_KitchenUnrelatedPersonInfo_S)lpOutBuffer);
+    TvSdkConvert::FillKitchenUnrelatedPersonInfo(stCfg, *(NET_KitchenUnrelatedPersonInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5371,7 +5371,7 @@ static NET_COMMON_ECODE_E cb_get_access_control_abnormal_info(INT32 dwChannelID,
 
     Alarm::AccessControlAbnormalPassage_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillAccessControlAbnormalInfo(stCfg, *(pNET_AccessControlAbnormalInfo_S)lpOutBuffer);
+    TvSdkConvert::FillAccessControlAbnormalInfo(stCfg, *(NET_AccessControlAbnormalInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5423,7 +5423,7 @@ static NET_COMMON_ECODE_E cb_get_social_relationship_info(INT32 dwChannelID, LPV
 
     Alarm::SocialRelationshipAnalysis_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillSocialRelationshipInfo(stCfg, *(pNET_SocialRelationshipInfo_S)lpOutBuffer);
+    TvSdkConvert::FillSocialRelationshipInfo(stCfg, *(NET_SocialRelationshipInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5474,7 +5474,7 @@ static NET_COMMON_ECODE_E cb_get_kitchen_clothing_info(INT32 dwChannelID, LPVOID
 
     Alarm::KitchenClothingCompliance_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillKitchenClothingInfo(stCfg, *(pNET_KitchenClothingInfo_S)lpOutBuffer);
+    TvSdkConvert::FillKitchenClothingInfo(stCfg, *(NET_KitchenClothingInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5526,7 +5526,7 @@ static NET_COMMON_ECODE_E cb_get_fire_equipment_abnormal_info(INT32 dwChannelID,
 
     Alarm::FireEquipmentAbnormalDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillFireEquipmentAbnormalInfo(stCfg, *(pNET_FireEquipmentAbnormalInfo_S)lpOutBuffer);
+    TvSdkConvert::FillFireEquipmentAbnormalInfo(stCfg, *(NET_FireEquipmentAbnormalInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5578,7 +5578,7 @@ static NET_COMMON_ECODE_E cb_get_fight_detection_info(INT32 dwChannelID, LPVOID 
 
     Alarm::FightDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillFightDetectionInfo(stCfg, *(pNET_FightDetectionInfo_S)lpOutBuffer);
+    TvSdkConvert::FillFightDetectionInfo(stCfg, *(NET_FightDetectionInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5633,7 +5633,7 @@ static NET_COMMON_ECODE_E cb_get_mouse_detection_info(INT32 dwChannelID, LPVOID 
 
     Alarm::MouseDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillMouseDetectionInfo(stCfg, *(pNET_MouseDetectionInfo_S)lpOutBuffer);
+    TvSdkConvert::FillMouseDetectionInfo(stCfg, *(NET_MouseDetectionInfo_S *)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
