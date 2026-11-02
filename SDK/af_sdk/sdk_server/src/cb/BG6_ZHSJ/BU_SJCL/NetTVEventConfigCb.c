@@ -1353,81 +1353,161 @@ NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConf
 
 /* ---- 平安校园扩展事件：排队拥挤 / 后厨无关人员 / 门禁异常 / 社交关系 /
  *      后厨穿戴 / 消防设施 / 打架斗殴 / 鼠患（均为单区域配置） ---- */
+/**
+ * @brief 注册获取排队拥挤配置的回调函数
+ * @param [in] pCb 用于填充 NET_QueueCrowdingInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_QUEUE_CROWDING_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置排队拥挤配置的回调函数
+ * @param [in] pCb 用于读取 NET_QueueCrowdingInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_QUEUE_CROWDING_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取后厨无关人员进入配置的回调函数
+ * @param [in] pCb 用于填充 NET_KitchenUnrelatedPersonInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_KITCHEN_UNRELATED_PERSON_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置后厨无关人员进入配置的回调函数
+ * @param [in] pCb 用于读取 NET_KitchenUnrelatedPersonInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetKitchenUnrelatedPersonInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_KITCHEN_UNRELATED_PERSON_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取门禁异常通行配置的回调函数
+ * @param [in] pCb 用于填充 NET_AccessControlAbnormalInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetAccessControlAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_ACCESS_CONTROL_ABNORMAL_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置门禁异常通行配置的回调函数
+ * @param [in] pCb 用于读取 NET_AccessControlAbnormalInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetAccessControlAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_ACCESS_CONTROL_ABNORMAL_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取社交关系分析配置的回调函数
+ * @param [in] pCb 用于填充 NET_SocialRelationshipInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetSocialRelationshipInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_SOCIAL_RELATIONSHIP_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置社交关系分析配置的回调函数
+ * @param [in] pCb 用于读取 NET_SocialRelationshipInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetSocialRelationshipInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_SOCIAL_RELATIONSHIP_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取后厨穿戴规范配置的回调函数
+ * @param [in] pCb 用于填充 NET_KitchenClothingInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetKitchenClothingInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_KITCHEN_CLOTHING_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置后厨穿戴规范配置的回调函数
+ * @param [in] pCb 用于读取 NET_KitchenClothingInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetKitchenClothingInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_KITCHEN_CLOTHING_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取消防设施异常配置的回调函数
+ * @param [in] pCb 用于填充 NET_FireEquipmentAbnormalInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetFireEquipmentAbnormalInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_FIRE_EQUIPMENT_ABNORMAL_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置消防设施异常配置的回调函数
+ * @param [in] pCb 用于读取 NET_FireEquipmentAbnormalInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetFireEquipmentAbnormalInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_FIRE_EQUIPMENT_ABNORMAL_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取打架斗殴配置的回调函数
+ * @param [in] pCb 用于填充 NET_FightDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_FIGHT_DETECTION_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置打架斗殴配置的回调函数
+ * @param [in] pCb 用于读取 NET_FightDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_FIGHT_DETECTION_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取鼠患识别配置的回调函数
+ * @param [in] pCb 用于填充 NET_MouseDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb)
 {
     return registerGetCmdCb(NET_GET_MOUSE_DETECTION_INFO, pCb);
 }
 
+/**
+ * @brief 注册设置鼠患识别配置的回调函数
+ * @param [in] pCb 用于读取 NET_MouseDetectionInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
 NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb)
 {
     return registerSetCmdCb(NET_SET_MOUSE_DETECTION_INFO, pCb);

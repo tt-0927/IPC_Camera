@@ -5249,6 +5249,12 @@ static NET_COMMON_ECODE_E cb_set_open_flame_leave_info(INT32 dwChannelID, LPVOID
  *   后厨穿戴/消防设施/打架斗殴/鼠患） ================= */
 
 /* 排队拥挤 */
+/**
+ * @brief 获取排队拥挤配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_QueueCrowdingInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_queue_crowding_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5265,6 +5271,12 @@ static NET_COMMON_ECODE_E cb_get_queue_crowding_info(INT32 dwChannelID, LPVOID l
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置排队拥挤配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_QueueCrowdingInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_queue_crowding_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5290,6 +5302,12 @@ static NET_COMMON_ECODE_E cb_set_queue_crowding_info(INT32 dwChannelID, LPVOID l
 }
 
 /* 后厨无关人员进入（IPC 侧无区域） */
+/**
+ * @brief 获取后厨无关人员进入配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_KitchenUnrelatedPersonInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_kitchen_unrelated_person_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5306,6 +5324,12 @@ static NET_COMMON_ECODE_E cb_get_kitchen_unrelated_person_info(INT32 dwChannelID
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置后厨无关人员进入配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_KitchenUnrelatedPersonInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_kitchen_unrelated_person_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5329,6 +5353,12 @@ static NET_COMMON_ECODE_E cb_set_kitchen_unrelated_person_info(INT32 dwChannelID
 }
 
 /* 门禁异常通行 */
+/**
+ * @brief 获取门禁异常通行配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_AccessControlAbnormalInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_access_control_abnormal_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5345,6 +5375,12 @@ static NET_COMMON_ECODE_E cb_get_access_control_abnormal_info(INT32 dwChannelID,
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置门禁异常通行配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_AccessControlAbnormalInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_access_control_abnormal_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5369,6 +5405,12 @@ static NET_COMMON_ECODE_E cb_set_access_control_abnormal_info(INT32 dwChannelID,
 }
 
 /* 社交关系分析（IPC 侧无区域） */
+/**
+ * @brief 获取社交关系分析配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_SocialRelationshipInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_social_relationship_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5385,6 +5427,12 @@ static NET_COMMON_ECODE_E cb_get_social_relationship_info(INT32 dwChannelID, LPV
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置社交关系分析配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_SocialRelationshipInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_social_relationship_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5408,6 +5456,12 @@ static NET_COMMON_ECODE_E cb_set_social_relationship_info(INT32 dwChannelID, LPV
 }
 
 /* 后厨穿戴规范 */
+/**
+ * @brief 获取后厨穿戴规范配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_KitchenClothingInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_kitchen_clothing_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5424,6 +5478,12 @@ static NET_COMMON_ECODE_E cb_get_kitchen_clothing_info(INT32 dwChannelID, LPVOID
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置后厨穿戴规范配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_KitchenClothingInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_kitchen_clothing_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5448,6 +5508,12 @@ static NET_COMMON_ECODE_E cb_set_kitchen_clothing_info(INT32 dwChannelID, LPVOID
 }
 
 /* 消防设施异常 */
+/**
+ * @brief 获取消防设施异常配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_FireEquipmentAbnormalInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_fire_equipment_abnormal_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5464,6 +5530,12 @@ static NET_COMMON_ECODE_E cb_get_fire_equipment_abnormal_info(INT32 dwChannelID,
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置消防设施异常配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_FireEquipmentAbnormalInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_fire_equipment_abnormal_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5488,6 +5560,12 @@ static NET_COMMON_ECODE_E cb_set_fire_equipment_abnormal_info(INT32 dwChannelID,
 }
 
 /* 打架斗殴（额外校验持续时间阈值） */
+/**
+ * @brief 获取打架斗殴配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_FightDetectionInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_fight_detection_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5504,6 +5582,12 @@ static NET_COMMON_ECODE_E cb_get_fight_detection_info(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置打架斗殴配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_FightDetectionInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_fight_detection_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;
@@ -5531,6 +5615,12 @@ static NET_COMMON_ECODE_E cb_set_fight_detection_info(INT32 dwChannelID, LPVOID 
 }
 
 /* 鼠患识别 */
+/**
+ * @brief 获取鼠患识别配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_MouseDetectionInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
 static NET_COMMON_ECODE_E cb_get_mouse_detection_info(INT32 dwChannelID, LPVOID lpOutBuffer)
 {
     (void)dwChannelID;
@@ -5547,6 +5637,12 @@ static NET_COMMON_ECODE_E cb_get_mouse_detection_info(INT32 dwChannelID, LPVOID 
     return NET_E_SUCCEED;
 }
 
+/**
+ * @brief 设置鼠患识别配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_MouseDetectionInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
 static NET_COMMON_ECODE_E cb_set_mouse_detection_info(INT32 dwChannelID, LPVOID lpInBuffer)
 {
     (void)dwChannelID;

@@ -3694,6 +3694,12 @@ void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeave
 }
 
 /* ---- 平安校园扩展：排队拥挤 ---- */
+/**
+ * @brief IPC 排队拥挤配置转换为 TVSDK 结构。
+ * @param [in] src IPC 排队拥挤配置。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillQueueCrowdingInfo(const Alarm::QueueCrowdingDetection_S &src, NET_QueueCrowdingInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3704,6 +3710,12 @@ void FillQueueCrowdingInfo(const Alarm::QueueCrowdingDetection_S &src, NET_Queue
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 排队拥挤配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 排队拥挤配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToQueueCrowding(const NET_QueueCrowdingInfo_S &src, Alarm::QueueCrowdingDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3714,6 +3726,12 @@ void ToQueueCrowding(const NET_QueueCrowdingInfo_S &src, Alarm::QueueCrowdingDet
 }
 
 /* ---- 平安校园扩展：后厨无关人员进入（无区域） ---- */
+/**
+ * @brief IPC 后厨无关人员进入配置转换为 TVSDK 结构。
+ * @param [in] src IPC 配置（IPC 侧无区域字段）。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillKitchenUnrelatedPersonInfo(const Alarm::KitchenUnrelatedPersonEntry_S &src, NET_KitchenUnrelatedPersonInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3723,6 +3741,12 @@ void FillKitchenUnrelatedPersonInfo(const Alarm::KitchenUnrelatedPersonEntry_S &
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 后厨无关人员进入配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 配置，仅覆盖灵敏度、布防与联动。
+ * @return 无。
+ */
 void ToKitchenUnrelatedPerson(const NET_KitchenUnrelatedPersonInfo_S &src, Alarm::KitchenUnrelatedPersonEntry_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3732,6 +3756,12 @@ void ToKitchenUnrelatedPerson(const NET_KitchenUnrelatedPersonInfo_S &src, Alarm
 }
 
 /* ---- 平安校园扩展：门禁异常通行 ---- */
+/**
+ * @brief IPC 门禁异常通行配置转换为 TVSDK 结构。
+ * @param [in] src IPC 门禁异常通行配置。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillAccessControlAbnormalInfo(const Alarm::AccessControlAbnormalPassage_S &src, NET_AccessControlAbnormalInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3742,6 +3772,12 @@ void FillAccessControlAbnormalInfo(const Alarm::AccessControlAbnormalPassage_S &
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 门禁异常通行配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 门禁异常通行配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToAccessControlAbnormal(const NET_AccessControlAbnormalInfo_S &src, Alarm::AccessControlAbnormalPassage_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3752,6 +3788,12 @@ void ToAccessControlAbnormal(const NET_AccessControlAbnormalInfo_S &src, Alarm::
 }
 
 /* ---- 平安校园扩展：社交关系分析（无区域） ---- */
+/**
+ * @brief IPC 社交关系分析配置转换为 TVSDK 结构。
+ * @param [in] src IPC 配置（IPC 侧无区域字段）。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillSocialRelationshipInfo(const Alarm::SocialRelationshipAnalysis_S &src, NET_SocialRelationshipInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3761,6 +3803,12 @@ void FillSocialRelationshipInfo(const Alarm::SocialRelationshipAnalysis_S &src, 
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 社交关系分析配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 配置，仅覆盖灵敏度、布防与联动。
+ * @return 无。
+ */
 void ToSocialRelationship(const NET_SocialRelationshipInfo_S &src, Alarm::SocialRelationshipAnalysis_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3770,6 +3818,12 @@ void ToSocialRelationship(const NET_SocialRelationshipInfo_S &src, Alarm::Social
 }
 
 /* ---- 平安校园扩展：后厨穿戴规范 ---- */
+/**
+ * @brief IPC 后厨穿戴规范配置转换为 TVSDK 结构。
+ * @param [in] src IPC 后厨穿戴规范配置。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillKitchenClothingInfo(const Alarm::KitchenClothingCompliance_S &src, NET_KitchenClothingInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3780,6 +3834,12 @@ void FillKitchenClothingInfo(const Alarm::KitchenClothingCompliance_S &src, NET_
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 后厨穿戴规范配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 后厨穿戴规范配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToKitchenClothing(const NET_KitchenClothingInfo_S &src, Alarm::KitchenClothingCompliance_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3790,6 +3850,12 @@ void ToKitchenClothing(const NET_KitchenClothingInfo_S &src, Alarm::KitchenCloth
 }
 
 /* ---- 平安校园扩展：消防设施异常 ---- */
+/**
+ * @brief IPC 消防设施异常配置转换为 TVSDK 结构。
+ * @param [in] src IPC 消防设施异常配置。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillFireEquipmentAbnormalInfo(const Alarm::FireEquipmentAbnormalDetection_S &src, NET_FireEquipmentAbnormalInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3800,6 +3866,12 @@ void FillFireEquipmentAbnormalInfo(const Alarm::FireEquipmentAbnormalDetection_S
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 消防设施异常配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 消防设施异常配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToFireEquipmentAbnormal(const NET_FireEquipmentAbnormalInfo_S &src, Alarm::FireEquipmentAbnormalDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3810,6 +3882,12 @@ void ToFireEquipmentAbnormal(const NET_FireEquipmentAbnormalInfo_S &src, Alarm::
 }
 
 /* ---- 平安校园扩展：打架斗殴（含持续时间阈值） ---- */
+/**
+ * @brief IPC 打架斗殴配置转换为 TVSDK 结构。
+ * @param [in] src IPC 打架斗殴配置，含最小持续时间阈值。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillFightDetectionInfo(const Alarm::FightDetection_S &src, NET_FightDetectionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3821,6 +3899,12 @@ void FillFightDetectionInfo(const Alarm::FightDetection_S &src, NET_FightDetecti
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 打架斗殴配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置，含最小持续时间阈值。
+ * @param [out] dst IPC 打架斗殴配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToFightDetection(const NET_FightDetectionInfo_S &src, Alarm::FightDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
@@ -3832,6 +3916,12 @@ void ToFightDetection(const NET_FightDetectionInfo_S &src, Alarm::FightDetection
 }
 
 /* ---- 平安校园扩展：鼠患识别 ---- */
+/**
+ * @brief IPC 鼠患识别配置转换为 TVSDK 结构。
+ * @param [in] src IPC 鼠患识别配置。
+ * @param [out] dst TVSDK 配置，函数内先整体清零。
+ * @return 无。
+ */
 void FillMouseDetectionInfo(const Alarm::MouseDetection_S &src, NET_MouseDetectionInfo_S &dst)
 {
     std::memset(&dst, 0, sizeof(dst));
@@ -3842,6 +3932,12 @@ void FillMouseDetectionInfo(const Alarm::MouseDetection_S &src, NET_MouseDetecti
     FillLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/**
+ * @brief TVSDK 鼠患识别配置转换为 IPC 结构。
+ * @param [in] src TVSDK 配置。
+ * @param [out] dst IPC 鼠患识别配置，仅覆盖本事件支持的字段。
+ * @return 无。
+ */
 void ToMouseDetection(const NET_MouseDetectionInfo_S &src, Alarm::MouseDetection_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);

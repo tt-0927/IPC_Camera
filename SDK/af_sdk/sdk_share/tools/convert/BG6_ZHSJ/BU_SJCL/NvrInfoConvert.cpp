@@ -1654,6 +1654,13 @@ void deal(Json::Object* pRootJson, NET_ChannelOccupationInfo_S& stInfo, bool bOu
 }
 
 /* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
+/**
+ * @brief 排队拥挤配置的 JSON 双向序列化。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 排队拥挤配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_QueueCrowdingInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1670,6 +1677,13 @@ void deal(Json::Object* pRootJson, NET_QueueCrowdingInfo_S& stInfo, bool bOutStr
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 后厨无关人员进入配置的 JSON 双向序列化（无区域字段）。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 后厨无关人员进入配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_KitchenUnrelatedPersonInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1685,6 +1699,13 @@ void deal(Json::Object* pRootJson, NET_KitchenUnrelatedPersonInfo_S& stInfo, boo
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 门禁异常通行配置的 JSON 双向序列化。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 门禁异常通行配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_AccessControlAbnormalInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1701,6 +1722,13 @@ void deal(Json::Object* pRootJson, NET_AccessControlAbnormalInfo_S& stInfo, bool
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 社交关系分析配置的 JSON 双向序列化（无区域字段）。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 社交关系分析配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_SocialRelationshipInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1716,6 +1744,13 @@ void deal(Json::Object* pRootJson, NET_SocialRelationshipInfo_S& stInfo, bool bO
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 后厨穿戴规范配置的 JSON 双向序列化。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 后厨穿戴规范配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_KitchenClothingInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1732,6 +1767,13 @@ void deal(Json::Object* pRootJson, NET_KitchenClothingInfo_S& stInfo, bool bOutS
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 消防设施异常配置的 JSON 双向序列化。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 消防设施异常配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_FireEquipmentAbnormalInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1748,6 +1790,13 @@ void deal(Json::Object* pRootJson, NET_FireEquipmentAbnormalInfo_S& stInfo, bool
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 打架斗殴配置的 JSON 双向序列化（含时间阈值）。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 打架斗殴配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_FightDetectionInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
@@ -1765,6 +1814,13 @@ void deal(Json::Object* pRootJson, NET_FightDetectionInfo_S& stInfo, bool bOutSt
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+/**
+ * @brief 鼠患识别配置的 JSON 双向序列化。
+ * @param [in,out] pRootJson JSON 根对象。
+ * @param [in,out] stInfo 鼠患识别配置。
+ * @param [in] bOutStruct true 表示结构体转 JSON，false 表示 JSON 转结构体。
+ * @return 无。
+ */
 void deal(Json::Object* pRootJson, NET_MouseDetectionInfo_S& stInfo, bool bOutStruct)
 {
     if (!pRootJson)
