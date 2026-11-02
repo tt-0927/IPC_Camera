@@ -7503,6 +7503,8 @@ static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpO
     Alarm::FaceCapture_S stCaptureConfig;
     Convert::to_struct(strJson, stCaptureConfig);
     TvSdkConvert::FillFaceCaptureInfo(stCaptureConfig, *pOut);
+    /* 旧版抓拍链路没有总开关语义，bCaptureEnable 同取抓拍开关 */
+    pOut->bCaptureEnable = stCaptureConfig.bEnable ? TRUE : FALSE;
 #endif
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
@@ -7522,10 +7524,18 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
         return NET_E_INVALID_PARAM;
     }
     const NET_FaceCaptureInfo_S *pIn = static_cast<const NET_FaceCaptureInfo_S *>(lpInBuffer);
-    /* 面部情绪分析开关只接受 0/1（复用命令码，不单独下发） */
-    if (pIn->bFaceExpressionEnable != 0 && pIn->bFaceExpressionEnable != 1)
+    /* 人脸识别各开关只接受 0/1 */
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        (pIn->bCaptureEnable != 0 && pIn->bCaptureEnable != 1) ||
+        (pIn->bAttributeAnalysisEnable != 0 && pIn->bAttributeAnalysisEnable != 1) ||
+        (pIn->bDynamicAnalysisEnable != 0 && pIn->bDynamicAnalysisEnable != 1) ||
+        (pIn->bFaceExpressionEnable != 0 && pIn->bFaceExpressionEnable != 1))
     {
-        dlog_warn("TVSDK 面部情绪分析开关非法: %d", static_cast<int>(pIn->bFaceExpressionEnable));
+        dlog_warn("TVSDK 人脸识别开关非法: enable[%d] capture[%d] attribute[%d] dynamic[%d] expression[%d]",
+                  static_cast<int>(pIn->bEnable), static_cast<int>(pIn->bCaptureEnable),
+                  static_cast<int>(pIn->bAttributeAnalysisEnable),
+                  static_cast<int>(pIn->bDynamicAnalysisEnable),
+                  static_cast<int>(pIn->bFaceExpressionEnable));
         return NET_E_INVALID_PARAM;
     }
 #if CAP_AI_FACE_RECOGNITION
@@ -7546,6 +7556,9 @@ static NET_COMMON_ECODE_E cb_set_face_capture_info(INT32 dwChannelID, LPVOID lpI
     const int nSetActionCode = AC_SET_FACE_CAPTURE_INFO;
     Alarm::FaceCapture_S stCaptureConfig;
     TvSdkConvert::ToFaceCapture(*pIn, stCaptureConfig);
+    /* 旧版抓拍链路没有人脸识别总开关语义：Enable 或 CaptureEnable 任一为 1
+     * 都视为开启抓拍，兼容只发 Enable 的旧 NVR 与发 CaptureEnable 的新 NVR。 */
+    stCaptureConfig.bEnable = (pIn->bEnable == TRUE) || (pIn->bCaptureEnable == TRUE);
     const std::string strConfigJson = Convert::to_string(stCaptureConfig);
 #endif
     std::string strResult;

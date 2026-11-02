@@ -380,6 +380,9 @@ void deal(Json::Object* pRootJson, NET_FaceCaptureInfo_S& stInfo, bool bOutStruc
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "CaptureEnable", stInfo.bCaptureEnable);
+    convert.field(pRootJson, "AttributeAnalysisEnable", stInfo.bAttributeAnalysisEnable);
+    convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
     convert.field(pRootJson, "FaceExpressionEnable", stInfo.bFaceExpressionEnable);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);

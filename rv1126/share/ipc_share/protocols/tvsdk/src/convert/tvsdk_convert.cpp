@@ -5092,7 +5092,12 @@ void TvSdkConvert::FillFaceCaptureInfo(const Alarm::FaceRecognition_S &stSource,
     stCaptureConfig.aAlarmTime = stSource.aAlarmTime;
     stCaptureConfig.stLinkageList = stSource.stLinkageList;
     FillFaceCaptureInfo(stCaptureConfig, stDestination);
-    /* 面部情绪分析开关：仅人脸识别配置上的附加开关，不单独占用命令码 */
+    /* 抓拍子集由内部函数填充；这里按人脸识别配置回填全部开关。
+     * stCaptureConfig.bEnable 取的是 bCaptureEnable，因此 bEnable 必须重新赋值为总开关。 */
+    stDestination.bEnable = stSource.bEnable ? TRUE : FALSE;
+    stDestination.bCaptureEnable = stSource.bCaptureEnable ? TRUE : FALSE;
+    stDestination.bAttributeAnalysisEnable = stSource.bAttributeAnalysisEnable ? TRUE : FALSE;
+    stDestination.bDynamicAnalysisEnable = stSource.bDynamicAnalysisEnable ? TRUE : FALSE;
     stDestination.bFaceExpressionEnable = stSource.bFaceExpressionEnable ? TRUE : FALSE;
 }
 
@@ -5111,8 +5116,12 @@ void TvSdkConvert::ToFaceRecognition(const NET_FaceCaptureInfo_S &stSource,
     ToFaceCapture(stSource, stCaptureConfig);
 
     stDestination = stCurrent;
-    stDestination.bCaptureEnable = stCaptureConfig.bEnable;
-    /* 面部情绪分析开关随人脸识别配置一并下发 */
+    /* 五个开关与人脸识别配置一一对应；抓拍开关取 bCaptureEnable，
+     * 总开关/属性分析/动态分析/情绪分析按 SDK 传入值覆盖。 */
+    stDestination.bEnable = (stSource.bEnable == TRUE);
+    stDestination.bCaptureEnable = (stSource.bCaptureEnable == TRUE);
+    stDestination.bAttributeAnalysisEnable = (stSource.bAttributeAnalysisEnable == TRUE);
+    stDestination.bDynamicAnalysisEnable = (stSource.bDynamicAnalysisEnable == TRUE);
     stDestination.bFaceExpressionEnable = (stSource.bFaceExpressionEnable == TRUE);
     stDestination.nSensitivity = stCaptureConfig.stRule.nSensitivity;
     stDestination.stRegion = stCaptureConfig.stRule.stRegion;

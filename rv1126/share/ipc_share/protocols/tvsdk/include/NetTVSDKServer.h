@@ -1357,6 +1357,7 @@ typedef enum tagNETTVCfgCmd
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,           /* 获取明火离人配置 参见NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,           /* 设置明火离人配置 参见NET_OpenFlameLeaveInfo_S */
 
+#ifdef SCENE_INTELLIGENCE
     /* ---- 平安校园扩展事件（614~629）：单区域 + 灵敏度，打架斗殴额外带时间阈值 ---- */
     NET_GET_QUEUE_CROWDING_INFO           = 614,           /* 获取排队拥挤配置 参见NET_QueueCrowdingInfo_S */
     NET_SET_QUEUE_CROWDING_INFO           = 615,           /* 设置排队拥挤配置 参见NET_QueueCrowdingInfo_S */
@@ -1374,6 +1375,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_FIGHT_DETECTION_INFO          = 627,           /* 设置打架斗殴配置 参见NET_FightDetectionInfo_S */
     NET_GET_MOUSE_DETECTION_INFO          = 628,           /* 获取鼠患识别配置 参见NET_MouseDetectionInfo_S */
     NET_SET_MOUSE_DETECTION_INFO          = 629,           /* 设置鼠患识别配置 参见NET_MouseDetectionInfo_S */
+#endif /* SCENE_INTELLIGENCE */
  
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
@@ -5424,6 +5426,7 @@ typedef struct tagNET_OpenFlameLeaveInfo
 
 typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
 
+#ifdef SCENE_INTELLIGENCE
 /* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
 
 /**
@@ -5568,6 +5571,7 @@ typedef struct tagNET_MouseDetectionInfo
 }NET_MouseDetectionInfo_S;
 
 typedef NET_MouseDetectionInfo_S* pNET_MouseDetectionInfo_S;
+#endif /* SCENE_INTELLIGENCE */
 
 /**
  * @struct tagNET_SmokeFireCfg
@@ -5760,7 +5764,10 @@ typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
 typedef struct tagNET_FaceCaptureInfo
 {
     UINT32      uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    BOOL                        bEnable;                             /* 是否启用 0-不启用 1-启用 */
+    BOOL                        bEnable;                             /* 人脸识别总开关 0-不启用 1-启用 */
+    BOOL                        bCaptureEnable;                      /* 启用人脸抓拍 0-不启用 1-启用 */
+    BOOL                        bAttributeAnalysisEnable;            /* 启用属性分析 0-不启用 1-启用 */
+    BOOL                        bDynamicAnalysisEnable;              /* 启用动态分析 0-不启用 1-启用 */
     BOOL                        bFaceExpressionEnable;               /* 是否启用面部情绪分析 0-不启用 1-启用 */
     NET_FaceCaptureRule_S  stRule;                             /* 人脸抓拍 规则 */
     NET_AlarmSchedule_S     stAlarmSchedule;                    /* 布防时间 */
@@ -7479,6 +7486,7 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+#ifdef SCENE_INTELLIGENCE
 NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb);
@@ -7495,6 +7503,7 @@ NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConf
 NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+#endif /* SCENE_INTELLIGENCE */
 
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);

@@ -6453,13 +6453,16 @@ typedef NET_FaceCaptureRule_S* pNET_FaceCaptureRule_S;
  */
 typedef struct tagNET_FaceCaptureInfo
 {
-    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
-    BOOL                  bFaceExpressionEnable; /* 是否启用面部情绪分析 0-不启用 1-启用 */
-    NET_FaceCaptureRule_S stRule;          /* 人脸抓拍规则 */
-    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
-    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
-    BYTE                  byReserved[256]; /* 保留字段 */
+    UINT32                uChannel;                 /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;                  /* 人脸识别总开关 0-不启用 1-启用 */
+    BOOL                  bCaptureEnable;           /* 启用人脸抓拍 0-不启用 1-启用 */
+    BOOL                  bAttributeAnalysisEnable; /* 启用属性分析 0-不启用 1-启用 */
+    BOOL                  bDynamicAnalysisEnable;   /* 启用动态分析 0-不启用 1-启用 */
+    BOOL                  bFaceExpressionEnable;    /* 启用面部情绪分析 0-不启用 1-启用 */
+    NET_FaceCaptureRule_S stRule;                   /* 人脸抓拍规则 */
+    NET_AlarmSchedule_S   stAlarmSchedule;          /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;            /* 联动配置 */
+    BYTE                  byReserved[256];          /* 保留字段 */
 }NET_FaceCaptureInfo_S;
 
 typedef NET_FaceCaptureInfo_S* pNET_FaceCaptureInfo_S;
