@@ -661,6 +661,8 @@ extern "C" {
 #define NET_ALARM_KEY_AREA_ABNORMAL_STAY (NET_ALARM_BASE_RULE + 0x07) // 重点区域异常滞留
 #define NET_ALARM_DANGER_ZONE_STAY       (NET_ALARM_BASE_RULE + 0x08) // 危险区域滞留
 #define NET_ALARM_DANGER_ZONE_APPROACH   (NET_ALARM_BASE_RULE + 0x09) // 危险区域靠近
+#define NET_ALARM_KITCHEN_UNRELATED_PERSON (NET_ALARM_BASE_RULE + 0x0A) // 后厨无关人员进入
+#define NET_ALARM_ACCESS_CONTROL_ABNORMAL  (NET_ALARM_BASE_RULE + 0x0B) // 门禁异常通行
 
 
 /**
@@ -719,6 +721,12 @@ extern "C" {
 #define NET_ALARM_OPEN_FLAME_LEAVE     (NET_ALARM_BASE_AI + 0x3B)    // 明火离人识别
 #define NET_ALARM_LONG_TIME_STAY       (NET_ALARM_BASE_AI + 0x3C)    // 长时间滞留
 #define NET_ALARM_CHANNEL_OCCUPATION   (NET_ALARM_BASE_AI + 0x3D)    // 通道占用
+#define NET_ALARM_QUEUE_CROWDING            (NET_ALARM_BASE_AI + 0x3E)    // 排队拥堵
+#define NET_ALARM_SOCIAL_RELATIONSHIP       (NET_ALARM_BASE_AI + 0x3F)    // 社交关系分析
+#define NET_ALARM_FIGHT_DETECTION           (NET_ALARM_BASE_AI + 0x40)    // 打架斗殴
+#define NET_ALARM_FIRE_EQUIPMENT_ABNORMAL   (NET_ALARM_BASE_AI + 0x41)    // 消防设施异常
+#define NET_ALARM_MOUSE_INFESTATION         (NET_ALARM_BASE_AI + 0x42)    // 鼠患识别
+#define NET_ALARM_KITCHEN_CLOTHING          (NET_ALARM_BASE_AI + 0x43)    // 后厨穿戴规范
 
 
 // > 音频智能

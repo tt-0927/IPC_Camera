@@ -212,6 +212,8 @@ UINT32 get_rule_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::KEY_AREA_ABNORMAL_STAY: return NET_ALARM_KEY_AREA_ABNORMAL_STAY;
     case Event::Type_E::DANGER_ZONE_STAY:       return NET_ALARM_DANGER_ZONE_STAY;
     case Event::Type_E::DANGER_ZONE_APPROACH:   return NET_ALARM_DANGER_ZONE_APPROACH;
+    case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY: return NET_ALARM_KITCHEN_UNRELATED_PERSON;
+    case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE: return NET_ALARM_ACCESS_CONTROL_ABNORMAL;
     
     default:                               return 0;
     }
@@ -264,6 +266,12 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::MANHOLE_COVER_ABNORMAL:       return NET_ALARM_MANHOLE_COVER_ABNORMAL;
     case Event::Type_E::BARE_SOIL:                    return NET_ALARM_BARE_SOIL;
     case Event::Type_E::CHANNEL_OCCUPATION:           return NET_ALARM_CHANNEL_OCCUPATION;
+    case Event::Type_E::QUEUE_CROWDING:               return NET_ALARM_QUEUE_CROWDING;
+    case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS: return NET_ALARM_SOCIAL_RELATIONSHIP;
+    case Event::Type_E::FIGHT_DETECTION:              return NET_ALARM_FIGHT_DETECTION;
+    case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:      return NET_ALARM_FIRE_EQUIPMENT_ABNORMAL;
+    case Event::Type_E::MOUSE_INFESTATION:            return NET_ALARM_MOUSE_INFESTATION;
+    case Event::Type_E::KITCHEN_CLOTHING_COMPLIANCE:  return NET_ALARM_KITCHEN_CLOTHING;
     case Event::Type_E::HOLE_PROTECTION_BAR:          return NET_ALARM_HOLE_PROTECTION_BAR;
     case Event::Type_E::PEDESTRIAN_INTRUSION:         return NET_ALARM_PEDESTRIAN_INTRUSION;
     case Event::Type_E::PERSON_TRIP:                  return NET_ALARM_PERSON_TRIP;
