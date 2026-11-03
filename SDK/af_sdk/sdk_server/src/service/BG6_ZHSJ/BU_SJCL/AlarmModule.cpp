@@ -231,7 +231,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 NET_AlarmCaptureInfo_S& info = *(NET_AlarmCaptureInfo_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Capture input: cmd=0x%x, alarmType=0x%x, channel=%u, "
                               "captureType=%u, timestamp=%lld, panorama=%ux%u/%u, cropCount=%u, "
-                              "faceAttrs={male=%d,age=%d,glasses=%d,beard=%d,mask=%d,emotion=%d}, bufLen=%d, structSize=%zu",
+                              "faceAttrs={male=%d,age=%d,glasses=%d,beard=%d,mask=%d,emotion=%d,faceExpression=%d}, bufLen=%d, structSize=%zu",
                               lCommand,
                               info.uAlarmType,
                               info.uChannel,
@@ -247,6 +247,7 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                               info.stExtraInfo.bBeard,
                               info.stExtraInfo.bMask,
                               info.stExtraInfo.nEmotionLabel,
+                              info.stExtraInfo.nFaceExpression,
                               dwBufLen,
                               sizeof(NET_AlarmCaptureInfo_S));
                 SDKConvert::deal(pInfoJson, info, false);

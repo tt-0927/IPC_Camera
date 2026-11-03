@@ -697,7 +697,7 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
                 static_cast<const NET_AlarmCaptureInfo_S *>(pAlarmInfo);
             dlog_info("[抓拍推送诊断] 通用抓拍内容: alarm_type[0x%x] 通道[%u] 类型[%u] "
                       "时间戳[%lld] 全景[%ux%u/%u] 特写数量[%u] "
-                      "属性[male=%d age=%d glasses=%d beard=%d mask=%d emotion=%d]",
+                      "属性[male=%d age=%d glasses=%d beard=%d mask=%d emotion=%d face_expression=%d]",
                       pCapture->uAlarmType,
                       pCapture->uChannel,
                       pCapture->uCaptureType,
@@ -711,7 +711,8 @@ int CTvSdkServer::push_alarm(const void *pAlarmer, int lCommand, const void *pAl
                       pCapture->stExtraInfo.bGlasses,
                       pCapture->stExtraInfo.bBeard,
                       pCapture->stExtraInfo.bMask,
-                      pCapture->stExtraInfo.nEmotionLabel);
+                      pCapture->stExtraInfo.nEmotionLabel,
+                      pCapture->stExtraInfo.nFaceExpression);
         }
         else
         {
