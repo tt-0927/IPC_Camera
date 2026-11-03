@@ -1433,6 +1433,10 @@ void CFaceRecognition::processTvSdkCaptureResult(
             stInfo.stExtraInfo.bMask = stAttribute.bIsMask ? TRUE : FALSE;
             stInfo.stExtraInfo.nEmotionLabel = stAttribute.nEmotionLabel;
         }
+        /* 表情类别单独走 nFaceExpression（NET_FACE_EMOTION_E，0~6），不改动属性模型的
+         * nEmotionLabel（8~14）；未分析为 -1。 */
+        stInfo.stExtraInfo.nFaceExpression =
+            stTarget.bExpressionReady ? stTarget.nExpressionLabel : -1;
         const float fLeft = stCropRect.x * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
         const float fTop = stCropRect.y * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
         const float fRight = (stCropRect.x + stCropRect.width) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
@@ -1835,7 +1839,8 @@ void CFaceRecognition::processBusinessOutput(
     processAttributeResult(stDetectContext.stFrame, vstRuleTargets, stConfig,
                            vbPushFlags, stSaveResult);
 #ifdef ENABLE_TVSDK_SRC
-    //processTvSdkCaptureResult(stDetectContext.stFrame, stDetectContext.vstDetectResult, stConfig);
+    /* 人脸抓拍推送（0x6102）：函数内部已按总开关、抓拍开关、全景图与目标非空过滤 */
+    processTvSdkCaptureResult(stDetectContext.stFrame, stDetectContext.vstDetectResult, stConfig);
 #endif
     // GAT1400推送
     processGat1400Result(stDetectContext.stFrame, vstRuleTargets);

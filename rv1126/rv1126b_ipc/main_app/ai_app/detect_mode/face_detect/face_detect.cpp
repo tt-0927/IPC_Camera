@@ -1551,6 +1551,8 @@ void CFaceDetect::pushFaceCaptureInfoToTvSdk(const cv::Mat &panoramaBgr, const c
     stInfo.stExtraInfo.bBeard = stFAResult.bIsBeard ? TRUE : FALSE;
     stInfo.stExtraInfo.bMask = stFAResult.bIsMask ? TRUE : FALSE;
     stInfo.stExtraInfo.nEmotionLabel = stFAResult.nEmotionLabel;
+    /* 纯抓拍流程没有人脸表情模型，显式置 -1，避免默认 0 被当成 NET_FACE_EMOTION_ANGER */
+    stInfo.stExtraInfo.nFaceExpression = -1;
 
     Alarm::Region_S stFaceRegion;
     fillFaceCaptureRegion(faceRect, detectCoordinateSize, panoramaBgr.size(), stFaceRegion);

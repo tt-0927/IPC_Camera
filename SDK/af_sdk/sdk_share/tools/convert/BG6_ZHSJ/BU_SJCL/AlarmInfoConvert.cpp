@@ -400,6 +400,7 @@ void CaptureExtraInfoField(Json::Object* pRootJson,
     convert.field(pRootJson, "Beard", extra.bBeard);
     convert.field(pRootJson, "Mask", extra.bMask);
     convert.field(pRootJson, "EmotionLabel", extra.nEmotionLabel);
+    convert.field(pRootJson, "FaceExpression", extra.nFaceExpression);
     convert.field(pRootJson, "Bag", extra.bBag);
     convert.field(pRootJson, "TopColorLabel", extra.nTopColorLabel);
     convert.field(pRootJson, "BottomColorLabel", extra.nBottomColorLabel);

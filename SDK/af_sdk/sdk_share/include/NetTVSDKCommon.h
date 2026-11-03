@@ -4431,6 +4431,23 @@ typedef struct tagNET_CapturePolygon
 typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
 
 /**
+ * @enum  tagNET_FACE_EMOTION_E
+ * @brief 人脸表情类别，与 IPC 侧 face_expression 模型输出一致
+ * @note 用于 NET_CaptureExtraInfo_S::nFaceExpression
+ */
+typedef enum tagNET_FACE_EMOTION_E
+{
+    NET_FACE_EMOTION_UNKNOWN  = -1,  /* 未分析 */
+    NET_FACE_EMOTION_ANGER    = 0,   /* 生气 */
+    NET_FACE_EMOTION_DISGUST  = 1,   /* 厌恶 */
+    NET_FACE_EMOTION_FEAR     = 2,   /* 恐惧 */
+    NET_FACE_EMOTION_HAPPY    = 3,   /* 高兴 */
+    NET_FACE_EMOTION_SAD      = 4,   /* 难过 */
+    NET_FACE_EMOTION_SURPRISE = 5,   /* 惊讶 */
+    NET_FACE_EMOTION_NEUTRAL  = 6    /* 中立 */
+}NET_FACE_EMOTION_E;
+
+/**
  * @struct tagNET_CaptureExtraInfo
  * @brief 通用抓拍扩展属性，承载人脸、行人和车辆的附加信息。
  */
@@ -4451,6 +4468,7 @@ typedef struct tagNET_CaptureExtraInfo
     CHAR                 strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
     CHAR                 strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
     NET_CapturePolygon_S stTargetRegion;
+    INT32                nFaceExpression;    /* 人脸表情类别，取值参见 NET_FACE_EMOTION_E，-1 表示未分析 */
     BYTE                 byReserved[64];
 } NET_CaptureExtraInfo_S;
 
