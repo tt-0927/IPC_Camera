@@ -172,6 +172,16 @@ private:
     void processTvSdkCaptureResult(const FrameContext_S &stContext,
                                    const std::vector<FaceTargetResult_S> &vstTargets,
                                    const Alarm::FaceRecognition_S &stConfig);
+
+    /**
+     * @brief 在事件开始帧推送社交关系分析抓拍：1 张全景 + 每个候选一张特写。
+     * @param [in] stContext 当前帧信息，提供全景图与通道时间戳。
+     * @param [in] vstCandidates 社交关系分析候选目标（最多 NET_CAPTURE_CROP_MAX_NUM 个）。
+     * @param [out] 无。
+     * @return 无，编码或推送失败只记录日志。
+     */
+    void pushSocialRelationshipCapture(const FrameContext_S &stContext,
+                                       const std::vector<FaceTargetResult_S> &vstCandidates);
 #endif
 
     /**

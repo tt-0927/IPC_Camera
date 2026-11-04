@@ -1360,7 +1360,7 @@ void CFaceRecognition::processTvSdkCaptureResult(
         return;
     }
 
-    /* 算法工作线程每帧只编码一次全景，局部容器保持到所有同步推送完成。 */
+    /* 算法工作线程每帧只编码一次全景；全景与目标小图都保持到本次同步推送完成。 */
     EventTvSdkImage_S stPanoramaImage{};
     if (!face_recognition_encode_capture_image(stContext.matPanoramaImage,
                                                JPEG_QUALITY_PANORAMA, true, stPanoramaImage))
@@ -1370,7 +1370,31 @@ void CFaceRecognition::processTvSdkCaptureResult(
     }
     const cv::Size stPanoramaSize = stContext.matPanoramaImage.size();
     const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
-    for (size_t nTargetIndex = 0; nTargetIndex < vstTargets.size(); ++nTargetIndex)
+
+    /* 整帧合并为一条报文：1 张全景 + 最多 NET_CAPTURE_CROP_MAX_NUM 张目标特写，
+     * 全景只编码、只传输一份，避免同一帧多目标重复推送。 */
+    NET_AlarmCaptureInfo_S stInfo{};
+    stInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
+    stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
+    stInfo.uChannel = static_cast<UINT32>(std::max(0, stContext.nChannelId));
+    stInfo.llTimestampMs = stContext.llTimestamp;
+    stInfo.uPanoramaWidth = static_cast<UINT32>(stPanoramaSize.width);
+    stInfo.uPanoramaHeight = static_cast<UINT32>(stPanoramaSize.height);
+    stInfo.stPanoramaImg.pData = stPanoramaImage.vecJpeg.data();
+    stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(stPanoramaImage.vecJpeg.size());
+
+    /* 目标小图容器需活到推送返回：SDK 在返回前完成序列化，不持有这些局部指针。 */
+    const UINT32 uCropCapacity = static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM);
+    std::vector<EventTvSdkImage_S> vecTargetImages;
+    vecTargetImages.reserve(std::min<size_t>(vstTargets.size(), uCropCapacity));
+
+    /* stExtraInfo 只能承载单个目标的属性与区域，取置信度最高的有效目标。 */
+    const FaceTargetResult_S *pBestAttributeTarget = nullptr;
+    cv::Rect stBestCropRect{};
+
+    for (size_t nTargetIndex = 0;
+         nTargetIndex < vstTargets.size() && stInfo.uCropCount < uCropCapacity;
+         ++nTargetIndex)
     {
         const FaceTargetResult_S &stTarget = vstTargets[nTargetIndex];
         cv::Rect stCropRect{};
@@ -1390,25 +1414,17 @@ void CFaceRecognition::processTvSdkCaptureResult(
                       nTargetIndex, stException.what());
             continue;
         }
-        EventTvSdkImage_S stTargetImage{};
+        vecTargetImages.emplace_back();
+        EventTvSdkImage_S &stTargetImage = vecTargetImages.back();
         if (!face_recognition_encode_capture_image(matTargetImage,
                                                    JPEG_QUALITY_TARGET, false, stTargetImage))
         {
             dlog_warn("人脸抓拍目标图编码失败或超限: target[%zu]", nTargetIndex);
+            vecTargetImages.pop_back();
             continue;
         }
 
-        NET_AlarmCaptureInfo_S stInfo{};
-        stInfo.uAlarmType = NET_ALARM_CAPTURE_FACE;
-        stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
-        stInfo.uChannel = static_cast<UINT32>(std::max(0, stContext.nChannelId));
-        stInfo.llTimestampMs = stContext.llTimestamp;
-        stInfo.uPanoramaWidth = static_cast<UINT32>(stPanoramaSize.width);
-        stInfo.uPanoramaHeight = static_cast<UINT32>(stPanoramaSize.height);
-        stInfo.stPanoramaImg.pData = stPanoramaImage.vecJpeg.data();
-        stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(stPanoramaImage.vecJpeg.size());
-        stInfo.uCropCount = 1;
-        NET_CropImage_S &stCropImage = stInfo.stCropImages[0];
+        NET_CropImage_S &stCropImage = stInfo.stCropImages[stInfo.uCropCount];
         stCropImage.uCropX = static_cast<UINT32>(stCropRect.x);
         stCropImage.uCropY = static_cast<UINT32>(stCropRect.y);
         stCropImage.uCropWidth = static_cast<UINT32>(stCropRect.width);
@@ -1420,55 +1436,186 @@ void CFaceRecognition::processTvSdkCaptureResult(
         stCropImage.nTrackID = -1;
         stCropImage.stImage.pData = stTargetImage.vecJpeg.data();
         stCropImage.stImage.uDataLen = static_cast<UINT32>(stTargetImage.vecJpeg.size());
+        stInfo.uCropCount++;
 
-        const bool bAttributeReady = stConfig.bAttributeAnalysisEnable && stTarget.bAttributeReady;
-        /* 旧协议没有属性有效位；未分析时保持零值，不伪造属性结果。 */
-        if (bAttributeReady)
+        const float fCurrentConfidence = std::isfinite(stTarget.stDetectResult.fConfidence)
+                                             ? stTarget.stDetectResult.fConfidence
+                                             : 0.0F;
+        if (pBestAttributeTarget == nullptr ||
+            fCurrentConfidence > (std::isfinite(pBestAttributeTarget->stDetectResult.fConfidence)
+                                      ? pBestAttributeTarget->stDetectResult.fConfidence
+                                      : 0.0F))
         {
-            const FaceAttributeTarget_S &stAttribute = stTarget.stAttributeResult;
-            stInfo.stExtraInfo.bMale = stAttribute.bIsMale ? TRUE : FALSE;
-            stInfo.stExtraInfo.nAgeLabel = stAttribute.nAgeLabel;
-            stInfo.stExtraInfo.bGlasses = stAttribute.bIsGlasses ? TRUE : FALSE;
-            stInfo.stExtraInfo.bBeard = stAttribute.bIsBeard ? TRUE : FALSE;
-            stInfo.stExtraInfo.bMask = stAttribute.bIsMask ? TRUE : FALSE;
-            stInfo.stExtraInfo.nEmotionLabel = stAttribute.nEmotionLabel;
+            pBestAttributeTarget = &stTarget;
+            stBestCropRect = stCropRect;
         }
-        /* 表情类别单独走 nFaceExpression（NET_FACE_EMOTION_E，0~6），不改动属性模型的
-         * nEmotionLabel（8~14）；未分析为 -1。 */
-        stInfo.stExtraInfo.nFaceExpression =
-            stTarget.bExpressionReady ? stTarget.nExpressionLabel : -1;
-        const float fLeft = stCropRect.x * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
-        const float fTop = stCropRect.y * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
-        const float fRight = (stCropRect.x + stCropRect.width) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
-        const float fBottom = (stCropRect.y + stCropRect.height) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
-        NET_CapturePolygon_S &stRegion = stInfo.stExtraInfo.stTargetRegion;
-        stRegion.uPointCount = FACE_CAPTURE_REGION_POINT_COUNT;
-        stRegion.afPointX[0] = fLeft;
-        stRegion.afPointY[0] = fTop;
-        stRegion.afPointX[1] = fRight;
-        stRegion.afPointY[1] = fTop;
-        stRegion.afPointX[2] = fRight;
-        stRegion.afPointY[2] = fBottom;
-        stRegion.afPointX[3] = fLeft;
-        stRegion.afPointY[3] = fBottom;
-        std::strncpy(stInfo.stExtraInfo.strTimestamp, strTimestamp.c_str(),
-                     sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+    }
 
-        /* SDK 在返回前完成图片序列化；后续发送队列持有 JSON，不持有这些局部图片指针。 */
-        const int nRet = ControlManage::instance()->tvsdk_push_alarm(
-            NET_ALARM_CAPTURE_FACE, &stInfo, static_cast<int>(sizeof(stInfo)));
-        if (nRet < 0)
+    if (stInfo.uCropCount == 0 || pBestAttributeTarget == nullptr)
+    {
+        dlog_warn("人脸抓拍无有效目标，跳过推送: channel[%d]", stContext.nChannelId);
+        return;
+    }
+
+    /* 属性与区域只随最佳目标上报一次（协议 stExtraInfo 为单目标容器）。 */
+    const FaceTargetResult_S &stBestTarget = *pBestAttributeTarget;
+    const bool bAttributeReady = stConfig.bAttributeAnalysisEnable && stBestTarget.bAttributeReady;
+    /* 旧协议没有属性有效位；未分析时保持零值，不伪造属性结果。 */
+    if (bAttributeReady)
+    {
+        const FaceAttributeTarget_S &stAttribute = stBestTarget.stAttributeResult;
+        stInfo.stExtraInfo.bMale = stAttribute.bIsMale ? TRUE : FALSE;
+        stInfo.stExtraInfo.nAgeLabel = stAttribute.nAgeLabel;
+        stInfo.stExtraInfo.bGlasses = stAttribute.bIsGlasses ? TRUE : FALSE;
+        stInfo.stExtraInfo.bBeard = stAttribute.bIsBeard ? TRUE : FALSE;
+        stInfo.stExtraInfo.bMask = stAttribute.bIsMask ? TRUE : FALSE;
+        stInfo.stExtraInfo.nEmotionLabel = stAttribute.nEmotionLabel;
+    }
+    /* 表情类别单独走 nFaceExpression（NET_FACE_EMOTION_E，0~6），不改动属性模型的
+     * nEmotionLabel（8~14）；未分析为 -1。 */
+    stInfo.stExtraInfo.nFaceExpression =
+        stBestTarget.bExpressionReady ? stBestTarget.nExpressionLabel : -1;
+
+    const float fLeft = stBestCropRect.x * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
+    const float fTop = stBestCropRect.y * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
+    const float fRight = (stBestCropRect.x + stBestCropRect.width) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.width;
+    const float fBottom = (stBestCropRect.y + stBestCropRect.height) * FACE_CAPTURE_REGION_SCALE / stPanoramaSize.height;
+    NET_CapturePolygon_S &stRegion = stInfo.stExtraInfo.stTargetRegion;
+    stRegion.uPointCount = FACE_CAPTURE_REGION_POINT_COUNT;
+    stRegion.afPointX[0] = fLeft;
+    stRegion.afPointY[0] = fTop;
+    stRegion.afPointX[1] = fRight;
+    stRegion.afPointY[1] = fTop;
+    stRegion.afPointX[2] = fRight;
+    stRegion.afPointY[2] = fBottom;
+    stRegion.afPointX[3] = fLeft;
+    stRegion.afPointY[3] = fBottom;
+    std::strncpy(stInfo.stExtraInfo.strTimestamp, strTimestamp.c_str(),
+                 sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+
+    /* SDK 在返回前完成图片序列化；后续发送队列持有 JSON，不持有这些局部图片指针。 */
+    const int nRet = ControlManage::instance()->tvsdk_push_alarm(
+        NET_ALARM_CAPTURE_FACE, &stInfo, static_cast<int>(sizeof(stInfo)));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK人脸抓拍推送失败: crops[%u], ret[%d]", stInfo.uCropCount, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK人脸抓拍推送成功: cmd[0x%x], channel[%u], crops[%u], time[%lld], "
+                  "panorama[%u], attribute_ready[%d]",
+                  NET_ALARM_CAPTURE_FACE, stInfo.uChannel, stInfo.uCropCount,
+                  static_cast<long long>(stInfo.llTimestampMs), stInfo.stPanoramaImg.uDataLen,
+                  bAttributeReady);
+    }
+}
+
+void CFaceRecognition::pushSocialRelationshipCapture(
+    const FrameContext_S &stContext,
+    const std::vector<FaceTargetResult_S> &vstCandidates)
+{
+    if (vstCandidates.empty() || stContext.matPanoramaImage.empty())
+    {
+        return;
+    }
+    if (ControlManage::instance()->tvsdk_get_client_count() <= 0)
+    {
+        return;
+    }
+
+    /* 全景每帧只编码一次；全景与目标小图都保持到本次同步推送完成。 */
+    EventTvSdkImage_S stPanoramaImage{};
+    if (!face_recognition_encode_capture_image(stContext.matPanoramaImage,
+                                               JPEG_QUALITY_PANORAMA, true, stPanoramaImage))
+    {
+        dlog_warn("社交关系分析全景图编码失败或超限: channel[%d]", stContext.nChannelId);
+        return;
+    }
+    const cv::Size stPanoramaSize = stContext.matPanoramaImage.size();
+    const std::string strTimestamp = TimeUtils_NS::get_currentDateAndTimeNoT();
+
+    NET_AlarmCaptureInfo_S stInfo{};
+    stInfo.uAlarmType = NET_ALARM_CAPTURE_SOCIAL;
+    stInfo.uCaptureType = NET_CAPTURE_TYPE_FACE;
+    stInfo.uChannel = static_cast<UINT32>(std::max(0, stContext.nChannelId));
+    stInfo.llTimestampMs = stContext.llTimestamp;
+    stInfo.uPanoramaWidth = static_cast<UINT32>(stPanoramaSize.width);
+    stInfo.uPanoramaHeight = static_cast<UINT32>(stPanoramaSize.height);
+    stInfo.stPanoramaImg.pData = stPanoramaImage.vecJpeg.data();
+    stInfo.stPanoramaImg.uDataLen = static_cast<UINT32>(stPanoramaImage.vecJpeg.size());
+
+    const UINT32 uCropCapacity = static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM);
+    std::vector<EventTvSdkImage_S> vecTargetImages;
+    vecTargetImages.reserve(std::min<size_t>(vstCandidates.size(), uCropCapacity));
+
+    for (size_t nTargetIndex = 0;
+         nTargetIndex < vstCandidates.size() && stInfo.uCropCount < uCropCapacity;
+         ++nTargetIndex)
+    {
+        const FaceTargetResult_S &stTarget = vstCandidates[nTargetIndex];
+        cv::Rect stCropRect{};
+        if (!face_recognition_get_capture_rect(stTarget.stDetectResult, stPanoramaSize, stCropRect))
         {
-            dlog_warn("TVSDK人脸抓拍推送失败: target[%zu], ret[%d]", nTargetIndex, nRet);
+            dlog_warn("社交关系分析目标框无效: target[%zu]", nTargetIndex);
+            continue;
         }
-        else
+        cv::Mat matTargetImage;
+        try
         {
-            dlog_info("TVSDK人脸抓拍推送成功: cmd[0x%x], channel[%u], target[%zu], "
-                      "time[%lld], panorama[%u], face[%u], attribute_ready[%d]",
-                      NET_ALARM_CAPTURE_FACE, stInfo.uChannel, nTargetIndex,
-                      static_cast<long long>(stInfo.llTimestampMs), stInfo.stPanoramaImg.uDataLen,
-                      stCropImage.stImage.uDataLen, bAttributeReady);
+            matTargetImage = cropTargetImage(stContext, stTarget);
         }
+        catch (const cv::Exception &stException)
+        {
+            dlog_warn("社交关系分析目标图裁剪异常: target[%zu], reason[%s]",
+                      nTargetIndex, stException.what());
+            continue;
+        }
+        vecTargetImages.emplace_back();
+        EventTvSdkImage_S &stTargetImage = vecTargetImages.back();
+        if (!face_recognition_encode_capture_image(matTargetImage,
+                                                   JPEG_QUALITY_TARGET, false, stTargetImage))
+        {
+            dlog_warn("社交关系分析目标图编码失败或超限: target[%zu]", nTargetIndex);
+            vecTargetImages.pop_back();
+            continue;
+        }
+
+        NET_CropImage_S &stCropImage = stInfo.stCropImages[stInfo.uCropCount];
+        stCropImage.uCropX = static_cast<UINT32>(stCropRect.x);
+        stCropImage.uCropY = static_cast<UINT32>(stCropRect.y);
+        stCropImage.uCropWidth = static_cast<UINT32>(stCropRect.width);
+        stCropImage.uCropHeight = static_cast<UINT32>(stCropRect.height);
+        stCropImage.uTargetType = NET_CAPTURE_TYPE_FACE;
+        stCropImage.fConfidence = std::isfinite(stTarget.stDetectResult.fConfidence)
+                                      ? std::clamp(stTarget.stDetectResult.fConfidence, 0.0F, 1.0F)
+                                      : 0.0F;
+        stCropImage.nTrackID = -1;
+        stCropImage.stImage.pData = stTargetImage.vecJpeg.data();
+        stCropImage.stImage.uDataLen = static_cast<UINT32>(stTargetImage.vecJpeg.size());
+        stInfo.uCropCount++;
+    }
+
+    if (stInfo.uCropCount == 0)
+    {
+        dlog_warn("社交关系分析无有效目标，跳过推送: channel[%d]", stContext.nChannelId);
+        return;
+    }
+
+    /* 社交关系分析不携带人脸属性，此处仅填时间戳。 */
+    std::strncpy(stInfo.stExtraInfo.strTimestamp, strTimestamp.c_str(),
+                 sizeof(stInfo.stExtraInfo.strTimestamp) - 1);
+
+    const int nRet = ControlManage::instance()->tvsdk_push_alarm(
+        NET_ALARM_CAPTURE_SOCIAL, &stInfo, static_cast<int>(sizeof(stInfo)));
+    if (nRet < 0)
+    {
+        dlog_warn("TVSDK社交关系分析推送失败: crops[%u], ret[%d]", stInfo.uCropCount, nRet);
+    }
+    else
+    {
+        dlog_info("TVSDK社交关系分析推送成功: cmd[0x%x], channel[%u], crops[%u], time[%lld], panorama[%u]",
+                  NET_ALARM_CAPTURE_SOCIAL, stInfo.uChannel, stInfo.uCropCount,
+                  static_cast<long long>(stInfo.llTimestampMs), stInfo.stPanoramaImg.uDataLen);
     }
 }
 #endif
@@ -1775,11 +1922,23 @@ void CFaceRecognition::processSocialRelationshipEvent(
     std::vector<FaceTargetResult_S> vstCandidates;
     m_socialRelationshipProcessor.process(stDetectContext, vstCandidates);
 
-    // TODO: 附带目标小图
+    /* 上下文仅用于本地联动与状态机；0x303F 事件通道已停用，抓拍另走 0x6105 */
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS;
+    stContext.nChnId = stDetectContext.stFrame.nChannelId;
+    stContext.llTimestamp = stDetectContext.stFrame.llTimestamp;
 
-    /* 上报社交关系分析事件 */
-    m_socialRelationshipStateMachine.handleAlarmState(
-        !vstCandidates.empty(), Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS);
+    const bool bWasActive = m_socialRelationshipStateMachine.isActive();
+    const bool bActive = m_socialRelationshipStateMachine.handleAlarmState(
+        !vstCandidates.empty(), stContext);
+
+    /* 只在事件开始帧推一次抓拍报文，避免持续报警期间每帧重复编码图片 */
+#ifdef ENABLE_TVSDK_SRC
+    if (!bWasActive && bActive)
+    {
+        pushSocialRelationshipCapture(stDetectContext.stFrame, vstCandidates);
+    }
+#endif
 }
 
 /**

@@ -772,6 +772,7 @@ extern "C" {
 #define NET_ALARM_CAPTURE_FACE                (NET_ALARM_BASE_CAPTURE + 0x02)    // 人脸抓拍
 #define NET_ALARM_CAPTURE_VEHICLE             (NET_ALARM_BASE_CAPTURE + 0x03)    // 机动车抓拍
 #define NET_ALARM_CAPTURE_NON_MOTOR           (NET_ALARM_BASE_CAPTURE + 0x04)    // 非机动车抓拍
+#define NET_ALARM_CAPTURE_SOCIAL              (NET_ALARM_BASE_CAPTURE + 0x05)    // 社交关系分析抓拍
 
 /**
  * SDK事件通知 (0x7000 - 0x70FF)
