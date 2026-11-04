@@ -1351,6 +1351,26 @@ NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConf
     return registerSetCmdCb(NET_SET_OPEN_FLAME_LEAVE_INFO, pCb);
 }
 
+/**
+ * @brief 注册获取天台滞留配置的回调函数
+ * @param [in] pCb 用于填充 NET_RooftopStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterGetRooftopStayInfoCb(NET_CB_GetDevConfigByCommand pCb)
+{
+    return registerGetCmdCb(NET_GET_ROOFTOP_STAY_INFO, pCb);
+}
+
+/**
+ * @brief 注册设置天台滞留配置的回调函数
+ * @param [in] pCb 用于读取 NET_RooftopStayInfo_S 的回调函数
+ * @return 注册成功返回 TRUE；回调函数非法或已注册时返回 FALSE
+ */
+NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigByCommand pCb)
+{
+    return registerSetCmdCb(NET_SET_ROOFTOP_STAY_INFO, pCb);
+}
+
 /* ---- 平安校园扩展事件：排队拥挤 / 后厨无关人员 / 门禁异常 / 社交关系 /
  *      后厨穿戴 / 消防设施 / 打架斗殴 / 鼠患（均为单区域配置） ---- */
 /**

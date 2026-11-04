@@ -767,6 +767,8 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRooftopStayInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
 /* ---- 平安校园扩展事件（614~629） ---- */
 NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);

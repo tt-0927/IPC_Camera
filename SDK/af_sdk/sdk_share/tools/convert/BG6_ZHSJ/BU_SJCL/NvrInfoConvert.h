@@ -85,6 +85,7 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_DangerZoneStayInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_KeyAreaAbnormalStayInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_OpenFlameLeaveInfo_S& stInfo, bool bOutStruct);
+    void deal(Json::Object* pRootJson, NET_RooftopStayInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_QueueCrowdingInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_KitchenUnrelatedPersonInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AccessControlAbnormalInfo_S& stInfo, bool bOutStruct);

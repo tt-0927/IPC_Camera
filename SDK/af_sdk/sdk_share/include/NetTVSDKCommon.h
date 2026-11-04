@@ -1468,6 +1468,8 @@ typedef enum tagNETTVCfgCmd
     NET_SET_FIGHT_DETECTION_INFO          = 627,    /* 设置打架斗殴配置, 参见 #NET_FightDetectionInfo_S */
     NET_GET_MOUSE_DETECTION_INFO          = 628,    /* 获取鼠患识别配置, 参见 #NET_MouseDetectionInfo_S */
     NET_SET_MOUSE_DETECTION_INFO          = 629,    /* 设置鼠患识别配置, 参见 #NET_MouseDetectionInfo_S */
+    NET_GET_ROOFTOP_STAY_INFO             = 630,    /* 获取天台滞留配置, 参见 #NET_RooftopStayInfo_S */
+    NET_SET_ROOFTOP_STAY_INFO             = 631,    /* 设置天台滞留配置, 参见 #NET_RooftopStayInfo_S */
 
     NET_CFG_INVALID                       = 0xFFFF  /* 无效值 */
 
@@ -6139,6 +6141,23 @@ typedef struct tagNET_OpenFlameLeaveInfo
 }NET_OpenFlameLeaveInfo_S;
 
 typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
+
+/**
+ * @struct tagNET_RooftopStayInfo
+ * @brief 天台滞留检测配置信息 Rooftop stay detection configuration
+ * @note 用于NET_GET_ROOFTOP_STAY_INFO/NET_SET_ROOFTOP_STAY_INFO；单区域规则
+ */
+typedef struct tagNET_RooftopStayInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    NET_SmartRegionRule_S stRule;          /* 天台滞留规则（单区域） */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_RooftopStayInfo_S;
+
+typedef NET_RooftopStayInfo_S* pNET_RooftopStayInfo_S;
 
 /**
  * @struct tagNET_QueueCrowdingInfo

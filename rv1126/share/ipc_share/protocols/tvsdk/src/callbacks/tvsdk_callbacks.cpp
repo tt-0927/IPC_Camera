@@ -5665,6 +5665,58 @@ static NET_COMMON_ECODE_E cb_set_mouse_detection_info(INT32 dwChannelID, LPVOID 
     TvSdkConvert::ToMouseDetection(*pIn, stCfg);
     return tvsdk_set_event_config(AC_SET_MOUSE_DETECTION_INFO, Convert::to_string(stCfg));
 }
+
+/* 天台滞留 */
+/**
+ * @brief 获取天台滞留配置。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [out] lpOutBuffer 输出 NET_RooftopStayInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 入参为空；NET_E_GET_CFG_FAILED 读取或解析失败。
+ */
+static NET_COMMON_ECODE_E cb_get_rooftop_stay_info(INT32 dwChannelID, LPVOID lpOutBuffer)
+{
+    (void)dwChannelID;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    std::string outJson;
+    if (!execute_get_success_data(AC_GET_ROOFTOP_STAY_INFO, "{}", outJson))
+        return NET_E_GET_CFG_FAILED;
+
+    Alarm::RooftopStayDetection_S stCfg = {};
+    Convert::to_struct(outJson, stCfg);
+    TvSdkConvert::FillRooftopStayInfo(stCfg, *(NET_RooftopStayInfo_S *)lpOutBuffer);
+    return NET_E_SUCCEED;
+}
+
+/**
+ * @brief 设置天台滞留配置，校验通过后同步下发并落盘。
+ * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
+ * @param [in] lpInBuffer 输入 NET_RooftopStayInfo_S。
+ * @return NET_E_SUCCEED 成功；NET_E_INVALID_PARAM 参数非法；NET_E_SET_CFG_FAILED 下发失败。
+ */
+static NET_COMMON_ECODE_E cb_set_rooftop_stay_info(INT32 dwChannelID, LPVOID lpInBuffer)
+{
+    (void)dwChannelID;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+    const NET_RooftopStayInfo_S *pIn = (const NET_RooftopStayInfo_S *)lpInBuffer;
+
+    if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
+        !tvsdk_valid_event_rule(pIn->stRule, AC_SET_ROOFTOP_STAY_INFO) ||
+        !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
+        !tvsdk_valid_linkage_list(pIn->stLinkageList))
+    {
+        dlog_warn("TVSDK 天台滞留参数非法: enable[%d] sensitivity[%d] time[%d] points[%d]",
+                  static_cast<int>(pIn->bEnable), pIn->stRule.nSensitivity,
+                  pIn->stRule.nTimeThreshold, pIn->stRule.uPointCount);
+        return NET_E_INVALID_PARAM;
+    }
+
+    Alarm::RooftopStayDetection_S stCfg = {};
+    TvSdkConvert::ToRooftopStay(*pIn, stCfg);
+    return tvsdk_set_event_config(AC_SET_ROOFTOP_STAY_INFO, Convert::to_string(stCfg));
+}
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS
@@ -8390,6 +8442,8 @@ void register_all()
     NET_serverRegisterSetFightDetectionInfoCb(cb_set_fight_detection_info);
     NET_serverRegisterGetMouseDetectionInfoCb(cb_get_mouse_detection_info);
     NET_serverRegisterSetMouseDetectionInfoCb(cb_set_mouse_detection_info);
+    NET_serverRegisterGetRooftopStayInfoCb(cb_get_rooftop_stay_info);
+    NET_serverRegisterSetRooftopStayInfoCb(cb_set_rooftop_stay_info);
 #endif
 
 #if CAP_AI_PEOPLE_STATISTICS

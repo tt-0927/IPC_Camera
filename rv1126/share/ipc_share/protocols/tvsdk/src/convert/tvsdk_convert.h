@@ -262,6 +262,8 @@ void FillFightDetectionInfo(const Alarm::FightDetection_S &src, NET_FightDetecti
 void ToFightDetection(const NET_FightDetectionInfo_S &src, Alarm::FightDetection_S &dst);
 void FillMouseDetectionInfo(const Alarm::MouseDetection_S &src, NET_MouseDetectionInfo_S &dst);
 void ToMouseDetection(const NET_MouseDetectionInfo_S &src, Alarm::MouseDetection_S &dst);
+void FillRooftopStayInfo(const Alarm::RooftopStayDetection_S &src, NET_RooftopStayInfo_S &dst);
+void ToRooftopStay(const NET_RooftopStayInfo_S &src, Alarm::RooftopStayDetection_S &dst);
 
 #endif
 

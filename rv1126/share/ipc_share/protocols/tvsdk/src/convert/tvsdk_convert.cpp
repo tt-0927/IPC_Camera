@@ -3947,6 +3947,29 @@ void ToMouseDetection(const NET_MouseDetectionInfo_S &src, Alarm::MouseDetection
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
 
+/* ---- 平安校园扩展：天台滞留（单区域 + 时间阈值） ---- */
+void FillRooftopStayInfo(const Alarm::RooftopStayDetection_S &src, NET_RooftopStayInfo_S &dst)
+{
+    std::memset(&dst, 0, sizeof(dst));
+    dst.bEnable = src.bEnable ? TRUE : FALSE;
+    dst.stRule.bEnable = TRUE;
+    FillPolygonPoints(src.stRule.stRegion, dst.stRule.uPointCount, dst.stRule.afPointX, dst.stRule.afPointY);
+    dst.stRule.nSensitivity = (INT32)src.stRule.nSensitivity;
+    dst.stRule.nTimeThreshold = (INT32)src.stRule.nTimeThreshold;
+    FillSingleRuleAlarmSchedule(src.aAlarmTime, dst.stAlarmSchedule);
+    FillLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
+void ToRooftopStay(const NET_RooftopStayInfo_S &src, Alarm::RooftopStayDetection_S &dst)
+{
+    dst.bEnable = (src.bEnable == TRUE);
+    dst.stRule.nSensitivity = (unsigned int)src.stRule.nSensitivity;
+    dst.stRule.nTimeThreshold = (unsigned int)src.stRule.nTimeThreshold;
+    ToRegionFromPolygon(src.stRule.uPointCount, src.stRule.afPointX, src.stRule.afPointY, dst.stRule.stRegion);
+    ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
+    ToLinkageList(src.stLinkageList, dst.stLinkageList);
+}
+
 #endif
 
 // --------- AudioAnomaly (IPC AudioAnomaly_S <-> SDK NET_AudioAnomalyAlarmInfo_S) ---------

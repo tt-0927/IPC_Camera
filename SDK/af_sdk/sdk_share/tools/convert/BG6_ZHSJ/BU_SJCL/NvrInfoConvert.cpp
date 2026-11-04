@@ -2087,4 +2087,19 @@ void deal(Json::Object* pRootJson, NET_OpenFlameLeaveInfo_S& stInfo, bool bOutSt
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+void deal(Json::Object* pRootJson, NET_RooftopStayInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.structure(pRootJson, "Rule", stInfo.stRule);
+    convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
+    convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
+}
+
 }

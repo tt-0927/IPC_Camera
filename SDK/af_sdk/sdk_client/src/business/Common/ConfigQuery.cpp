@@ -186,6 +186,7 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_GET_DANGER_ZONE_STAY_INFO:       return GetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_KEY_AREA_ABNORMAL_STAY_INFO: return GetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_OPEN_FLAME_LEAVE_INFO:       return GetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+        case NET_GET_ROOFTOP_STAY_INFO:           return GetDevConfig_Impl<NET_RooftopStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_QUEUE_CROWDING_INFO:          return GetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_KITCHEN_UNRELATED_PERSON_INFO: return GetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
         case NET_GET_ACCESS_CONTROL_ABNORMAL_INFO: return GetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
@@ -347,6 +348,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwComm
         case NET_SET_DANGER_ZONE_STAY_INFO:       return SetDevConfig_Impl<NET_DangerZoneStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_KEY_AREA_ABNORMAL_STAY_INFO: return SetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_OPEN_FLAME_LEAVE_INFO:       return SetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
+        case NET_SET_ROOFTOP_STAY_INFO:           return SetDevConfig_Impl<NET_RooftopStayInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_QUEUE_CROWDING_INFO:          return SetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_KITCHEN_UNRELATED_PERSON_INFO: return SetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
         case NET_SET_ACCESS_CONTROL_ABNORMAL_INFO: return SetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, dwChannelID, dwCommand, lpInBuffer, dwInBufferSize, pdwBytesReturned);
