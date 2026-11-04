@@ -250,8 +250,8 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::PARKING_DETECT:               return NET_ALARM_PARKING_DETECT;
     case Event::Type_E::LONG_TIME_STAY:               return NET_ALARM_LONG_TIME_STAY;
     case Event::Type_E::FACE_DETECT:                  return NET_ALARM_FACE_DETECT;
-    case Event::Type_E::FACE_RECOGNITION:             return NET_ALARM_FACE_CAPTURE;
-    case Event::Type_E::FACE_CAPTURE:                 return NET_ALARM_FACE_CAPTURE;
+    /* 人脸识别/人脸抓拍不再经 AI 基类(0x3002) 上报：改由 ai_app 直接推送 0x6102
+     * （NET_AlarmCaptureInfo_S，含全景/特写图与属性），避免同一目标重复两条告警。 */
     case Event::Type_E::CROWD_GATHERING:              return NET_ALARM_CROWD_GATHERING;
     case Event::Type_E::SLEEP_ON_DUTY:                return NET_ALARM_SLEEP_ON_DUTY;
     case Event::Type_E::LEAVE_POST:                   return NET_ALARM_LEAVE_POST;
