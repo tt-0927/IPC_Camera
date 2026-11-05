@@ -667,6 +667,7 @@ extern "C"{
 #define NET_ALARM_DANGER_ZONE_APPROACH   (NET_ALARM_BASE_RULE + 0x09) // 危险区域靠近
 #define NET_ALARM_KITCHEN_UNRELATED_PERSON (NET_ALARM_BASE_RULE + 0x0A) // 后厨无关人员进入
 #define NET_ALARM_ACCESS_CONTROL_ABNORMAL  (NET_ALARM_BASE_RULE + 0x0B) // 门禁异常通行
+#define NET_ALARM_ROOFTOP_STAY             (NET_ALARM_BASE_RULE + 0x0C) // 天台滞留
 
 /**
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)

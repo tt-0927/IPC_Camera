@@ -214,6 +214,7 @@ UINT32 get_rule_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::DANGER_ZONE_APPROACH:   return NET_ALARM_DANGER_ZONE_APPROACH;
     case Event::Type_E::KITCHEN_UNRELATED_PERSON_ENTRY: return NET_ALARM_KITCHEN_UNRELATED_PERSON;
     case Event::Type_E::ACCESS_CONTROL_ABNORMAL_PASSAGE: return NET_ALARM_ACCESS_CONTROL_ABNORMAL;
+    case Event::Type_E::ROOFTOP_STAY:                    return NET_ALARM_ROOFTOP_STAY;
     
     default:                               return 0;
     }
