@@ -2411,6 +2411,14 @@ static NET_COMMON_ECODE_E cb_set_ntp_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
         dlog_warn("TVSDK设置NTP参数失败: 手动同步日期时间格式无效");
         return NET_E_INVALID_PARAM;
     }
+    /* 设备侧没有独立的计算机时间来源，"与计算机同步"必须由调用方同时给出
+     * 手动校时标志和计算机当前时间；缺任一项都只会静默失败，直接返回参数错误。 */
+    if (pIn->bIsSyncWithComputer == TRUE &&
+        (pIn->bManualSync != TRUE || nDateTimeLength == 0))
+    {
+        dlog_warn("TVSDK设置NTP参数失败: 与计算机同步缺少手动校时标志或日期时间");
+        return NET_E_INVALID_PARAM;
+    }
     ::System::TimeInfo_S stTimeInfo;
     TvSdkConvert::ToTimeInfo(*pIn, stTimeInfo);
     if (stTimeInfo.bManualSync)
