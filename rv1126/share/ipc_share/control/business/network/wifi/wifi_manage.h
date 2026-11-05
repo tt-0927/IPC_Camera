@@ -155,6 +155,18 @@ private:
     bool m_provisioningOperationBusy{false};
     bool m_provisioningReleasePending{false};
     std::chrono::steady_clock::time_point m_provisioningDeadline;
+    /*
+     * BLE配网事务快照。新WiFi只有在平台连接成功后才提交；App取消、
+     * BLE异常断开或会话结束时，使用该快照恢复原连接和持久化配置。
+     */
+    std::mutex m_bleProvisioningTransactionMutex;
+    bool m_bleProvisioningTransactionActive{false};
+    bool m_bleProvisioningHadPreviousConfig{false};
+    bool m_bleProvisioningWasConnected{false};
+    bool m_bleProvisioningAutoReconnectEnabled{false};
+    ::Network::WifiStaConncet_S m_bleProvisioningPreviousConfig;
+    std::string m_bleProvisioningPreviousWpaConfig;
+    bool m_bleProvisioningHadWpaConfig{false};
 #endif
 
     // 私有辅助函数
@@ -202,6 +214,12 @@ public:
                                   bool keepOwnership);
     /** 配网完成、BLE断开或取消时释放BLE会话所有权。 */
     void releaseProvisioningOwner(::Network::WifiProvisioningOwner owner);
+    /** 在第一次BLE连接WiFi前保存可回滚快照；重复调用不会覆盖原快照。 */
+    bool beginBleProvisioningTransaction();
+    /** 中止进行中的连接并恢复配网前WiFi配置和连接状态。 */
+    bool cancelBleProvisioningTransaction();
+    /** 平台连接成功后提交新配置并丢弃回滚快照。 */
+    void commitBleProvisioningTransaction();
 #endif
 
     void deinit();

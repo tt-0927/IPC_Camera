@@ -167,11 +167,11 @@ void CAccessControlPassageDetect::run()
         }
 
         /* 区域判定 + 报警状态机 */
-        processPassage(vecResults);
+        processPassage(vecResults, rgbMat);
     }
 }
 
-void CAccessControlPassageDetect::processPassage(const std::vector<DetectedTarget_S> &vecResults)
+void CAccessControlPassageDetect::processPassage(const std::vector<DetectedTarget_S> &vecResults, const cv::Mat &rgbMat)
 {
     /* 事件未开启不参与判定 */
     if (!m_stCfg.bEnable)
@@ -197,6 +197,7 @@ void CAccessControlPassageDetect::processPassage(const std::vector<DetectedTarge
         break;
     }
 
+#ifdef ENABLE_TVSDK_SRC
     /* 组装触发上下文，状态机驱动事件开始/结束上报 */
     EventTriggerContext_S stContext;
     stContext.enEventType = Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE;
@@ -211,8 +212,28 @@ void CAccessControlPassageDetect::processPassage(const std::vector<DetectedTarge
         stContext.nTop    = static_cast<int>(pstHitTarget->fY1);
         stContext.nRight  = static_cast<int>(pstHitTarget->fX2);
         stContext.nBottom = static_cast<int>(pstHitTarget->fY2);
+
+        /* 命中携带人员大小图 小图按目标框裁剪 裁剪异常仅缺小图不影响上报 */
+        if (!rgbMat.empty())
+        {
+            encode_mat_to_tvsdk_image(rgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(rgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(rgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = rgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
+        }
     }
     m_alarmStateMachine.handleAlarmState(pstHitTarget != nullptr, stContext);
+#else
+    (void)rgbMat;
+    m_alarmStateMachine.handleAlarmState(pstHitTarget != nullptr, Event::Type::ACCESS_CONTROL_ABNORMAL_PASSAGE);
+#endif
 }
 
 void CAccessControlPassageDetect::updateRegionPolygon()

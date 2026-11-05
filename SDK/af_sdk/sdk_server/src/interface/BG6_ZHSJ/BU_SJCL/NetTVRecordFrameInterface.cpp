@@ -22,14 +22,14 @@ extern "C" {
 /**
  * @brief 启动录像帧流 TCP 服务
  * @details 创建监听socket，开始接收客户端连接
- * @param [IN] dwPort TCP监听端口，建议使用9005
+ * @param [IN] uPort TCP监听端口，建议使用9005
  * @return TRUE 成功，FALSE 失败
  * @note 服务端必须先启动此服务，客户端才能建立TCP连接接收帧数据
  */
 NET_API BOOL STDCALL
-NET_serverStartRecordFrameServer(IN UINT32 dwPort)
+NET_serverStartRecordFrameServer(IN UINT32 uPort)
 {
-	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::CRecordFrameServer::instance()->start(static_cast<int>(uPort)) ? TRUE : FALSE;
 }
 
 /**
@@ -69,12 +69,12 @@ NET_serverRegisterRecordFrameStartCb(IN NET_serverRecordFrameStartCallBack cb,
 
 	/* 使用Lambda做适配器：C风格回调 → C++风格回调 */
 	tvsdk::CRecordFrameServer::instance()->set_start_callback(
-		[cb, lpUserData](const NET_RecordFrameStreamCond_S& cond,
-						 NET_RecordFrameStreamInfo_S& info) -> NET_COMMON_ECODE_E {
+		[cb, lpUserData](const NET_RecordFrameStreamCond_S& stCond,
+						 NET_RecordFrameStreamInfo_S& stInfo) -> NET_COMMON_ECODE_E {
 			/* cond参数做拷贝，因为C回调期望指针，防止引用失效 */
-			NET_RecordFrameStreamCond_S condCopy = cond;
+			NET_RecordFrameStreamCond_S stCondCopy = stCond;
 			/* 调用宿主注册的C风格回调，传入lpUserData */
-			return cb(&condCopy, &info, lpUserData);
+			return cb(&stCondCopy, &stInfo, lpUserData);
 		});
 	return TRUE;
 }
@@ -87,7 +87,7 @@ NET_serverRegisterRecordFrameStartCb(IN NET_serverRecordFrameStartCallBack cb,
  * @param [IN] lpUserData 用户自定义数据，SDK会原样传回给宿主
  * @return TRUE 成功
  * @note 为什么要这样写？
- *       1. C回调参数：const CHAR* szStreamId, UINT32 dwBufferSize
+ *       1. C回调参数：const CHAR* pstrStreamId, UINT32 uBufferSize
  *       2. C++回调参数：const std::string& streamId, size_t bufferSize
  *       3. 需要做类型转换：std::string → const char*, size_t → UINT32
  *       4. Read回调会被持续循环调用，Lambda捕获保证cb和lpUserData不会失效
@@ -102,12 +102,12 @@ NET_serverRegisterRecordFrameReadCb(IN NET_serverRecordFrameReadCallBack cb,
 	}
 
 	tvsdk::CRecordFrameServer::instance()->set_read_callback(
-		[cb, lpUserData](const std::string& streamId,
-						 NET_RecordFrameInfo_S& frameInfo,
-						 char* buffer,
-						 size_t bufferSize) -> int {
+		[cb, lpUserData](const std::string& strStreamId,
+						 NET_RecordFrameInfo_S& stFrameInfo,
+						 char* pstrBuffer,
+						 size_t uBufferSize) -> int {
 			/* 类型转换：std::string → const char*, size_t → UINT32 */
-			return cb(streamId.c_str(), &frameInfo, buffer, static_cast<UINT32>(bufferSize), lpUserData);
+			return cb(strStreamId.c_str(), &stFrameInfo, pstrBuffer, static_cast<UINT32>(uBufferSize), lpUserData);
 		});
 	return TRUE;
 }
@@ -120,7 +120,7 @@ NET_serverRegisterRecordFrameReadCb(IN NET_serverRecordFrameReadCallBack cb,
  * @param [IN] lpUserData 用户自定义数据，SDK会原样传回给宿主
  * @return TRUE 成功
  * @note 为什么要这样写？
- *       1. C回调参数：const CHAR* szStreamId
+ *       1. C回调参数：const CHAR* pstrStreamId
  *       2. C++回调参数：const std::string& streamId
  *       3. 需要做类型转换：std::string → const char*
  */
@@ -134,8 +134,8 @@ NET_serverRegisterRecordFrameStopCb(IN NET_serverRecordFrameStopCallBack cb,
 	}
 
 	tvsdk::CRecordFrameServer::instance()->set_stop_callback(
-		[cb, lpUserData](const std::string& streamId) -> NET_COMMON_ECODE_E {
-			return cb(streamId.c_str(), lpUserData);
+		[cb, lpUserData](const std::string& strStreamId) -> NET_COMMON_ECODE_E {
+			return cb(strStreamId.c_str(), lpUserData);
 		});
 	return TRUE;
 }

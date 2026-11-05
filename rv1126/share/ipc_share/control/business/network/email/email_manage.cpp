@@ -12,8 +12,22 @@
 #include "network_convert.h"
 #include "convert_interface.h"
 #include "path_define.h"
+#include "time_utils.h"
 
 #include <functional>
+#include <vector>
+
+namespace
+{
+    /* 同批事件邮件聚合窗口（秒），窗口内到达的邮件合并为一封发送 */
+    const int MERGE_WINDOW_SEC = 3;
+    /* 合并邮件附件数量上限，超出部分丢弃 */
+    const size_t MAX_MERGE_ATTACHMENTS = 8;
+    /* 事件邮件队列上限，超出时丢弃最旧邮件防止积压 */
+    const size_t MAX_EVENT_QUEUE_SIZE = 50;
+    /* 发送间隔节流的等待轮询粒度（毫秒），保证关停时可及时退出 */
+    const int THROTTLE_POLL_MS = 500;
+}
 
 CEmailManage::CEmailManage() : m_configFile(EMAIL_CONFIG_FILE), m_bTesting(false)
 {
@@ -64,9 +78,73 @@ void CEmailManage::process_emailQueue()
             }
             stEmail = std::move(m_emailEventQueue.front());
             m_emailEventQueue.pop();
+
+            /* 聚合窗口内等待同批事件邮件陆续入队，窗口结束后统一合并 */
+            m_emailCond.wait_for(lock, std::chrono::seconds(MERGE_WINDOW_SEC),
+                                 [this]()
+                                 {
+                                     return !m_running;
+                                 });
+
+            if (!m_running)
+            {
+                break;
+            }
+
+            /* 同类型事件只保留首条，其余合并主题/正文/附件 */
+            std::vector<std::string> vecMergedEvents;
+            vecMergedEvents.push_back(stEmail.strSubject);
+            while (!m_emailEventQueue.empty())
+            {
+                Network::EmailEventInfo_S stNext = std::move(m_emailEventQueue.front());
+                m_emailEventQueue.pop();
+
+                bool bDuplicated = false;
+                for (const auto &strEvent : vecMergedEvents)
+                {
+                    if (strEvent == stNext.strSubject)
+                    {
+                        bDuplicated = true;
+                        break;
+                    }
+                }
+                if (bDuplicated)
+                {
+                    continue;
+                }
+                vecMergedEvents.push_back(stNext.strSubject);
+
+                stEmail.strSubject += "、";
+                stEmail.strSubject += stNext.strSubject;
+                stEmail.strMessage += "\n";
+                stEmail.strMessage += stNext.strMessage;
+                stEmail.vecImageFile.insert(stEmail.vecImageFile.end(),
+                                            stNext.vecImageFile.begin(),
+                                            stNext.vecImageFile.end());
+            }
+
+            if (stEmail.vecImageFile.size() > MAX_MERGE_ATTACHMENTS)
+            {
+                dlog_warn("合并邮件附件数%zu超上限，仅保留前%zu张",
+                          stEmail.vecImageFile.size(), MAX_MERGE_ATTACHMENTS);
+                stEmail.vecImageFile.resize(MAX_MERGE_ATTACHMENTS);
+            }
+        }
+
+        /* 发送间隔节流：距上次发送不足配置间隔时顺延，等待中新到的邮件由下轮聚合窗口合并 */
+        if (m_llLastSendTimeMs > 0 && m_EmInfo.nCaptureTimeInterval > 0)
+        {
+            long long llRemainMs = m_llLastSendTimeMs + m_EmInfo.nCaptureTimeInterval * 1000LL - TimeUtils_NS::get_monotonicTimestampMs();
+            while (llRemainMs > 0 && m_running)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(THROTTLE_POLL_MS));
+                llRemainMs -= THROTTLE_POLL_MS;
+            }
         }
 
         SendEventEmail(stEmail);
+        /* 无论成败都记录发送时间，发送失败(如535限流)同样需要降频 */
+        m_llLastSendTimeMs = TimeUtils_NS::get_monotonicTimestampMs();
     }
 }
 
@@ -86,6 +164,12 @@ int CEmailManage::HandleEmail(const EmailVariant &emailRequest)
         dlog_info("处理事件触发邮件");
         {
             std::lock_guard<std::mutex> lock(m_emailQueueMutex);
+            /* 队列满时丢弃最旧邮件，防止发送阻塞期间无限积压 */
+            if (m_emailEventQueue.size() >= MAX_EVENT_QUEUE_SIZE)
+            {
+                m_emailEventQueue.pop();
+                dlog_warn("事件邮件队列已满，丢弃最旧邮件");
+            }
             m_emailEventQueue.push(mpark::get<Network::EmailEventInfo_S>(emailRequest));
         }
         m_emailCond.notify_one();

@@ -23,6 +23,7 @@
 - `fire_person_detect/`：烟火行人检测组件
 - `kitchen_detect/`：厨房14类检测组件
 - `pmnm_detect/`：人车非检测组件
+- `group4_detect/`：第四组安防检测组件（香烟/睡觉/玩手机/摔跤/摔跤中）
 
 ## face_attribute_model
 

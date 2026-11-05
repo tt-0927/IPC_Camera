@@ -27,10 +27,10 @@ BOOL registerGetCmdCb(INT32 nCommand, NET_CB_GetDevConfigByCommand pCb);
 BOOL registerSetCmdCb(INT32 nCommand, NET_CB_SetDevConfigByCommand pCb);
 
 /* 通用配置获取回调分发执行函数（优先按命令码查找专用回调，未命中降级到通用回调；供CommonDomain/DeviceConfigBusiness等调用） */
-int executeGetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpOutBuffer);
+int executeGetDevConfigCb(INT32 nChannelId, INT32 nCommand, LPVOID lpOutBuffer);
 
 /* 通用配置设置回调分发执行函数（优先按命令码查找专用回调，未命中降级到通用回调；供CommonDomain/DeviceConfigBusiness等调用） */
-int executeSetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpInBuffer);
+int executeSetDevConfigCb(INT32 nChannelId, INT32 nCommand, LPVOID lpInBuffer);
 
 #ifdef __cplusplus
 }

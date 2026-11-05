@@ -41,15 +41,15 @@ public:
      * @details 根据命令码解析告警信息类型（人脸比对、基础告警、规则告警、AI告警、交通告警、异常告警、统计告警等），
      *          将告警信息转换为JSON格式后推送到所有活跃会话客户端
      * @param pAlarmer 告警设备信息
-     * @param lCommand 命令码（报警类型）
+     * @param nCommand 命令码（报警类型）
      * @param pAlarmInfo 具体告警结构体指针
-     * @param dwBufLen pAlarmInfo 长度
+     * @param nBufLen pAlarmInfo 长度
      * @return TRUE表示成功推送到至少一个客户端，FALSE表示失败
      */
     BOOL PushAlarmInfo(NET_Alarmer_S* pAlarmer,
-                      INT32 lCommand,
+                      INT32 nCommand,
                       LPVOID pAlarmInfo,
-                      INT32 dwBufLen);
+                      INT32 nBufLen);
 
     /**
      * 推送通道上下线状态到所有客户端

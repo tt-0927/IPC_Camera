@@ -3,6 +3,7 @@
 #if CAP_NETWORK_WIFI
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <cstring>
 #include <cctype>
@@ -248,11 +249,14 @@ bool validateWifiIpv4Config(const ::Network::WifiIpv4Config_S& config,
         gateway == network || gateway == broadcast) {
         return false;
     }
-
+ /*
+     * 网段重叠不是静态IPv4参数本身非法。允许保存并应用地址，随后由统一
+     * 路由状态机保持WiFi关联、删除wlan0默认路由并使用eth0作为唯一出口。
+     * 网线拔出后状态机会忽略eth0残留地址，自动恢复WiFi默认路由。
+     */
     if (wifiSubnetOverlapsEth(ip, mask)) {
-        dlog_error("[WiFi IPv4] 拒绝配置：WiFi网段[%s/%s]与eth0当前网段重叠",
-                   config.ipv4Ip.c_str(), config.ipv4Mask.c_str());
-        return false;
+        dlog_warn("[WiFi IPv4] WiFi网段[%s/%s]与在线eth0重叠，将保持WiFi关联但禁用其出口",
+            config.ipv4Ip.c_str(), config.ipv4Mask.c_str());
     }
 
     return true;
@@ -441,7 +445,27 @@ void CWifiManager::monitorLoop() {
             /* 未知状态打断连续SCANNING计数，避免跨状态累计造成误触发。 */
             consecutiveScanningCount = 0;
         }
-
+        /*
+         * WiFi状态和eth0物理链路是两套独立事件。每轮都驱动统一路由状态机：
+         *   eth0在线且网段重叠 -> 保持WiFi关联，只保留eth0出口；
+         *   eth0拔线          -> 忽略eth0残留IP，恢复wlan0默认路由；
+         *   网段不重叠        -> WiFi metric 10、有线 metric 200。
+         * carrier读取失败时保持当前路由，避免误判成拔线而删除可用有线路由。
+         */
+         int ethCarrier = 0;
+         std::ifstream carrierFile("/sys/class/net/eth0/carrier");
+         if (carrierFile.is_open() && (carrierFile >> ethCarrier))
+         {
+             if (!isWifiConnectedAndWiredDisconnected(ethCarrier != 1))
+             {
+                 dlog_warn("[路由] 根据当前WiFi/有线状态更新路由失败，下一轮继续重试");
+             }
+         }
+         else
+         {
+             dlog_warn("[路由] 无法读取eth0 carrier，本轮保持现有路由");
+         }
+ 
         if (shouldReconnect) {
             std::cout << "[后台监听] Wi-Fi连接异常，准备重连" << std::endl;
 
@@ -628,6 +652,158 @@ void CWifiManager::releaseProvisioningOwner(
     dlog_info("[WiFi配网] 主动释放所有权 owner=%d", static_cast<int>(owner));
     m_provisioningOwner = ::Network::WIFI_PROVISIONING_NONE;
     m_provisioningReleasePending = false;
+}
+
+bool CWifiManager::beginBleProvisioningTransaction()
+{
+    std::lock_guard<std::mutex> transactionLock(
+        m_bleProvisioningTransactionMutex);
+    if (m_bleProvisioningTransactionActive)
+        return true;
+
+    ::Network::WifiStaConncet_S previousConfig;
+    bool hasPreviousConfig = loadConfigFromFile(previousConfig);
+    if (!hasPreviousConfig)
+    {
+        /* 兼容尚未落盘但内存中已有有效连接配置的旧版本。 */
+        std::lock_guard<std::mutex> configLock(m_configMutex);
+        if (m_hasLastConfig)
+        {
+            previousConfig = m_lastConnectConfig;
+            hasPreviousConfig = true;
+        }
+    }
+
+    std::ifstream wpaFile(config.config_file_path.c_str(),
+                          std::ios::in | std::ios::binary);
+    std::string previousWpaConfig;
+    if (wpaFile.is_open())
+    {
+        previousWpaConfig.assign(std::istreambuf_iterator<char>(wpaFile),
+                                 std::istreambuf_iterator<char>());
+    }
+
+    m_bleProvisioningHadPreviousConfig = hasPreviousConfig;
+    m_bleProvisioningPreviousConfig = previousConfig;
+    m_bleProvisioningWasConnected = is_connected.load();
+    m_bleProvisioningAutoReconnectEnabled = m_autoReconnectEnabled.load();
+    m_bleProvisioningHadWpaConfig = wpaFile.is_open();
+    m_bleProvisioningPreviousWpaConfig.swap(previousWpaConfig);
+    m_bleProvisioningTransactionActive = true;
+    dlog_info("[WiFi配网] 已创建BLE事务快照 previous_config=%d connected=%d",
+              hasPreviousConfig ? 1 : 0,
+              m_bleProvisioningWasConnected ? 1 : 0);
+    return true;
+}
+
+void CWifiManager::commitBleProvisioningTransaction()
+{
+    std::lock_guard<std::mutex> lock(m_bleProvisioningTransactionMutex);
+    if (!m_bleProvisioningTransactionActive)
+        return;
+    m_bleProvisioningTransactionActive = false;
+    m_bleProvisioningPreviousWpaConfig.clear();
+    dlog_info("[WiFi配网] BLE事务已提交，新配置成为正式配置");
+}
+
+bool CWifiManager::cancelBleProvisioningTransaction()
+{
+    bool hadPreviousConfig = false;
+    bool wasConnected = false;
+    bool autoReconnectEnabled = false;
+    bool hadWpaConfig = false;
+    ::Network::WifiStaConncet_S previousConfig;
+    std::string previousWpaConfig;
+    {
+        std::lock_guard<std::mutex> lock(m_bleProvisioningTransactionMutex);
+        if (!m_bleProvisioningTransactionActive)
+        {
+            dlog_info("[WiFi配网] 当前没有待回滚的BLE事务");
+            return true;
+        }
+        hadPreviousConfig = m_bleProvisioningHadPreviousConfig;
+        wasConnected = m_bleProvisioningWasConnected;
+        autoReconnectEnabled = m_bleProvisioningAutoReconnectEnabled;
+        hadWpaConfig = m_bleProvisioningHadWpaConfig;
+        previousConfig = m_bleProvisioningPreviousConfig;
+        previousWpaConfig = m_bleProvisioningPreviousWpaConfig;
+        /* 先使事务失效，防止BLE断开和0x0104同时触发两次回滚。 */
+        m_bleProvisioningTransactionActive = false;
+        m_bleProvisioningPreviousWpaConfig.clear();
+    }
+
+    dlog_info("[WiFi配网] 正在取消BLE事务并恢复配网前状态");
+    m_autoReconnectEnabled.store(false);
+    m_cancelConnectRequested.store(true);
+    m_monitorCondition.notify_all();
+
+    /* connectToWifi 最长等待30秒；给其清理路径额外预留5秒。 */
+    const std::chrono::steady_clock::time_point deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(35);
+    while (m_isConnecting.load() &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    if (m_isConnecting.load())
+    {
+        dlog_error("[WiFi配网] 等待当前连接操作退出超时，拒绝并发恢复");
+        return false;
+    }
+
+    sendCommand("DISCONNECT");
+    bool filesRestored = true;
+    if (hadPreviousConfig)
+    {
+        filesRestored = saveConfigToFile(previousConfig);
+    }
+    else if (std::remove(PERSISTENT_CONFIG_PATH.c_str()) != 0 &&
+             errno != ENOENT)
+    {
+        dlog_warn("[WiFi配网] 删除配网产生的持久化配置失败 errno=%d", errno);
+        filesRestored = false;
+    }
+
+    if (hadWpaConfig)
+    {
+        std::ofstream wpaFile(config.config_file_path.c_str(),
+                              std::ios::out | std::ios::binary | std::ios::trunc);
+        if (!wpaFile.is_open())
+        {
+            dlog_error("[WiFi配网] 无法恢复原wpa_supplicant配置");
+            filesRestored = false;
+        }
+        else
+        {
+            wpaFile.write(previousWpaConfig.data(), previousWpaConfig.size());
+            if (!wpaFile.good())
+                filesRestored = false;
+        }
+    }
+
+    bool connectionRestored = true;
+    if (wasConnected && hadPreviousConfig)
+    {
+        /* connectToWifi 会重新加载旧配置、恢复IPv4/路由并校验连接结果。 */
+        ::Network::WifiConnectResult restoreResult = connectToWifi(previousConfig);
+        connectionRestored = restoreResult.success;
+        if (!connectionRestored)
+            dlog_error("[WiFi配网] 恢复原WiFi连接失败 error=%d",
+                       restoreResult.error_code);
+    }
+    else
+    {
+        sendCommand("RECONFIGURE");
+        sendCommand("DISCONNECT");
+        is_connected.store(false);
+        m_wifiNetworkAvailable.store(false);
+        m_routeStateInitialized.store(false);
+    }
+
+    m_autoReconnectEnabled.store(autoReconnectEnabled && hadPreviousConfig);
+    m_cancelConnectRequested.store(false);
+    m_monitorCondition.notify_all();
+    dlog_info("[WiFi配网] BLE事务回滚完成 files=%d connection=%d",
+              filesRestored ? 1 : 0, connectionRestored ? 1 : 0);
+    return filesRestored && connectionRestored;
 }
 #endif
 

@@ -33,10 +33,10 @@ void deal(Json::Object* pRootJson, NET_RecordInfo_S& stInfo, bool bOutStruct)
     convert.field(pRootJson, "RecordStatus", stInfo.nRecordStatus);
     convert.field(pRootJson, "RecordFormat", stInfo.nRecordFormat);
     convert.field(pRootJson, "EventType", stInfo.nEventType);
-    convert.field(pRootJson, "Path", stInfo.szPath);
-    convert.field(pRootJson, "RedunPath", stInfo.szRedunPath);
-    convert.field(pRootJson, "RecordName", stInfo.szRecordName);
-    convert.field(pRootJson, "RecordTime", stInfo.szRecordTime);
+    convert.field(pRootJson, "Path", stInfo.strPath);
+    convert.field(pRootJson, "RedunPath", stInfo.strRedunPath);
+    convert.field(pRootJson, "RecordName", stInfo.strRecordName);
+    convert.field(pRootJson, "RecordTime", stInfo.strRecordTime);
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
 }
 
@@ -228,12 +228,12 @@ void deal(Json::Object* pRootJson, NET_RecordFindCond_S& stInfo, bool bOutStruct
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "ChnId", stInfo.nChnId);
     convert.field(pRootJson, "Type", stInfo.nType);
-    convert.field(pRootJson, "Year", stInfo.szYear);
-    convert.field(pRootJson, "Month", stInfo.szMonth);
-    convert.field(pRootJson, "Date", stInfo.szDate);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
-    convert.field(pRootJson, "Filename", stInfo.szFilename);
+    convert.field(pRootJson, "Year", stInfo.strYear);
+    convert.field(pRootJson, "Month", stInfo.strMonth);
+    convert.field(pRootJson, "Date", stInfo.strDate);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
+    convert.field(pRootJson, "Filename", stInfo.strFilename);
 }
 
 
@@ -297,7 +297,7 @@ void deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, bool bOutStru
             if (pItem)
             {
                 Json::Value::get(pItem, strDate);
-                std::strncpy(stInfo.aszDates[i], strDate.c_str(), sizeof(stInfo.aszDates[i]) - 1);
+                std::strncpy(stInfo.astrDates[i], strDate.c_str(), sizeof(stInfo.astrDates[i]) - 1);
             }
         }
         stInfo.nDateCount = nCount;
@@ -309,13 +309,13 @@ void deal(Json::Object* pRootJson, NET_RecordFindResult_S& stInfo, bool bOutStru
         {
             for (int i = 0; i < stInfo.nDateCount; ++i)
             {
-                Json::Array::add(pDates, stInfo.aszDates[i]);
+                Json::Array::add(pDates, stInfo.astrDates[i]);
             }
             Json::add(pRootJson, "Dates", pDates);
         }
     }
 
-    convert.field(pRootJson, "Filename", stInfo.szFilename);
+    convert.field(pRootJson, "Filename", stInfo.strFilename);
     convert.field(pRootJson, "VideoTimeCount", stInfo.nVideoTimeCount);
 
     if (bOutStruct)
@@ -432,9 +432,9 @@ void deal(Json::Object* pRootJson, NET_RecordDownloadInfo_S& stInfo, bool bOutSt
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "ChnId", stInfo.nChnId);
-    convert.field(pRootJson, "Path", stInfo.szPath);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
+    convert.field(pRootJson, "Path", stInfo.strPath);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
 }
 
 
@@ -446,7 +446,7 @@ void deal(Json::Object* pRootJson, NET_RecordDownloadProgress_S& stInfo, bool bO
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Filename", stInfo.szFilename);
+    convert.field(pRootJson, "Filename", stInfo.strFilename);
     convert.field(pRootJson, "DownloadProgress", stInfo.nProgress);
 }
 
@@ -569,9 +569,9 @@ void deal(Json::Object* pRootJson, NET_ReplayUrlInfo_S& stInfo, bool bOutStruct)
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
-    convert.field(pRootJson, "Url", stInfo.szUrl);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
+    convert.field(pRootJson, "Url", stInfo.strUrl);
 }
 
 
@@ -588,11 +588,11 @@ void deal(Json::Object* pRootJson, NET_ReplayCtrlInfo_S& stInfo, bool bOutStruct
     convert.field(pRootJson, "Speed", stInfo.fSpeed);
     convert.field(pRootJson, "SeekTime", stInfo.nSeekTime);
     convert.field(pRootJson, "ReplayType", stInfo.nReplayType);
-    convert.field(pRootJson, "SessionId", stInfo.szSessionId);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
-    convert.field(pRootJson, "Url", stInfo.szUrl);
-    convert.field(pRootJson, "UserIp", stInfo.szUserIp);
+    convert.field(pRootJson, "SessionId", stInfo.strSessionId);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
+    convert.field(pRootJson, "Url", stInfo.strUrl);
+    convert.field(pRootJson, "UserIp", stInfo.strUserIp);
 }
 
 
@@ -620,9 +620,9 @@ void deal(Json::Object* pRootJson, NET_ReplayRecordList_S& stInfo, bool bOutStru
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "FilterByEventType", stInfo.bFilterByEventType);
     convert.field(pRootJson, "EventType", stInfo.uEventType);
-    convert.field(pRootJson, "Date", stInfo.szDate);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
+    convert.field(pRootJson, "Date", stInfo.strDate);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
     convert.field(pRootJson, "VideoCount", stInfo.nVideoCount);
     convert.field(pRootJson, "PersonEventCount", stInfo.nPersonEventCount);
     convert.field(pRootJson, "VehicleEventCount", stInfo.nVehicleEventCount);
@@ -726,7 +726,7 @@ void deal(Json::Object* pRootJson, NET_RtspUrlInfo_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "StreamIndex", stInfo.uStreamIndex);
-    convert.field(pRootJson, "RtspUrl", stInfo.szRtspUrl);
+    convert.field(pRootJson, "RtspUrl", stInfo.strRtspUrl);
 }
 
 
@@ -740,8 +740,8 @@ void deal(Json::Object* pRootJson, NET_RecordFrameStreamCond_S& stInfo, bool bOu
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "uSize", stInfo.uSize);
     convert.field(pRootJson, "channel", stInfo.uChannel);
-    convert.field(pRootJson, "startTime", stInfo.szStartTime);
-    convert.field(pRootJson, "endTime", stInfo.szEndTime);
+    convert.field(pRootJson, "startTime", stInfo.strStartTime);
+    convert.field(pRootJson, "endTime", stInfo.strEndTime);
     convert.field(pRootJson, "streamIndex", stInfo.uStreamIndex);
     convert.field(pRootJson, "mediaType", stInfo.uMediaType);
     convert.field(pRootJson, "codecType", stInfo.uCodecType);
@@ -758,7 +758,7 @@ void deal(Json::Object* pRootJson, NET_RecordFrameStreamInfo_S& stInfo, bool bOu
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "uSize", stInfo.uSize);
-    convert.field(pRootJson, "streamId", stInfo.szStreamId);
+    convert.field(pRootJson, "streamId", stInfo.strStreamId);
     convert.field(pRootJson, "channel", stInfo.uChannel);
     convert.field(pRootJson, "tcpPort", stInfo.uTcpPort);
     convert.field(pRootJson, "mediaType", stInfo.uMediaType);
@@ -777,7 +777,7 @@ void deal(Json::Object* pRootJson, NET_RecordFrameStopInfo_S& stInfo, bool bOutS
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "uSize", stInfo.uSize);
-    convert.field(pRootJson, "streamId", stInfo.szStreamId);
+    convert.field(pRootJson, "streamId", stInfo.strStreamId);
 }
 
 
@@ -818,33 +818,33 @@ void deal(Json::Object* pRootJson, NET_ChannelInfo_S& stInfo, bool bOutStruct)
     convert.field(pRootJson, "CtrlPort", stInfo.nCtrlPort);
     convert.field_array(pRootJson, "Reserved", stInfo.nReserved, 3, 3);
 
-    convert.field(pRootJson, "ChannelName", stInfo.szChannelName);
-    convert.field(pRootJson, "DevName", stInfo.szDevName);
-    convert.field(pRootJson, "DevType", stInfo.szDevType);
-    convert.field(pRootJson, "SerialNum", stInfo.szSerialNum);
-    convert.field(pRootJson, "FirmwareVersion", stInfo.szFirmwareVersion);
-    convert.field(pRootJson, "DeviceIP", stInfo.szDeviceIP);
-    convert.field(pRootJson, "Mac", stInfo.szMac);
-    convert.field(pRootJson, "SubnetMask", stInfo.szSubnetMask);
-    convert.field(pRootJson, "MfrsName", stInfo.szMfrsName);
-    convert.field(pRootJson, "AppProtoName", stInfo.szAppProtoName);
-    convert.field(pRootJson, "OnvifDeviceUrl", stInfo.szOnvifDeviceUrl);
-    convert.field(pRootJson, "PreviewMainUrl", stInfo.szPreviewMainUrl);
-    convert.field(pRootJson, "PreviewSubUrl", stInfo.szPreviewSubUrl);
-    convert.field(pRootJson, "RtspMainUrl", stInfo.szRtspMainUrl);
-    convert.field(pRootJson, "RtspSubUrl", stInfo.szRtspSubUrl);
+    convert.field(pRootJson, "ChannelName", stInfo.strChannelName);
+    convert.field(pRootJson, "DevName", stInfo.strDevName);
+    convert.field(pRootJson, "DevType", stInfo.strDevType);
+    convert.field(pRootJson, "SerialNum", stInfo.strSerialNum);
+    convert.field(pRootJson, "FirmwareVersion", stInfo.strFirmwareVersion);
+    convert.field(pRootJson, "DeviceIP", stInfo.strDeviceIP);
+    convert.field(pRootJson, "Mac", stInfo.strMac);
+    convert.field(pRootJson, "SubnetMask", stInfo.strSubnetMask);
+    convert.field(pRootJson, "MfrsName", stInfo.strMfrsName);
+    convert.field(pRootJson, "AppProtoName", stInfo.strAppProtoName);
+    convert.field(pRootJson, "OnvifDeviceUrl", stInfo.strOnvifDeviceUrl);
+    convert.field(pRootJson, "PreviewMainUrl", stInfo.strPreviewMainUrl);
+    convert.field(pRootJson, "PreviewSubUrl", stInfo.strPreviewSubUrl);
+    convert.field(pRootJson, "RtspMainUrl", stInfo.strRtspMainUrl);
+    convert.field(pRootJson, "RtspSubUrl", stInfo.strRtspSubUrl);
 
     if (bOutStruct)
     {
-        if (stInfo.szPreviewMainUrl[0] == '\0' && stInfo.szRtspMainUrl[0] != '\0')
+        if (stInfo.strPreviewMainUrl[0] == '\0' && stInfo.strRtspMainUrl[0] != '\0')
         {
-            std::strncpy(stInfo.szPreviewMainUrl, stInfo.szRtspMainUrl, sizeof(stInfo.szPreviewMainUrl) - 1);
-            stInfo.szPreviewMainUrl[sizeof(stInfo.szPreviewMainUrl) - 1] = '\0';
+            std::strncpy(stInfo.strPreviewMainUrl, stInfo.strRtspMainUrl, sizeof(stInfo.strPreviewMainUrl) - 1);
+            stInfo.strPreviewMainUrl[sizeof(stInfo.strPreviewMainUrl) - 1] = '\0';
         }
-        if (stInfo.szPreviewSubUrl[0] == '\0' && stInfo.szRtspSubUrl[0] != '\0')
+        if (stInfo.strPreviewSubUrl[0] == '\0' && stInfo.strRtspSubUrl[0] != '\0')
         {
-            std::strncpy(stInfo.szPreviewSubUrl, stInfo.szRtspSubUrl, sizeof(stInfo.szPreviewSubUrl) - 1);
-            stInfo.szPreviewSubUrl[sizeof(stInfo.szPreviewSubUrl) - 1] = '\0';
+            std::strncpy(stInfo.strPreviewSubUrl, stInfo.strRtspSubUrl, sizeof(stInfo.strPreviewSubUrl) - 1);
+            stInfo.strPreviewSubUrl[sizeof(stInfo.strPreviewSubUrl) - 1] = '\0';
         }
     }
 }

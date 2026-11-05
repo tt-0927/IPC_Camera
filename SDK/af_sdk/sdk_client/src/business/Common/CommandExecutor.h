@@ -87,11 +87,11 @@ public:
      * @param [IN] pHandle 用户登录句柄
      * @param [IN] url 请求URL
      * @param [OUT] pOut 输出缓冲区
-     * @param [OUT] pOutLen 输出数据长度
+     * @param [OUT] pnOutLen 输出数据长度
      * @return 成功返回true，失败返回false
      */
     template <typename T_RESP>
-    bool ExecuteGet(LPUSER_HANDLE pHandle, const std::string& url, void* pOut, int* pOutLen,
+    bool ExecuteGet(LPUSER_HANDLE pHandle, const std::string& url, void* pOut, int* pnOutLen,
                     const std::string& jsonBody = "")
 	{
         if (!pOut)
@@ -120,7 +120,7 @@ public:
                 return false;
             }
 
-			if (pOutLen) *pOutLen = sizeof(T_RESP);
+			if (pnOutLen) *pnOutLen = sizeof(T_RESP);
 			return true;
 
         }

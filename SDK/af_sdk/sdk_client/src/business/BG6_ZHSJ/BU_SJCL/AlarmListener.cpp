@@ -25,19 +25,19 @@ namespace
 {
 std::string TrimAscii(const std::string& value)
 {
-    size_t begin = 0;
-    while (begin < value.size() && std::isspace(static_cast<unsigned char>(value[begin])))
+    size_t uBegin = 0;
+    while (uBegin < value.size() && std::isspace(static_cast<unsigned char>(value[uBegin])))
     {
-        ++begin;
+        ++uBegin;
     }
 
-    size_t end = value.size();
-    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1])))
+    size_t uEnd = value.size();
+    while (uEnd > uBegin && std::isspace(static_cast<unsigned char>(value[uEnd - 1])))
     {
-        --end;
+        --uEnd;
     }
 
-    return value.substr(begin, end - begin);
+    return value.substr(uBegin, uEnd - uBegin);
 }
 
 bool EqualsNoCase(const std::string& lhs, const std::string& rhs)
@@ -78,35 +78,35 @@ bool GetMultipartHeaderValue(const std::string& headers,
                              const std::string& headerName,
                              std::string& value)
 {
-    size_t pos = 0;
-    while (pos <= headers.size())
+    size_t uPos = 0;
+    while (uPos <= headers.size())
     {
-        size_t lineEnd = headers.find("\r\n", pos);
-        if (lineEnd == std::string::npos)
+        size_t uLineEnd = headers.find("\r\n", uPos);
+        if (uLineEnd == std::string::npos)
         {
-            lineEnd = headers.size();
+            uLineEnd = headers.size();
         }
 
-        std::string line = headers.substr(pos, lineEnd - pos);
-        size_t colon = line.find(':');
-        if (colon != std::string::npos &&
-            EqualsNoCase(TrimAscii(line.substr(0, colon)), headerName))
+        std::string line = headers.substr(uPos, uLineEnd - uPos);
+        size_t uColon = line.find(':');
+        if (uColon != std::string::npos &&
+            EqualsNoCase(TrimAscii(line.substr(0, uColon)), headerName))
         {
-            value = TrimAscii(line.substr(colon + 1));
+            value = TrimAscii(line.substr(uColon + 1));
             return true;
         }
 
-        if (lineEnd == headers.size())
+        if (uLineEnd == headers.size())
         {
             break;
         }
-        pos = lineEnd + 2;
+        uPos = uLineEnd + 2;
     }
 
     return false;
 }
 
-bool ParseContentLength(const std::string& headers, size_t& contentLength)
+bool ParseContentLength(const std::string& headers, size_t& uContentLength)
 {
     std::string value;
     if (!GetMultipartHeaderValue(headers, "Content-Length", value) || value.empty())
@@ -114,7 +114,7 @@ bool ParseContentLength(const std::string& headers, size_t& contentLength)
         return false;
     }
 
-    size_t result = 0;
+    size_t uResult = 0;
     for (char ch : value)
     {
         if (!std::isdigit(static_cast<unsigned char>(ch)))
@@ -122,15 +122,15 @@ bool ParseContentLength(const std::string& headers, size_t& contentLength)
             return false;
         }
 
-        size_t digit = static_cast<size_t>(ch - '0');
-        if (result > (std::numeric_limits<size_t>::max() - digit) / 10)
+        size_t uDigit = static_cast<size_t>(ch - '0');
+        if (uResult > (std::numeric_limits<size_t>::max() - uDigit) / 10)
         {
             return false;
         }
-        result = result * 10 + digit;
+        uResult = uResult * 10 + uDigit;
     }
 
-    contentLength = result;
+    uContentLength = uResult;
     return true;
 }
 
@@ -161,9 +161,9 @@ void ReleaseCaptureImages(NET_AlarmCaptureInfo_S& info)
     info.stPanoramaImg.pData = nullptr;
     info.stPanoramaImg.uDataLen = 0;
 
-    const UINT32 cropCount = std::min(info.uCropCount,
+    const UINT32 uCropCount = std::min(info.uCropCount,
                                       static_cast<UINT32>(NET_CAPTURE_CROP_MAX_NUM));
-    for (UINT32 i = 0; i < cropCount; ++i)
+    for (UINT32 i = 0; i < uCropCount; ++i)
     {
         delete[] info.stCropImages[i].stImage.pData;
         info.stCropImages[i].stImage.pData = nullptr;
@@ -175,12 +175,12 @@ void ReleaseCaptureImages(NET_AlarmCaptureInfo_S& info)
 /**
  * @brief 构造函数
  * @param [IN] host 设备IP地址
- * @param [IN] port 设备端口号
+ * @param [IN] nPort 设备端口号
  * @param [IN] user 用户名
  * @param [IN] pass 密码
  */
-CAlarmListener::CAlarmListener(const std::string& host, int port, const std::string& user, const std::string& pass)
-    : m_strHost(host), m_nPort(port), m_strUsername(user), m_strPassword(pass)
+CAlarmListener::CAlarmListener(const std::string& host, int nPort, const std::string& user, const std::string& pass)
+    : m_strHost(host), m_nPort(nPort), m_strUsername(user), m_strPassword(pass)
 {
 
 }
@@ -210,17 +210,17 @@ void CAlarmListener::UpdateCredentials(const std::string& strUsername, const std
 
 /**
  * @brief 开始监听报警消息
- * @param [IN] userHandle 用户登录句柄
+ * @param [IN] pUserHandle 用户登录句柄
  * @param [IN] sessionId 会话ID
  * @return 成功返回true，失败返回false
  * @details 启动报警监听线程和健康监控线程，建立长连接接收报警消息
  */
-bool CAlarmListener::StartListen(void* userHandle, const std::string& sessionId)
+bool CAlarmListener::StartListen(void* pUserHandle, const std::string& sessionId)
 {
     // 确保旧线程完全停止再启动
     Stop();
 
-    m_hUser = userHandle;
+    m_hUser = pUserHandle;
     m_strSessionId = sessionId;
     m_bRunning = true;
     /* 与 Stop() 的关闭动作配对：重新启用会话过期回调 */
@@ -291,14 +291,14 @@ void CAlarmListener::Stop()
         else
         {
             // 等待 AlarmLoop 自然退出（最多 3 秒，事件驱动）
-            bool exited = false;
+            bool bExited = false;
             {
                 std::unique_lock<std::mutex> lk(m_stWaitMutex);
-                exited = m_cvExit.wait_for(lk, std::chrono::seconds(3),
+                bExited = m_cvExit.wait_for(lk, std::chrono::seconds(3),
                                            [this]() { return m_bAlarmLoopExited.load(); });
             }
 
-            if (exited) {
+            if (bExited) {
                 m_stThread.join();
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p Stopped: AlarmLoop joined normally, totalReconnects=%d",
                               m_hUser, m_nReconnectCount.load());
@@ -355,10 +355,10 @@ void CAlarmListener::AlarmLoop()
         if (msgType == "heartbeat") {
             m_nReceivedHeartbeatCount++;
             // 心跳日志降级为 DEBUG，避免刷屏；每 30 条打印一次 INFO
-            int hb = m_nReceivedHeartbeatCount.load();
-            if (hb % 30 == 0) {
+            int nHb = m_nReceivedHeartbeatCount.load();
+            if (nHb % 30 == 0) {
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p heartbeat #%d, alarms=%d, conn_alive",
-                              m_hUser, hb, m_nReceivedAlarmCount.load());
+                              m_hUser, nHb, m_nReceivedAlarmCount.load());
             }
             Json::deinit(root);
             return true;
@@ -367,13 +367,13 @@ void CAlarmListener::AlarmLoop()
         m_stLastAlarmTime = std::chrono::steady_clock::now();
 
         // [DIAG] 提取入队时间戳，计算端到端延迟
-        long long enqueueTs = 0;
-        Json::get(root, "enqueue_ts", enqueueTs);
-        if (enqueueTs > 0) {
-            auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        long long lEnqueueTs = 0;
+        Json::get(root, "enqueue_ts", lEnqueueTs);
+        if (lEnqueueTs > 0) {
+            auto lNowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count();
             NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s, e2e_delay_ms=%lld",
-                          m_hUser, lCommand, eventType.c_str(), nowMs - enqueueTs);
+                          m_hUser, lCommand, eventType.c_str(), lNowMs - lEnqueueTs);
         } else {
             NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p alarm received: cmd=0x%llX, event=%s",
                           m_hUser, lCommand, eventType.c_str());
@@ -382,15 +382,15 @@ void CAlarmListener::AlarmLoop()
         if (eventType == "ChannelStatus" || lCommand == NET_NOTIFY_CHANNEL_STATUS)
         {
             NET_ChannelInfo_S info = {0};
-            bool parseSuccess = false;
+            bool bParseSuccess = false;
 
             if (auto* channelObj = Json::get(root, "ChannelInfo"))
             {
                 SDKConvert::deal(channelObj, info, true);
-                parseSuccess = true;
+                bParseSuccess = true;
             }
 
-            if (parseSuccess && m_fnChannelStatusCallback)
+            if (bParseSuccess && m_fnChannelStatusCallback)
             {
                 m_fnChannelStatusCallback(&info, m_pChannelStatusUserData);
             }
@@ -406,7 +406,7 @@ void CAlarmListener::AlarmLoop()
         }
 
         /* 与服务端一致按高字节识别基类，避免 0x6100 抓拍被识别为 0x6000 统计。 */
-        INT32 alarmBase = ((INT32)lCommand) & 0xFF00;
+        INT32 nAlarmBase = ((INT32)lCommand) & 0xFF00;
 
         NET_Alarmer_S alarmer = {0};
         if (auto* alarmerObj = Json::get(root, "Alarmer"))
@@ -419,8 +419,8 @@ void CAlarmListener::AlarmLoop()
         {
             std::vector<char> tmp(jsonBody.begin(), jsonBody.end());
             tmp.push_back('\0'); // ensure C-string
-            INT32 len = (INT32)(tmp.size() - 1);
-            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)(tmp.size() - 1);
+            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &nLen, m_pAlarmUserData);
             Json::deinit(root);
             return true;
         }
@@ -429,9 +429,9 @@ void CAlarmListener::AlarmLoop()
         {
             std::unique_ptr<NET_AlarmFaceCompareInfo_S> info(new NET_AlarmFaceCompareInfo_S());
             SDKConvert::deal(alarmInfoObj, *info, true);
-            INT32 len = (INT32)sizeof(*info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
-        }else if (alarmBase == NET_ALARM_BASE_BASIC)
+            INT32 nLen = (INT32)sizeof(*info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
+        }else if (nAlarmBase == NET_ALARM_BASE_BASIC)
         {
             NET_AlarmBasicInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
@@ -441,10 +441,10 @@ void CAlarmListener::AlarmLoop()
                           info.uAlarmType,
                           (long long)info.llTimestampMs,
                           info.uPanoramaImgLen);
-            INT32 len = (INT32)sizeof(info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &nLen, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_ALARM_BASE_RULE)
+        else if (nAlarmBase == NET_ALARM_BASE_RULE)
         {
             auto info = std::make_unique<NET_AlarmRuleInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
@@ -467,10 +467,10 @@ void CAlarmListener::AlarmLoop()
                           info->uTargetImgLen,
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("TargetImgBase64") != std::string::npos ? 1 : 0);
-            INT32 len = (INT32)sizeof(*info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(*info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_ALARM_BASE_AI)
+        else if (nAlarmBase == NET_ALARM_BASE_AI)
         {
             auto info = std::make_unique<NET_AlarmAiObjectInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
@@ -492,10 +492,10 @@ void CAlarmListener::AlarmLoop()
                           info->uImgLen,
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("ImgDataBase64") != std::string::npos ? 1 : 0);
-            INT32 len = (INT32)sizeof(*info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(*info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        else if (nAlarmBase == NET_ALARM_BASE_CAPTURE)
         {
             auto info = std::make_unique<NET_AlarmCaptureInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
@@ -521,57 +521,57 @@ void CAlarmListener::AlarmLoop()
                           info->stExtraInfo.nEmotionLabel,
                           jsonBody.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
                           jsonBody.find("\"ImgBase64\"") != std::string::npos ? 1 : 0);
-            INT32 len = (INT32)sizeof(*info);
+            INT32 nLen = (INT32)sizeof(*info);
             /* 图片指针仅保证在本次回调执行期间有效，避免回调方保存悬空指针。 */
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
             ReleaseCaptureImages(*info);
         }
-        else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
+        else if (nAlarmBase == NET_ALARM_BASE_TRAFFIC)
         {
             NET_AlarmPlateInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &nLen, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_ALARM_BASE_EXCEPTION)
+        else if (nAlarmBase == NET_ALARM_BASE_EXCEPTION)
         {
             NET_AlarmExceptionInfo_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &nLen, m_pAlarmUserData);
         }
-        else if (alarmBase == NET_ALARM_BASE_STATISTICS)
+        else if (nAlarmBase == NET_ALARM_BASE_STATISTICS)
         {
             auto info = std::make_unique<NET_AlarmStatisticsInfo_S>();
             SDKConvert::deal(alarmInfoObj, *info, true);
-            INT32 len = (INT32)sizeof(*info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(*info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
         }
         else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
             NET_RecordDownloadProgress_S info = {0};
             SDKConvert::deal(alarmInfoObj, info, true);
-            INT32 len = (INT32)sizeof(info);
-            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)sizeof(info);
+            m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)&info, &nLen, m_pAlarmUserData);
         }
         else
         {
             std::vector<char> tmp(jsonBody.begin(), jsonBody.end());
             tmp.push_back('\0'); // ensure C-string
-            INT32 len = (INT32)(tmp.size() - 1);
-            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &len, m_pAlarmUserData);
+            INT32 nLen = (INT32)(tmp.size() - 1);
+            m_fnAlarmCallback(lCommand, &alarmer, tmp.data(), &nLen, m_pAlarmUserData);
         }
 
         Json::deinit(root);
         return true;
     };
 
-    int loopCount = 0;
+    int nLoopCount = 0;
     m_bAlarmLoopExited = false;
     while(m_bRunning)
     {
-        loopCount++;
-        auto tp_before_connect = std::chrono::steady_clock::now();
+        nLoopCount++;
+        auto stTpBeforeConnect = std::chrono::steady_clock::now();
 
         // 在锁内重建 m_pClient，防止与 Stop()/HealthMonitor 并发访问
         // 使用 shared_ptr：HealthMonitor 重建 m_pClient 后，旧 AlarmLoop 持有的
@@ -631,33 +631,33 @@ void CAlarmListener::AlarmLoop()
                 boundary = "--" + ct.substr(pos + 9);
             }
             return true;
-        }, [&](const char* data, size_t len)
+        }, [&](const char* pstrData, size_t uLen)
         {
             if (!m_bRunning) return false;
 
-            auto tp_now = std::chrono::steady_clock::now();
+            auto stTpNow = std::chrono::steady_clock::now();
             m_lLastDataTimeMilliseconds.store(
                 std::chrono::duration_cast<std::chrono::milliseconds>(
-                    tp_now.time_since_epoch()).count());
+                    stTpNow.time_since_epoch()).count());
             m_bFirstDataReceived = true;  // 收到任何数据都标记连接正常
 
-            buffer.append(data, len);
+            buffer.append(pstrData, uLen);
 
             // 每 60 秒输出一次数据接收统计（防止日志刷屏）
             auto statElapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                tp_now - m_stLastStatisticTime).count();
+                stTpNow - m_stLastStatisticTime).count();
             if (m_stLastStatisticTime == std::chrono::steady_clock::time_point{} || statElapsed >= 60) {
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p [DATA] buffer=%zu bytes, hb=%d, alarms=%d",
                               m_hUser, buffer.size(),
                               m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
-                m_stLastStatisticTime = tp_now;
+                m_stLastStatisticTime = stTpNow;
             }
 
             if (boundary.empty()) return true;
             while (true)
             {
-                size_t boundPos = buffer.find(boundary);
-                if (boundPos == std::string::npos)
+                size_t uBoundPos = buffer.find(boundary);
+                if (uBoundPos == std::string::npos)
                 {
                     if (buffer.size() > boundary.size())
                     {
@@ -666,9 +666,9 @@ void CAlarmListener::AlarmLoop()
                     break;
                 }
 
-                if (boundPos > 0)
+                if (uBoundPos > 0)
                 {
-                    buffer.erase(0, boundPos);
+                    buffer.erase(0, uBoundPos);
                     continue;
                 }
 
@@ -689,37 +689,37 @@ void CAlarmListener::AlarmLoop()
                     continue;
                 }
 
-                const size_t headersStart = boundary.size() + 2;
-                const size_t headerEnd = buffer.find("\r\n\r\n", headersStart);
-                if (headerEnd == std::string::npos)
+                const size_t uHeadersStart = boundary.size() + 2;
+                const size_t uHeaderEnd = buffer.find("\r\n\r\n", uHeadersStart);
+                if (uHeaderEnd == std::string::npos)
                 {
                     break;
                 }
 
-                std::string headers = buffer.substr(headersStart, headerEnd - headersStart);
-                const size_t bodyStart = headerEnd + 4;
-                size_t contentLength = 0;
-                size_t consumeEnd = std::string::npos;
+                std::string headers = buffer.substr(uHeadersStart, uHeaderEnd - uHeadersStart);
+                const size_t bodyStart = uHeaderEnd + 4;
+                size_t uContentLength = 0;
+                size_t uConsumeEnd = std::string::npos;
                 std::string body;
 
-                if (ParseContentLength(headers, contentLength))
+                if (ParseContentLength(headers, uContentLength))
                 {
-                    if (contentLength > buffer.size() - bodyStart)
+                    if (uContentLength > buffer.size() - bodyStart)
                     {
                         break;
                     }
 
-                    body = buffer.substr(bodyStart, contentLength);
-                    consumeEnd = bodyStart + contentLength;
-                    if (buffer.size() >= consumeEnd + 2 && buffer.compare(consumeEnd, 2, "\r\n") == 0)
+                    body = buffer.substr(bodyStart, uContentLength);
+                    uConsumeEnd = bodyStart + uContentLength;
+                    if (buffer.size() >= uConsumeEnd + 2 && buffer.compare(uConsumeEnd, 2, "\r\n") == 0)
                     {
-                        consumeEnd += 2;
+                        uConsumeEnd += 2;
                     }
                 }
                 else
                 {
-                    size_t nextBoundPos = buffer.find(boundary, bodyStart);
-                    if (nextBoundPos == std::string::npos)
+                    size_t uNextBoundPos = buffer.find(boundary, bodyStart);
+                    if (uNextBoundPos == std::string::npos)
                     {
                         if (!ContainsNoCase(headers, "application/json"))
                         {
@@ -732,13 +732,13 @@ void CAlarmListener::AlarmLoop()
                         {
                             break;
                         }
-                        consumeEnd = buffer.size();
+                        uConsumeEnd = buffer.size();
                     }
                     else
                     {
-                        body = buffer.substr(bodyStart, nextBoundPos - bodyStart);
+                        body = buffer.substr(bodyStart, uNextBoundPos - bodyStart);
                         TrimTrailingCrlf(body);
-                        consumeEnd = nextBoundPos;
+                        uConsumeEnd = uNextBoundPos;
                     }
                 }
 
@@ -756,11 +756,11 @@ void CAlarmListener::AlarmLoop()
                     // 忽略：不依赖 multipart 附件
                 }
 
-                if (consumeEnd == std::string::npos)
+                if (uConsumeEnd == std::string::npos)
                 {
                     break;
                 }
-                buffer.erase(0, consumeEnd);
+                buffer.erase(0, uConsumeEnd);
             }
             return true;
         });
@@ -768,17 +768,17 @@ void CAlarmListener::AlarmLoop()
         if (!m_bRunning) break;
 
         // 长连接断开，记录详细状态
-        auto connDuration = std::chrono::duration_cast<std::chrono::seconds>(
+        auto lConnDuration = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::steady_clock::now() - m_stConnectionStartTime).count();
-        auto totalElapsed = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::steady_clock::now() - tp_before_connect).count();
+        auto lTotalElapsed = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now() - stTpBeforeConnect).count();
 
         if (res) {
             if (res->status == NET_HTTP_RESP_CODE_UNAUTHORIZED || res->status == 401)
             {
                 NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized: conn=%llds, "
                               "hb=%d, alarms=%d, triggering re-login",
-                              m_hUser, (long long)connDuration,
+                              m_hUser, (long long)lConnDuration,
                               m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
                 if (m_bSessionExpiredCbEnabled.load() && m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
@@ -786,11 +786,11 @@ void CAlarmListener::AlarmLoop()
             // 其他 HTTP 错误（500/503 等）
             NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p [DISCONNECT] HTTP status=%d: conn=%llds, "
                           "hb=%d, alarms=%d",
-                          m_hUser, res->status, (long long)connDuration,
+                          m_hUser, res->status, (long long)lConnDuration,
                           m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load());
         } else {
             // no response: 服务端关闭了 TCP 连接、网络中断、或 read_timeout 超时
-            auto err = res.error();
+            auto enErr = res.error();
 
             // 读取当前 session 信息
             std::string currentSessionIdLog;
@@ -803,7 +803,7 @@ void CAlarmListener::AlarmLoop()
             if (bGot401) {
                 NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [DISCONNECT] 401 Unauthorized (Canceled): "
                               "conn=%llds, hb=%d, alarms=%d, session=%s, triggering re-login",
-                              m_hUser, (long long)connDuration,
+                              m_hUser, (long long)lConnDuration,
                               m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load(), currentSessionIdLog.c_str());
                 if (m_bSessionExpiredCbEnabled.load() && m_fnSessionExpiredCallback) m_fnSessionExpiredCallback();
                 break; // 退出循环，由上层重新登录后重启 AlarmListen
@@ -811,7 +811,7 @@ void CAlarmListener::AlarmLoop()
 
             NETSDK_LOG_MESSAGE_WARN("[DIAG-ALARM] User-%p [DISCONNECT] No response (err=%d): "
                           "conn=%llds, total=%llds, hb=%d, alarms=%d, session=%s, reconnecting...",
-                          m_hUser, (int)err, (long long)connDuration, (long long)totalElapsed,
+                          m_hUser, (int)enErr, (long long)lConnDuration, (long long)lTotalElapsed,
                           m_nReceivedHeartbeatCount.load(), m_nReceivedAlarmCount.load(), currentSessionIdLog.c_str());
         }
 
@@ -830,7 +830,7 @@ void CAlarmListener::AlarmLoop()
     /* 通知 Stop()：AlarmLoop 已退出，可直接 join */
     m_cvExit.notify_all();
     NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p AlarmLoop EXIT: totalLoops=%d, totalReconnects=%d",
-                  m_hUser, loopCount, m_nReconnectCount.load());
+                  m_hUser, nLoopCount, m_nReconnectCount.load());
 }
 
 /**
@@ -853,19 +853,19 @@ void CAlarmListener::HealthMonitorLoop()
         }
         if (!m_bHealthMonitorRunning.load()) break;
 
-        auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        auto lNowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
-        auto lastMs = m_lLastDataTimeMilliseconds.load();
-        auto elapsedSec = (lastMs > 0) ? (nowMs - lastMs) / 1000 : 0;
+        auto lLastMs = m_lLastDataTimeMilliseconds.load();
+        auto lElapsedSec = (lLastMs > 0) ? (lNowMs - lLastMs) / 1000 : 0;
 
         // 分级超时：未收过数据 30s，数据中断 60s
-        int64_t timeoutSec = m_bFirstDataReceived.load() ? 60 : 30;
+        int64_t lTimeoutSec = m_bFirstDataReceived.load() ? 60 : 30;
 
-        if (lastMs > 0 && elapsedSec > timeoutSec) {
+        if (lLastMs > 0 && lElapsedSec > lTimeoutSec) {
             NETSDK_LOG_MESSAGE_ERROR("[DIAG-ALARM] User-%p [HEALTH] NO DATA for %llds (threshold=%llds, "
                           "hadData=%d). Connection is STUCK in recv(). "
                           "Requesting AlarmListen reconnect with the current session.",
-                          m_hUser, (long long)elapsedSec, (long long)timeoutSec,
+                          m_hUser, (long long)lElapsedSec, (long long)lTimeoutSec,
                           (int)m_bFirstDataReceived.load());
 
             // 仅中断当前 AlarmListen。AlarmLoop 的外层循环会使用同一 m_strSessionId
@@ -877,7 +877,7 @@ void CAlarmListener::HealthMonitorLoop()
 
             // 防止当前 Get() 尚未退出时每个监控周期重复触发恢复。
             // 若 stop() 生效，AlarmLoop 很快会进入下一轮连接并刷新该时间戳。
-            m_lLastDataTimeMilliseconds.store(nowMs);
+            m_lLastDataTimeMilliseconds.store(lNowMs);
         }
     }
     NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p HealthMonitor EXIT", m_hUser);

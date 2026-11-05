@@ -287,6 +287,7 @@ void CFirePersonAlgoDetect::processSmokeFire(const std::vector<DetectedTarget_S>
     /* 烟火识别：烟雾或火焰任一检出即计数 */
     bool  bDetectSmokeFire = false;
     float fSmokeFireConf   = sensitivityToConfidence(m_stAlgoSmokeFireCfg.stRule.nSensitivity);
+    const DetectedTarget_S *pstHitTarget = nullptr; /* 首个过阈值烟火目标 */
 
     for (const auto &stResult : vecResult)
     {
@@ -312,6 +313,11 @@ void CFirePersonAlgoDetect::processSmokeFire(const std::vector<DetectedTarget_S>
 
         if (bAccepted)
         {
+            if (pstHitTarget == nullptr)
+            {
+                pstHitTarget = &stResult;
+            }
+
             Common::RectInfo_S stRectInfo;
             stRectInfo.nX1 = (int)stResult.fX1;
             stRectInfo.nY1 = (int)stResult.fY1;
@@ -341,14 +347,29 @@ void CFirePersonAlgoDetect::processSmokeFire(const std::vector<DetectedTarget_S>
     stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch())
                                 .count();
-    if (!m_fullRgbMat.empty())
+    /* 报警帧携带目标框与大小图 烟火目标非人车类型保持未知 */
+    if (bSmokeFireAlarm && !m_fullRgbMat.empty())
     {
-        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
+        if (pstHitTarget != nullptr)
         {
-            stContext.pTvSdkPayload = pPayload;
+            stContext.fConfidence = pstHitTarget->fConfidence;
+            stContext.nLeft   = (int)pstHitTarget->fX1;
+            stContext.nTop    = (int)pstHitTarget->fY1;
+            stContext.nRight  = (int)pstHitTarget->fX2;
+            stContext.nBottom = (int)pstHitTarget->fY2;
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(m_fullRgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(m_fullRgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = m_fullRgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
         }
+
+        encode_mat_to_tvsdk_image(m_fullRgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
     }
     m_SmokeFireStateMachine.handleAlarmState(bSmokeFireAlarm, stContext);
 #else
@@ -369,12 +390,17 @@ void CFirePersonAlgoDetect::processOpenFlame(const std::vector<DetectedTarget_S>
     /* 明火识别：仅火焰 */
     bool  bDetectFire    = false;
     float fOpenFlameConf = sensitivityToConfidence(m_stAlgoOpenFlameCfg.stRule.nSensitivity);
+    const DetectedTarget_S *pstHitTarget = nullptr; /* 首个过阈值火焰目标 */
 
     for (const auto &stResult : vecResult)
     {
         if (stResult.nLabel == FIRE_PERSON_CLASS_FIRE && stResult.fConfidence > fOpenFlameConf)
         {
             bDetectFire = true;
+            if (pstHitTarget == nullptr)
+            {
+                pstHitTarget = &stResult;
+            }
 
             Common::RectInfo_S stRectInfo;
             stRectInfo.nX1 = (int)stResult.fX1;
@@ -405,14 +431,29 @@ void CFirePersonAlgoDetect::processOpenFlame(const std::vector<DetectedTarget_S>
     stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch())
                                 .count();
-    if (!m_fullRgbMat.empty())
+    /* 报警帧携带目标框与大小图 火焰目标非人车类型保持未知 */
+    if (bFireAlarm && !m_fullRgbMat.empty())
     {
-        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
+        if (pstHitTarget != nullptr)
         {
-            stContext.pTvSdkPayload = pPayload;
+            stContext.fConfidence = pstHitTarget->fConfidence;
+            stContext.nLeft   = (int)pstHitTarget->fX1;
+            stContext.nTop    = (int)pstHitTarget->fY1;
+            stContext.nRight  = (int)pstHitTarget->fX2;
+            stContext.nBottom = (int)pstHitTarget->fY2;
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(m_fullRgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(m_fullRgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = m_fullRgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
         }
+
+        encode_mat_to_tvsdk_image(m_fullRgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
     }
     m_OpenFlameStateMachine.handleAlarmState(bFireAlarm, stContext);
 #else
@@ -473,6 +514,7 @@ void CFirePersonAlgoDetect::processOpenFlameLeave(const std::vector<DetectedTarg
     float fOpenFlameLeaveConf = sensitivityToConfidence(m_stAlgoOpenFlameLeaveCfg.stRule.nSensitivity);
     bool  bFireInRegion       = false;
     bool  bPersonInRegion     = false;
+    const DetectedTarget_S *pstHitTarget = nullptr; /* 区域内首个火焰目标 */
     for (const auto &stResult : vecResult)
     {
         bool bInFireRegion   = stResult.nLabel == FIRE_PERSON_CLASS_FIRE &&
@@ -485,6 +527,10 @@ void CFirePersonAlgoDetect::processOpenFlameLeave(const std::vector<DetectedTarg
         if (bInFireRegion)
         {
             bFireInRegion = true;
+            if (pstHitTarget == nullptr)
+            {
+                pstHitTarget = &stResult;
+            }
         }
         if (bInPersonRegion)
         {
@@ -529,14 +575,29 @@ void CFirePersonAlgoDetect::processOpenFlameLeave(const std::vector<DetectedTarg
     stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch())
                                 .count();
-    if (!m_fullRgbMat.empty())
+    /* 报警帧携带火焰目标框与大小图 目标非人车类型保持未知 */
+    if (bAlarm && !m_fullRgbMat.empty())
     {
-        auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-        pPayload->enType = get_tvsdk_payload_type(stContext.enEventType);
-        if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
+        if (pstHitTarget != nullptr)
         {
-            stContext.pTvSdkPayload = pPayload;
+            stContext.fConfidence = pstHitTarget->fConfidence;
+            stContext.nLeft   = (int)pstHitTarget->fX1;
+            stContext.nTop    = (int)pstHitTarget->fY1;
+            stContext.nRight  = (int)pstHitTarget->fX2;
+            stContext.nBottom = (int)pstHitTarget->fY2;
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(m_fullRgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(m_fullRgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = m_fullRgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
         }
+
+        encode_mat_to_tvsdk_image(m_fullRgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
     }
     m_OpenFlameLeaveStateMachine.handleAlarmState(bAlarm, stContext);
 #else

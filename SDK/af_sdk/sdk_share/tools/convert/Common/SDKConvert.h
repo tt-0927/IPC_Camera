@@ -158,20 +158,20 @@ namespace SDKConvert
  * @param [in,out] parameter 函数处理参数。
  * @return 无返回值。
  */
-        void field(Json::Object *pRootJson, std::string key, char (&value)[N])
+        void field(Json::Object *pRootJson, std::string key, char (&strBuf)[N])
         {
             if (m_bOutValue)
             {
-                std::string json_str;
-                field(pRootJson, key, json_str);
-                size_t copy_len = (std::min)(json_str.size(), static_cast<size_t>(N - 1));
-                std::memcpy(value, json_str.c_str(), copy_len);
-                value[copy_len] = '\0';
+                std::string strJson;
+                field(pRootJson, key, strJson);
+                size_t uCopyLen = (std::min)(strJson.size(), static_cast<size_t>(N - 1));
+                std::memcpy(strBuf, strJson.c_str(), uCopyLen);
+                strBuf[uCopyLen] = '\0';
             }
             else
             {
-                std::string str_value(value);
-                Json::add(pRootJson, key, str_value);
+                std::string strValue(strBuf);
+                Json::add(pRootJson, key, strValue);
             }
         }
 
@@ -262,34 +262,34 @@ namespace SDKConvert
  * @brief 执行 field_array 定义的内联处理。
  * @param [in,out] pRootJson 函数处理参数。
  * @param [in] key 函数处理参数。
- * @param [in,out] value 函数处理参数。
- * @param [in] count 函数处理参数。
- * @param [in] max_len 函数处理参数。
+ * @param [in,out] pValues 函数处理参数。
+ * @param [in] uCount 函数处理参数。
+ * @param [in] uMaxLen 函数处理参数。
  * @return 无返回值。
  */
-        void field_array(Json::Object *pRootJson, std::string key, T *value, UINT32 count, UINT32 max_len)
+        void field_array(Json::Object *pRootJson, std::string key, T *pValues, UINT32 uCount, UINT32 uMaxLen)
         {
             if (m_bOutValue) /* Json -> Array */
             {
                 Json::Object *pArray = Json::get(pRootJson, key);
                 int nSize = Json::Array::size(pArray);
-                for (int i = 0; i < nSize && (UINT32)i < max_len; i++)
+                for (int i = 0; i < nSize && (UINT32)i < uMaxLen; i++)
                 {
                     int nVal = 0;
                     Json::Object *pItem = Json::Array::get(pArray, i);
                     if (pItem)
                     {
                         Json::Value::get(pItem, nVal);
-                        value[i] = (T)nVal;
+                        pValues[i] = (T)nVal;
                     }
                 }
             }
             else /* Array -> Json */
             {
                 Json::Object *pArray = Json::Array::init();
-                for (UINT32 i = 0; i < count && i < max_len; i++)
+                for (UINT32 i = 0; i < uCount && i < uMaxLen; i++)
                 {
-                    Json::Array::add(pArray, (int)value[i]);
+                    Json::Array::add(pArray, (int)pValues[i]);
                 }
                 Json::add(pRootJson, key, pArray);
             }
@@ -858,32 +858,32 @@ namespace SDKConvert
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 to_struct 定义的内联处理。
  * @param [in] jsonData 函数处理参数。
- * @param [in,out] data 函数处理参数。
+ * @param [in,out] stData 函数处理参数。
  * @return 无返回值。
  */
-    inline void to_struct(const std::string &jsonData, T &data)
+    inline void to_struct(const std::string &jsonData, T &stData)
     {
         CRunTimer timer(jsonData);
         Json::Object *pRootJson = Json::init(jsonData);
         Json::Object *pJsonData = Json::get(pRootJson, NETSDK_JSON_INNER_DATA_KEY);
         if (pJsonData)
         {
-            deal(pJsonData, data, true);
+            deal(pJsonData, stData, true);
         }
         Json::deinit(pRootJson);
     }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 get_respCode 定义的内联处理。
- * @param [in] data 函数处理参数。
+ * @param [in] strData 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-    inline int get_respCode(const std::string &data)
+    inline int get_respCode(const std::string &strData)
     {
         int nCode = 0;
 
-        Json::Object *pJsonData = Json::init(data);
+        Json::Object *pJsonData = Json::init(strData);
         if (pJsonData)
         {
             Json::get(pJsonData, NETSDK_JSON_RETURN_KEY, nCode);

@@ -1,6 +1,6 @@
 /*
  * 文件名：AlarmIoBusiness.h
- * 作者：ITC
+ * 作者：qinjt
  * 日期：2026-10-10
  * 功能：报警输入输出设置业务。
  * 修改记录：2026-10-10，新增列表 JSON 到 IPC 单路设置回调的适配。
@@ -45,3 +45,4 @@ public:
                                                 const std::string& strRequest,
                                                 const std::string& strUrlParam);
 };
+

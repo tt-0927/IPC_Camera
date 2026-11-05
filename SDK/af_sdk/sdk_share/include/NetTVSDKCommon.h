@@ -534,13 +534,6 @@ extern "C"{
 #define NET_MAX_SCENE_TYPE_NUM                      16              /* 最大支持的场景类型数量 */
 #define NET_MAX_ENV_TYPE_NUM                        2               /* 最大支持的环境类型数量 */
 
-/* 安全服务登录锁定的验证间隔，单位为分钟，与网页允许范围保持一致。 */
-#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MIN_MINUTES    (1)
-#define NET_SECURITY_LOGIN_CHECK_INTERVAL_MAX_MINUTES    (1440)
-/* 安全服务登录锁定的最大连续错误次数范围。 */
-#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MIN           (3)
-#define NET_SECURITY_LOGIN_MAX_ERROR_TIMES_MAX           (20)
-
 /* 告警周布防时间表包含的天数。 */
 #define NET_ALARM_SCHEDULE_DAY_COUNT            7
 /* 告警周布防时间表中的最小小时值。 */
@@ -581,6 +574,11 @@ extern "C"{
 #define NET_ALARM_COPY_TO_MAX_NUM              64
 /* 报警配置结构体中保留字段的字节长度。 */
 #define NET_ALARM_CONFIG_RESERVED_LEN          64
+
+/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
+/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
 
 #define NET_INVALID_PARAM                           (0xffffff)
 
@@ -849,7 +847,6 @@ typedef enum tagNETTVCommonErrCode
     NET_E_NEED_MORE_MEMORY               = 130, /* 内存分配不足 Insufficient memory allocation */
     NET_E_T2U_CONNECT_FAILED             = 131, /* T2U连接失败 Failure of T2U connection */
     NET_E_FUNC_IS_INITIALIZING           = 132, /* 功能正在初始化中 Functions are being initialized */
-    NET_E_NO_SD_CARD                     = 133, /* SD卡未插入或不可用 SD card not inserted or unavailable */
 
     NET_E_CONNECT_ERROR                  = 200, /* 创建连接失败  Failed to create connection */
     NET_E_SEND_MSG_ERROR                 = 201, /* 发送消息失败 Failed to send message */
@@ -1167,7 +1164,6 @@ typedef enum tagNETTVCfgCmd
     NET_SET_NTPCFG                   = 111,         /* 设置NTP参数, 参见 #NET_SystemNtpInfo_S */
     NET_SET_SYSTEM_TIME              = 112,         /* 设置系统时间, 参见 #NET_SystemTime_S */
     NET_SET_USERPASSWORD             = 113,         /* 修改用户密码（旧密码校验），输入 NET_UserPasswordInfo_S */
-    NET_SET_USEPASSWORD              = 113,         /* 修改用户密码（历史别名，输入 NET_UserPasswordInfo_S） */
     
     NET_GET_STREAMCFG                = 120,         /* 获取视频编码参数, 参见 #NET_VideoEncodeOption_S */
     NET_SET_STREAMCFG                = 121,         /* 设置视频编码参数, 参见 #NET_VideoEncodeOption_S */
@@ -1375,10 +1371,10 @@ typedef enum tagNETTVCfgCmd
     NET_SET_PIR_ALARM_INFO                = 503,    /* 设置 PIR 报警配置, 参见 #NET_PirAlarmInfo_S */
     NET_GET_STORAGE_INFO                  = 504,    /* 获取设备存储信息, 参见 #NET_DeviceStorageInfo_S */
     NET_GET_AUDIO_ANOMALY_CURRENT_DB      = 505,    /* 获取音频异常侦测实时音量, 参见 #NET_AudioAnomalyCurrentDb_S */
-    /* 506 已被 IPC 侧 NET_DEL_FACE_FILE 占用，此处从 507 起分配，避免两侧命令码冲突。 */
     NET_GET_AUDIBLE_ALARM_CUSTOM_INFO     = 507,    /* 获取声音报警自定义音频列表, 参见 #NET_AudibleAlarmCustomAudioList_S, 对应 IPC AC_GET_AUDIO_CUSTOM_INFO */
     NET_EDIT_AUDIBLE_ALARM_CUSTOM_INFO    = 508,    /* 编辑/试听/删除自定义音频, 参见 #NET_AudibleAlarmCustomOperation_S, 对应 IPC AC_EDIT_AUDIO_CUSTOM_INFO */
     NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO     = 509,    /* 新增自定义音频, 参见 #NET_AudibleAlarmCustomOperation_S, 对应 IPC AC_SET_AUDIO_CUSTOM_INFO */
+
 
     NET_GET_REGISTERINFO                  = 520,    /* 获取注册信息, 参见 #NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,    /* 设置注册信息, 参见 #NET_RegisterInfo_S */
@@ -1451,8 +1447,6 @@ typedef enum tagNETTVCfgCmd
     NET_SET_KEY_AREA_ABNORMAL_STAY_INFO   = 611,    /* 设置重点区域异常滞留配置, 参见 #NET_KeyAreaAbnormalStayInfo_S */
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,    /* 获取明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,    /* 设置明火离人配置, 参见 #NET_OpenFlameLeaveInfo_S */
-
-    /* ---- 平安校园扩展事件（614~629）：均为单区域 + 灵敏度，打架斗殴额外带时间阈值 ---- */
     NET_GET_QUEUE_CROWDING_INFO           = 614,    /* 获取排队拥挤配置, 参见 #NET_QueueCrowdingInfo_S */
     NET_SET_QUEUE_CROWDING_INFO           = 615,    /* 设置排队拥挤配置, 参见 #NET_QueueCrowdingInfo_S */
     NET_GET_KITCHEN_UNRELATED_PERSON_INFO = 616,    /* 获取后厨无关人员进入配置, 参见 #NET_KitchenUnrelatedPersonInfo_S */
@@ -1582,7 +1576,7 @@ typedef enum tagNETTVAlarmLightControlCmd
 {
     NET_ALARM_LIGHT_CTRL_START    = 1,   /* 开启声光 */
     NET_ALARM_LIGHT_CTRL_STOP     = 2,   /* 停止声光 */
-    NET_ALARM_LIGHT_CTRL_SET_MODE = 3,   /* 设置声光模式，参数由 dwParam1/dwParam2 或 szExt 承载 */
+    NET_ALARM_LIGHT_CTRL_SET_MODE = 3,   /* 设置声光模式，参数由 dwParam1/dwParam2 或 strExt 承载 */
     NET_ALARM_LIGHT_CTRL_INVALID  = 0xff
 } NET_ALARM_LIGHT_CONTROL_CMD_E;
 
@@ -1616,7 +1610,7 @@ typedef struct tagNET_DeviceControlInfo
     INT32  uDurationMs;    /* 持续时间，单位毫秒，0 表示由设备侧按命令语义自行处理 */
     INT32  uParam1;        /* 扩展参数1，例如声光模式、亮度、继电器号等 */
     INT32  uParam2;        /* 扩展参数2，例如音量、持续次数等 */
-    CHAR   szExt[256];     /* 扩展参数，建议存放 JSON 字符串或厂商自定义参数 */
+    CHAR   strExt[256];     /* 扩展参数，建议存放 JSON 字符串或厂商自定义参数 */
 } NET_DeviceControlInfo_S;
 
 typedef NET_DeviceControlInfo_S* pNET_DeviceControlInfo_S;
@@ -1663,8 +1657,8 @@ typedef struct tagNET_RecordFrameStreamCond
 {
     UINT32 uSize;
     INT32  uChannel;
-    CHAR   szStartTime[NET_LEN_64];
-    CHAR   szEndTime[NET_LEN_64];
+    CHAR   strStartTime[NET_LEN_64];
+    CHAR   strEndTime[NET_LEN_64];
     INT32  uStreamIndex;            /* 码流索引，参见 NET_LIVE_STREAM_INDEX_E；0 表示默认主码流 */
     INT32  uMediaType;              /* 请求媒体类型，参见 NET_RecordFrameMediaType_E；默认视频 */
     INT32  uCodecType;              /* 期望编码，参见 NET_RecordFrameCodec_E；0 表示由服务端决定 */
@@ -1681,7 +1675,7 @@ typedef NET_RecordFrameStreamCond_S* pNET_RecordFrameStreamCond_S;
 typedef struct tagNET_RecordFrameStreamInfo
 {
     UINT32 uSize;
-    CHAR   szStreamId[NET_STREAM_ID_LEN];
+    CHAR   strStreamId[NET_STREAM_ID_LEN];
     INT32  uChannel;
     UINT32 uTcpPort;
     INT32  uMediaType;
@@ -1700,7 +1694,7 @@ typedef NET_RecordFrameStreamInfo_S* pNET_RecordFrameStreamInfo_S;
 typedef struct tagNET_RecordFrameStopInfo
 {
     UINT32 uSize;
-    CHAR   szStreamId[NET_STREAM_ID_LEN];
+    CHAR   strStreamId[NET_STREAM_ID_LEN];
     BYTE   byReserved[64];
 } NET_RecordFrameStopInfo_S;
 
@@ -1954,8 +1948,9 @@ typedef enum tagNETTVOsdAlign
  */
 typedef enum tagNETTVMotionMode
 {
-    NET_MOTION_MODE_NORMAL = 0, /* 普通模式  Normal mode */
-    NET_MOTION_MODE_EXPERT = 1  /* 专家模式  Expert mode */
+    NET_MOTION_MODE_NORMAL = 0,     /* 普通模式  Normal mode */
+    NET_MOTION_MODE_EXPERT = 1,     /* 专家模式  Expert mode */
+    NET_MOTION_MODE_NVR_SMART = 3   /* NVR后智能模式  NVR smart mode */
 } NET_MOTION_MODE_E;
 
 /**
@@ -2246,6 +2241,40 @@ typedef enum tagNETTVPopulationAlarmSeverity
     NET_POPULATION_ALARM_SEVERE = 2  /* 严重报警 */
 } NET_POPULATION_ALARM_SEVERITY_E;
 
+/*
+ * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
+ */
+typedef enum tagNETLockDuration
+{
+    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
+    NET_LOCK_DURATION_5_MIN   = 0,
+    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
+    NET_LOCK_DURATION_30_MIN  = 1,
+    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
+    NET_LOCK_DURATION_60_MIN  = 2,
+    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
+    NET_LOCK_DURATION_1_DAY   = 3,
+    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
+    NET_LOCK_DURATION_5_DAY   = 4
+} NET_LockDuration_EN;
+
+/**
+ * @enum  tagNET_FACE_EMOTION_E
+ * @brief 人脸表情类别，与 IPC 侧 face_expression 模型输出一致
+ * @note 用于 NET_CaptureExtraInfo_S::nFaceExpression
+ */
+typedef enum tagNET_FACE_EMOTION_E
+{
+    NET_FACE_EMOTION_UNKNOWN  = -1,  /* 未分析 */
+    NET_FACE_EMOTION_ANGER    = 0,   /* 生气 */
+    NET_FACE_EMOTION_DISGUST  = 1,   /* 厌恶 */
+    NET_FACE_EMOTION_FEAR     = 2,   /* 恐惧 */
+    NET_FACE_EMOTION_HAPPY    = 3,   /* 高兴 */
+    NET_FACE_EMOTION_SAD      = 4,   /* 难过 */
+    NET_FACE_EMOTION_SURPRISE = 5,   /* 惊讶 */
+    NET_FACE_EMOTION_NEUTRAL  = 6    /* 中立 */
+}NET_FACE_EMOTION_E;
+
 /* END************* 枚举值  Enumeration value *************************** */
 
 
@@ -2259,9 +2288,9 @@ typedef enum tagNETTVPopulationAlarmSeverity
 typedef struct tagNET_TalkbackStateInfo
 {
     BOOL bEnable;                /* 对讲功能使能标记 */
-    CHAR szSdp[NET_MAX_URL_LEN]; /* SDP 协议描述地址 */
-    CHAR szUrl[NET_MAX_URL_LEN]; /* 对讲服务 URL 地址 */
-    CHAR szLocalIP[NET_LEN_64];  /* 本机 IP 地址 */
+    CHAR strSdp[NET_MAX_URL_LEN]; /* SDP 协议描述地址 */
+    CHAR strUrl[NET_MAX_URL_LEN]; /* 对讲服务 URL 地址 */
+    CHAR strLocalIP[NET_LEN_64];  /* 本机 IP 地址 */
     BYTE byReserved[128];        /* 保留字段，未使用 */
 } NET_TalkbackStateInfo_S;
 
@@ -2328,15 +2357,15 @@ typedef NET_VoiceComAudioCfg_S* pNET_VoiceComAudioCfg_S;
  */
 typedef struct tagNET_TalkbackStreamInfo
 {
-    CHAR  szHost[NET_LEN_64];      /* 对讲服务器主机地址/IP */
+    CHAR  strHost[NET_LEN_64];      /* 对讲服务器主机地址/IP */
     INT32 nPort;                   /* 对讲服务端口号 */
     INT32 nChnId;                  /* 通道 ID，对应对讲通道 */
     INT32 nUserID;                 /* 用户 ID，标识操作会话 */
     BOOL  bMainStream;             /* 主码流标记 (true/false) */
-    CHAR  szProtocol[NET_LEN_32];  /* 传输协议类型 (如 rtp/raw 等) */
-    CHAR  szStartTime[NET_LEN_64]; /* 对讲开始时间戳 */
-    CHAR  szEndTime[NET_LEN_64];   /* 对讲结束时间戳 */
-    CHAR  szFileName[NET_LEN_260]; /* 对讲音频文件名/路径 */
+    CHAR  strProtocol[NET_LEN_32];  /* 传输协议类型 (如 rtp/raw 等) */
+    CHAR  strStartTime[NET_LEN_64]; /* 对讲开始时间戳 */
+    CHAR  strEndTime[NET_LEN_64];   /* 对讲结束时间戳 */
+    CHAR  strFileName[NET_LEN_260]; /* 对讲音频文件名/路径 */
     BYTE  byReserved[128];         /* 保留字段，未使用 */
 } NET_TalkbackStreamInfo_S;
 
@@ -2349,8 +2378,8 @@ typedef NET_TalkbackStreamInfo_S* pNET_TalkbackStreamInfo_S;
  */
 typedef struct tagNET_ReplayTalkbackInfo
 {
-    CHAR                     szNvrIp[NET_LEN_64];    /* NVR 网络摄像机 IP 地址 */
-    CHAR                     szRemoteIp[NET_LEN_64]; /* 远端设备 IP 地址 */
+    CHAR                     strNvrIp[NET_LEN_64];    /* NVR 网络摄像机 IP 地址 */
+    CHAR                     strRemoteIp[NET_LEN_64]; /* 远端设备 IP 地址 */
     NET_TalkbackStreamInfo_S stIPCInfo;              /* IPC 端对讲流详细信息 */
     BYTE                     byReserved[128];        /* 保留字段，未使用 */
 } NET_ReplayTalkbackInfo_S;
@@ -2456,7 +2485,7 @@ typedef NET_WhiteBalanceInfo_S* pNET_WhiteBalanceInfo_S;
 typedef struct tagNET_UpgradeInfo
 {
     UINT32 uChannel;                         /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR   szUpgradePath[NET_FILE_NAME_LEN];
+    CHAR   strUpgradePath[NET_FILE_NAME_LEN];
     BYTE   byReserved[64];
 } NET_UpgradeInfo_S;
 
@@ -2482,7 +2511,7 @@ typedef NET_UpgradeStatus_S* pNET_UpgradeStatus_S;
 typedef struct tagNET_UpgradeVersion
 {
     UINT32 uChannel;              /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR   szVersion[NET_LEN_64];
+    CHAR   strVersion[NET_LEN_64];
     BYTE   byReserved[64];
 } NET_UpgradeVersion_S;
 
@@ -2565,9 +2594,9 @@ typedef struct tagNET_CaptureInfo
 {
     INT32 nChnId;
     INT32 enType;
-    CHAR  szStartTime[NET_MAX_DATE_STRING_LEN];
-    CHAR  szEndTime[NET_MAX_DATE_STRING_LEN];
-    CHAR  szImagePath[NET_FILE_NAME_LEN];
+    CHAR  strStartTime[NET_MAX_DATE_STRING_LEN];
+    CHAR  strEndTime[NET_MAX_DATE_STRING_LEN];
+    CHAR  strImagePath[NET_FILE_NAME_LEN];
     INT32 nImageSize;
     BYTE  byReserved[128];
 } NET_CaptureInfo_S;
@@ -2580,10 +2609,10 @@ typedef NET_CaptureInfo_S* pNET_CaptureInfo_S;
  */
 typedef struct tagNET_DeviceLoginInfo
 {
-    CHAR  szIPAddr[NET_LEN_260];   /* IP地址/域名 */
+    CHAR  strIPAddr[NET_LEN_260];   /* IP地址/域名 */
     INT32 uPort;                   /* 端口号 */
-    CHAR  szUserName[NET_LEN_132]; /* 用户名 */
-    CHAR  szPassword[NET_LEN_128]; /* 密码 */
+    CHAR  strUserName[NET_LEN_132]; /* 用户名 */
+    CHAR  strPassword[NET_LEN_128]; /* 密码 */
     BYTE  byReserved[256];         /* 保留字段 */
 }NET_DeviceLoginInfo_S;
 
@@ -2670,7 +2699,7 @@ typedef struct tagNET_DeviceStorageInfo
     CHAR   strDiskUsedSpace[NET_LEN_32]; /* 硬盘已用空间 */
     CHAR   strDiskFileType[NET_LEN_32];  /* 硬盘文件系统类型 */
     NET_StorageManage_S stStorageManage; /* 轻存储管理信息 */
-    BYTE   byReserved[128 - sizeof(NET_StorageManage_S)]; /* 预留字段，随新增字段相应缩小 */
+    BYTE   byReserved[128]; /* 预留字段，随新增字段相应缩小 */
 } NET_DeviceStorageInfo_S;
 
 /**
@@ -2724,11 +2753,11 @@ typedef struct tagNET_RecordControlInfo
 {
     INT32 nStatus;                    /* 录制状态， 1-录制中，2-暂停，3-停止 */
     INT32 nRecordMode;                /* 录制模式 */
-    CHAR  szName[NET_LEN_260];        /* 课程名称 */
-    CHAR  szFileName[NET_LEN_256];    /* 录制文件名 */
-    CHAR  szMainTeacher[NET_LEN_132]; /* 主讲人 */
-    CHAR  szRoomName[NET_LEN_128];    /* 场地 */
-    CHAR  szNotes[NET_LEN_128];       /* 备注 */
+    CHAR  strName[NET_LEN_260];        /* 课程名称 */
+    CHAR  strFileName[NET_LEN_256];    /* 录制文件名 */
+    CHAR  strMainTeacher[NET_LEN_132]; /* 主讲人 */
+    CHAR  strRoomName[NET_LEN_128];    /* 场地 */
+    CHAR  strNotes[NET_LEN_128];       /* 备注 */
     INT32 nRecordTime;                /* 已录制时长（秒），GET时有效 */
     BYTE  byReserved[32];             /* 保留字段 */
 } NET_RecordControlInfo_S;
@@ -2743,7 +2772,7 @@ typedef NET_RecordControlInfo_S* pNET_RecordControlInfo_S;
 typedef struct tagNET_LiveStatusInfo
 {
     INT32 nStatus;                 /* 直播状态，0-停止 1-直播中 */
-    CHAR  szRtmpName[NET_LEN_256]; /* 直播名称/地址 */
+    CHAR  strRtmpName[NET_LEN_256]; /* 直播名称/地址 */
     INT32 nRtmpTime;               /* 直播时长（秒） */
     BYTE  byReserved[32];          /* 保留字段 */
 } NET_LiveStatusInfo_S;
@@ -2760,18 +2789,18 @@ typedef NET_LiveStatusInfo_S* pNET_LiveStatusInfo_S;
  */
 typedef struct tagNET_RecordFileItem
 {
-    CHAR  szFileName[NET_LEN_512];     /* 文件名 */
+    CHAR  strFileName[NET_LEN_512];     /* 文件名 */
     INT32 nGroupId;                    /* 分组ID */
-    CHAR  szGroupName[NET_LEN_512];    /* 分组名称 */
-    CHAR  szStartTime[NET_LEN_128];    /* 开始录制时间 */
-    CHAR  szDurationTime[NET_LEN_128]; /* 录制时长 */
+    CHAR  strGroupName[NET_LEN_512];    /* 分组名称 */
+    CHAR  strStartTime[NET_LEN_128];    /* 开始录制时间 */
+    CHAR  strDurationTime[NET_LEN_128]; /* 录制时长 */
     INT32 nFileSize;                   /* 文件大小 */
     INT32 nFileFormat;                 /* 录制格式 */
     INT32 nDamaged;                    /* 是否损坏 0-正常 1-损坏 */
-    CHAR  szCourseName[NET_LEN_128];   /* 课程名称(主题) */
-    CHAR  szKeySpeaker[NET_LEN_128];   /* 主讲人 */
-    CHAR  szLocation[NET_LEN_256];     /* 场地 */
-    CHAR  szNotes[NET_LEN_128];        /* 备注 */
+    CHAR  strCourseName[NET_LEN_128];   /* 课程名称(主题) */
+    CHAR  strKeySpeaker[NET_LEN_128];   /* 主讲人 */
+    CHAR  strLocation[NET_LEN_256];     /* 场地 */
+    CHAR  strNotes[NET_LEN_128];        /* 备注 */
     INT32 nFtpUpload;                  /* FTP上传状态 */
     INT32 nPlatformUpload;             /* 云平台上传状态 */
     INT32 nDownloadCnt;                /* 下载次数 */
@@ -2792,7 +2821,7 @@ typedef struct tagNET_RecordFileInfo
     INT32                nCurPageSize;                           /* 当前页Item数量（回调填充） */
     INT32                nPageSize;                              /* 每页文件数量（请求时填入） */
     INT32                nTotal;                                 /* 文件总数（回调填充） */
-    CHAR                 szCoverPath[NET_LEN_256];               /* 封面路径（回调填充） */
+    CHAR                 strCoverPath[NET_LEN_256];               /* 封面路径（回调填充） */
     INT32                nFileCount;                             /* astFileItems有效条目数（回调填充） */
     NET_RecordFileItem_S astFileItems[NET_RECORD_FILE_ITEM_MAX]; /* 文件信息数组 */
     BYTE                 byReserved[32];                         /* 保留字段 */
@@ -2838,7 +2867,7 @@ typedef struct tagNET_PresetBitItem
 {
     INT32 nCameraId;   /* 摄像头ID号 */
     INT32 nPresetNum;  /* 预置位ID */
-    CHAR  szName[48];  /* 预置位名称 */
+    CHAR  strName[48];  /* 预置位名称 */
 } NET_PresetBitItem_S;
 
 /**
@@ -2864,7 +2893,7 @@ typedef struct tagNET_PresetBitCtrl
     INT32 nOptType;       /* 操作类型: 0-设置 1-删除 2-调用 3-改名 */
     INT32 nCameraId;      /* 摄像头ID号 */
     INT32 nPresetNum;     /* 预置位ID */
-    CHAR  szName[48];     /* 预置位名称 */
+    CHAR  strName[48];     /* 预置位名称 */
     BYTE  byReserved[32]; /* 保留字段 */
 } NET_PresetBitCtrl_S;
 
@@ -2945,13 +2974,13 @@ typedef struct tagNET_AppointmentItem
 {
     INT32 nID;                                        /* 数据库ID */
     INT32 nWeekDay;                                   /* 星期几 1-7 */
-    CHAR  szName[NET_APPOINTMENT_NAME_LEN];           /* 课程/事件名称 */
-    CHAR  szStartTime[NET_APPOINTMENT_TIME_LEN];      /* 开始时间 */
-    CHAR  szStopTime[NET_APPOINTMENT_TIME_LEN];       /* 结束时间 */
+    CHAR  strName[NET_APPOINTMENT_NAME_LEN];           /* 课程/事件名称 */
+    CHAR  strStartTime[NET_APPOINTMENT_TIME_LEN];      /* 开始时间 */
+    CHAR  strStopTime[NET_APPOINTMENT_TIME_LEN];       /* 结束时间 */
     INT32 nIsCir;                                     /* 0-循环 1-单次 */
-    CHAR  szTeacherName[NET_APPOINTMENT_TEACHER_LEN]; /* 主讲人 */
-    CHAR  szRoomName[NET_APPOINTMENT_ROOM_LEN];       /* 场地 */
-    CHAR  szNotes[NET_APPOINTMENT_NOTE_LEN];          /* 备注 */
+    CHAR  strTeacherName[NET_APPOINTMENT_TEACHER_LEN]; /* 主讲人 */
+    CHAR  strRoomName[NET_APPOINTMENT_ROOM_LEN];       /* 场地 */
+    CHAR  strNotes[NET_APPOINTMENT_NOTE_LEN];          /* 备注 */
     BYTE  byReserved[32];                             /* 保留字段 */
 } NET_AppointmentItem_S;
 
@@ -3032,7 +3061,7 @@ typedef NET_DeviceStatusInfo_S* pNET_DeviceStatusInfo_S;
 typedef struct tagNET_ChannelNameInfo
 {
     UINT32 uChannel;                  /* 通道号 */
-    CHAR   szChannelName[NET_LEN_64]; /* 通道名称 */
+    CHAR   strChannelName[NET_LEN_64]; /* 通道名称 */
     BYTE   byReserved[32];            /* 保留字段 */
 } NET_ChannelNameInfo_S;
 
@@ -3201,28 +3230,6 @@ typedef struct tagNET_PageInfo
 
 typedef NET_PageInfo_S* pNET_PageInfo_S;
 
-/*
- * 描述：账号锁定时长，与 IPC 侧 System::LockDuration_E 逐值对应。
- */
-typedef enum tagNETLockDuration
-{
-    /* 锁定 5 分钟，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
-    NET_LOCK_DURATION_5_MIN   = 0,
-    /* 锁定 30 分钟，对应 IPC LockDuration_E::LOCK_DURATION_30_MIN。 */
-    NET_LOCK_DURATION_30_MIN  = 1,
-    /* 锁定 60 分钟，对应 IPC LockDuration_E::LOCK_DURATION_60_MIN。 */
-    NET_LOCK_DURATION_60_MIN  = 2,
-    /* 锁定 1 天，对应 IPC LockDuration_E::LOCK_DURATION_1_DAY。 */
-    NET_LOCK_DURATION_1_DAY   = 3,
-    /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
-    NET_LOCK_DURATION_5_DAY   = 4
-} NET_LockDuration_EN;
-
-/* 账号锁定时长允许的最小值，对应 IPC LockDuration_E::LOCK_DURATION_5_MIN。 */
-#define NET_LOCK_DURATION_MIN   NET_LOCK_DURATION_5_MIN
-/* 账号锁定时长允许的最大值，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
-#define NET_LOCK_DURATION_MAX   NET_LOCK_DURATION_5_DAY
-
 /**
  * @struct tagNETTVLoginLockInfo
  * @brief 登录锁定信息
@@ -3232,7 +3239,6 @@ typedef struct tagNET_LoginLockInfo
     BOOL  bIllegalLoginEnable;
     INT32 nCheckInterval;
     INT32 nMaxErrorTimes;
-    /* 账号锁定时长，取值见 NET_LockDuration_EN，必须落在 [NET_LOCK_DURATION_MIN, NET_LOCK_DURATION_MAX] 内。 */
     INT32 nLockDuration;
     BYTE  byReserved[64];
 } NET_LoginLockInfo_S;
@@ -3260,8 +3266,8 @@ typedef struct tagNET_SshAdminInfo
 {
     BOOL  bSshEnable;
     INT32 nSshPort;
-    CHAR  szSshStartTime[NET_LEN_64];
-    CHAR  szSshCountdown[NET_LEN_64];
+    CHAR  strSshStartTime[NET_LEN_64];
+    CHAR  strSshCountdown[NET_LEN_64];
     BYTE  byReserved[64];
 } NET_SshAdminInfo_S;
 
@@ -3289,7 +3295,7 @@ typedef NET_SecurityServicesInfo_S* pNET_SecurityServicesInfo_S;
 typedef struct tagNET_SshCountdownInfo
 {
     UINT32 uChannel;                /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR   szCountdown[NET_LEN_64];
+    CHAR   strCountdown[NET_LEN_64];
     BYTE   byReserved[64];
 } NET_SshCountdownInfo_S;
 
@@ -3304,7 +3310,7 @@ typedef struct tagNET_LogServerInfo
     UINT32 uChannel;                  /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL   bEnable;
     BOOL   bEnSsl;
-    CHAR   szServerAddr[NET_LEN_256];
+    CHAR   strServerAddr[NET_LEN_256];
     INT32  nPort;
     BYTE   byReserved[128];
 } NET_LogServerInfo_S;
@@ -3319,8 +3325,8 @@ typedef struct tagNET_LogRetrievalCond
 {
     INT32 nType;
     INT32 nAction;
-    CHAR  szStartTime[NET_LEN_64];
-    CHAR  szEndTime[NET_LEN_64];
+    CHAR  strStartTime[NET_LEN_64];
+    CHAR  strEndTime[NET_LEN_64];
     BYTE  byReserved[64];
 } NET_LogRetrievalCond_S;
 
@@ -3332,13 +3338,13 @@ typedef NET_LogRetrievalCond_S* pNET_LogRetrievalCond_S;
  */
 typedef struct tagNET_LogInfo
 {
-    CHAR  szStartTime[NET_LEN_64];
+    CHAR  strStartTime[NET_LEN_64];
     INT32 nType;
     INT32 nAction;
-    CHAR  szChnName[NET_LEN_64];
-    CHAR  szUser[NET_LEN_64];
-    CHAR  szHost[NET_LEN_64];
-    CHAR  szContext[NET_LEN_512];
+    CHAR  strChnName[NET_LEN_64];
+    CHAR  strUser[NET_LEN_64];
+    CHAR  strHost[NET_LEN_64];
+    CHAR  strContext[NET_LEN_512];
     BYTE  byReserved[64];
 } NET_LogInfo_S;
 
@@ -3371,10 +3377,10 @@ typedef struct tagNET_RecordInfo
     INT32 nRecordStatus;                   /* NET_RECORD_STATUS_E */
     INT32 nRecordFormat;
     INT32 nEventType;
-    CHAR  szPath[NET_MAX_URL_LEN];
-    CHAR  szRedunPath[NET_MAX_URL_LEN];
-    CHAR  szRecordName[NET_FILE_NAME_LEN];
-    CHAR  szRecordTime[NET_LEN_64];
+    CHAR  strPath[NET_MAX_URL_LEN];
+    CHAR  strRedunPath[NET_MAX_URL_LEN];
+    CHAR  strRecordName[NET_FILE_NAME_LEN];
+    CHAR  strRecordTime[NET_LEN_64];
     INT32 nStreamType;
     BYTE  byReserved[128];
 } NET_RecordInfo_S;
@@ -3493,12 +3499,12 @@ typedef struct tagNET_RecordFindCond
 {
     INT32 nChnId;
     INT32 nType;
-    CHAR  szYear[NET_LEN_16];
-    CHAR  szMonth[NET_LEN_16];
-    CHAR  szDate[NET_LEN_64];
-    CHAR  szStartTime[NET_LEN_64];
-    CHAR  szEndTime[NET_LEN_64];
-    CHAR  szFilename[NET_FILE_NAME_LEN];
+    CHAR  strYear[NET_LEN_16];
+    CHAR  strMonth[NET_LEN_16];
+    CHAR  strDate[NET_LEN_64];
+    CHAR  strStartTime[NET_LEN_64];
+    CHAR  strEndTime[NET_LEN_64];
+    CHAR  strFilename[NET_FILE_NAME_LEN];
     BYTE  byReserved[128];
 } NET_RecordFindCond_S;
 
@@ -3525,8 +3531,8 @@ typedef struct tagNET_RecordFindResult
 {
     INT32                 nChnId;
     INT32                 nDateCount;
-    CHAR                  aszDates[NET_RECORD_DATE_MAX_NUM][NET_LEN_64];
-    CHAR                  szFilename[NET_FILE_NAME_LEN];
+    CHAR                  astrDates[NET_RECORD_DATE_MAX_NUM][NET_LEN_64];
+    CHAR                  strFilename[NET_FILE_NAME_LEN];
     INT32                 nVideoTimeCount;
     NET_RecordVideoTime_S astVideoTimes[NET_TIME_DURATION_NUM];
     BYTE                  byReserved[128];
@@ -3555,9 +3561,9 @@ typedef NET_RecordFileList_S* pNET_RecordFileList_S;
 typedef struct tagNET_RecordDownloadInfo
 {
     INT32 nChnId;
-    CHAR  szPath[NET_MAX_URL_LEN];
-    CHAR  szStartTime[NET_LEN_64];
-    CHAR  szEndTime[NET_LEN_64];
+    CHAR  strPath[NET_MAX_URL_LEN];
+    CHAR  strStartTime[NET_LEN_64];
+    CHAR  strEndTime[NET_LEN_64];
     BYTE  byReserved[128];
 } NET_RecordDownloadInfo_S;
 
@@ -3569,7 +3575,7 @@ typedef NET_RecordDownloadInfo_S* pNET_RecordDownloadInfo_S;
  */
 typedef struct tagNET_RecordDownloadProgress
 {
-    CHAR  szFilename[NET_FILE_NAME_LEN];
+    CHAR  strFilename[NET_FILE_NAME_LEN];
     INT32 nProgress;
     BYTE  byReserved[64];
 } NET_RecordDownloadProgress_S;
@@ -3615,7 +3621,7 @@ typedef struct tagNET_CapturePictureInfo
     INT32  nOutputType;                      /* [入参] 输出方式 #NET_CAPTURE_OUTPUT_TYPE_E 0=内存 1=设备落盘 */
     INT32  nImageQuality;                    /* [入参] 图片质量 #NET_CAPTURE_IMAGE_QUALITY_E（预留，设备不支持时忽略） */
     UINT32 uPicLen;                          /* [出参] 图片数据实际长度，0 表示无数据 */
-    CHAR   szFilePath[NET_MAX_URL_LEN];      /* [出参] 设备端图片文件路径（nOutputType=FILE 且落盘成功时有效） */
+    CHAR   strFilePath[NET_MAX_URL_LEN];      /* [出参] 设备端图片文件路径（nOutputType=FILE 且落盘成功时有效） */
     BYTE   abyPicData[NET_PIC_DATA_MAX_LEN]; /* [出参] 图片数据（nOutputType=MEMORY 时有效） */
     BYTE   byReserved[64];
 } NET_CapturePictureInfo_S;
@@ -3632,9 +3638,9 @@ typedef NET_CapturePictureInfo_S* pNET_CapturePictureInfo_S;
 typedef struct tagNET_RecordLockInfo
 {
     INT32 nChannel;                      /* 通道号 */
-    CHAR  szStartTime[NET_LEN_64];       /* 开始时间 YYYY-MM-DD HH:MM:SS */
-    CHAR  szEndTime[NET_LEN_64];         /* 结束时间 YYYY-MM-DD HH:MM:SS */
-    CHAR  szFileName[NET_FILE_NAME_LEN]; /* 按文件锁定时填文件名；按时间锁定时可留空 */
+    CHAR  strStartTime[NET_LEN_64];       /* 开始时间 YYYY-MM-DD HH:MM:SS */
+    CHAR  strEndTime[NET_LEN_64];         /* 结束时间 YYYY-MM-DD HH:MM:SS */
+    CHAR  strFileName[NET_FILE_NAME_LEN]; /* 按文件锁定时填文件名；按时间锁定时可留空 */
     INT32 nLockStatus;                   /* [出参] 0=未锁定 1=已锁定 -1=失败 */
     BYTE  byReserved[64];
 } NET_RecordLockInfo_S;
@@ -3650,7 +3656,7 @@ typedef NET_RecordLockInfo_S* pNET_RecordLockInfo_S;
  *       - 海康 NET_DVR_MakeKeyFrame / NET_DVR_I_FRAME{dwSize, sStreamID, dwChan,
  *         byStreamType}：通道号 + 流ID + 流类型；<br>
  *       本结构体取并集：nChannel + nStreamType（0=主/1=子，兼容大华子通道语义）+
- *       szStreamId（兼容海康流ID，仅支持流ID寻址的设备使用，NVR 场景可留空）。<br>
+ *       strStreamId（兼容海康流ID，仅支持流ID寻址的设备使用，NVR 场景可留空）。<br>
  *       成功只代表"请求已受理"，不代表立刻能取到新关键帧，通常需要等待一个 GOP 间隔。<br>
  *       本接口额外回填该通道的流地址，便于调用方触发后直接取流。
  */
@@ -3658,9 +3664,9 @@ typedef struct tagNET_ForceKeyFrameInfo
 {
     INT32 nChannel;                     /* [入参] 通道号（对应 dwChan / nChannelID） */
     INT32 nStreamType;                  /* [入参] 码流类型 #NET_CUSTOM_STREAM_TYPE_E 0=主 1=子（对应 byStreamType / nSubChannel） */
-    CHAR  szStreamId[NET_LEN_64];       /* [入参] 流ID（对应 sStreamID，流ID寻址设备使用，NVR 场景可留空） */
+    CHAR  strStreamId[NET_LEN_64];       /* [入参] 流ID（对应 sStreamID，流ID寻址设备使用，NVR 场景可留空） */
     INT32 nResult;                      /* [出参] 0=已触发 1=设备不支持 -1=失败 */
-    CHAR  szStreamUrl[NET_MAX_URL_LEN]; /* [出参] 该通道对应的流地址 */
+    CHAR  strStreamUrl[NET_MAX_URL_LEN]; /* [出参] 该通道对应的流地址 */
     BYTE  byReserved[64];
 } NET_ForceKeyFrameInfo_S;
 
@@ -3749,10 +3755,10 @@ typedef struct tagNET_NetworkCfg
     UINT32 uChannel;                     /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     INT32  uMTU;                         /* MTU值  MTU value */
     BOOL   bIPv4DHCP;                    /* IPv4的DHCP  DHCP of IPv4 */
-    CHAR   szIpv4Address[NET_LEN_32];    /* IPv4的IP地址  IP address of IPv4 */
-    CHAR   szIPv4GateWay[NET_LEN_32];    /* IPv4的网关地址  Gateway of IPv4 */
-    CHAR   szIPv4SubnetMask[NET_LEN_32]; /* IPv4的子网掩码  Subnet mask of IPv4 */
-    CHAR   szNetName[NET_LEN_32];        /* 网卡名称，如 eth0/lan1/lan2，SetNetworkCfg 必须携带  Network interface name */
+    CHAR   strIpv4Address[NET_LEN_32];    /* IPv4的IP地址  IP address of IPv4 */
+    CHAR   strIPv4GateWay[NET_LEN_32];    /* IPv4的网关地址  Gateway of IPv4 */
+    CHAR   strIPv4SubnetMask[NET_LEN_32]; /* IPv4的子网掩码  Subnet mask of IPv4 */
+    CHAR   strNetName[NET_LEN_32];        /* 网卡名称，如 eth0/lan1/lan2，SetNetworkCfg 必须携带  Network interface name */
     BYTE   byReserved[512];              /* 保留字段 */
 }NET_NetworkCfg_S;
 
@@ -3765,15 +3771,15 @@ typedef NET_NetworkCfg_S* pNET_NetworkCfg_S;
  */
 typedef struct tagNET_PoeNetworkConfig
 {
-    CHAR   szInterfaceIP[NET_IPADDR_STR_MAX_LEN]; /* 发送组播的本地网卡 IPv4，空串使用默认网卡 */
-    CHAR   szMACAddress[NET_LEN_32];              /* 目标设备 MAC，如 AA:BB:CC:DD:EE:FF */
-    CHAR   szTargetIP[NET_IPADDR_STR_MAX_LEN];    /* 目标 IPv4 地址 */
-    CHAR   szSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
-    CHAR   szGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
+    CHAR   strInterfaceIP[NET_IPADDR_STR_MAX_LEN]; /* 发送组播的本地网卡 IPv4，空串使用默认网卡 */
+    CHAR   strMACAddress[NET_LEN_32];              /* 目标设备 MAC，如 AA:BB:CC:DD:EE:FF */
+    CHAR   strTargetIP[NET_IPADDR_STR_MAX_LEN];    /* 目标 IPv4 地址 */
+    CHAR   strSubnetMask[NET_IPADDR_STR_MAX_LEN];  /* IPv4 子网掩码 */
+    CHAR   strGateway[NET_IPADDR_STR_MAX_LEN];     /* IPv4 网关，bSetGateway 为 FALSE 时可为空 */
     BOOL   bSetGateway;                           /* 是否设置网关 */
     BOOL   bIPv4DHCP;                             /* 是否启用 DHCP */
-    UINT32 dwTimeoutMs;                           /* 保留字段：当前接口为无应答发送，建议填 0 */
-    UINT32 dwSendCount;                           /* 发送次数，0 使用 SDK 默认值 */
+    UINT32 uTimeoutMs;                            /* 保留字段：当前接口为无应答发送，建议填 0 */
+    UINT32 uSendCount;                            /* 发送次数，0 使用 SDK 默认值 */
     BYTE   byReserved[128];                       /* 保留字段 */
 } NET_PoeNetworkConfig_S;
 
@@ -3800,14 +3806,14 @@ typedef NET_NetworkCfgList_S* pNET_NetworkCfgList_S;
 /**
  * @struct tagNETTVRtspUrlInfo
  * @brief RTSP流地址信息  RTSP URL information
- * - szRtspUrl 由设备端生成并返回（可包含鉴权信息或 token，按项目约定）
+ * - strRtspUrl 由设备端生成并返回（可包含鉴权信息或 token，按项目约定）
  * - dwStreamIndex 参考 #NET_LIVE_STREAM_INDEX_E（主/辅/第三流等）
  */
 typedef struct tagNET_RtspUrlInfo
 {
     INT32 uChannel;               /* 通道号  Channel ID */
     INT32 uStreamIndex;           /* 码流索引  Stream index */
-    CHAR  szRtspUrl[NET_LEN_260]; /* RTSP URL (e.g. rtsp://ip:port/...) */
+    CHAR  strRtspUrl[NET_LEN_260]; /* RTSP URL (e.g. rtsp://ip:port/...) */
     BYTE  byReserved[256];        /* 保留字段 */
 }NET_RtspUrlInfo_S;
 
@@ -3817,14 +3823,14 @@ typedef NET_RtspUrlInfo_S* pNET_RtspUrlInfo_S;
  * @struct tagNETTVReplayUrlInfo
  * @brief 回放播放地址信息  Playback URL information
  * - 调用方填充通道和起止时间。
- * - 设备端/服务端申请回放后填充 szUrl。
+ * - 设备端/服务端申请回放后填充 strUrl。
  */
 typedef struct tagNET_ReplayUrlInfo
 {
     INT32 uChannel;                /* 通道号 Channel ID */
-    CHAR  szStartTime[NET_LEN_64]; /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
-    CHAR  szEndTime[NET_LEN_64];   /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
-    CHAR  szUrl[NET_MAX_URL_LEN];  /* 回放播放地址 */
+    CHAR  strStartTime[NET_LEN_64]; /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
+    CHAR  strEndTime[NET_LEN_64];   /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
+    CHAR  strUrl[NET_MAX_URL_LEN];  /* 回放播放地址 */
     BYTE  byReserved[256];         /* 保留字段 */
 }NET_ReplayUrlInfo_S;
 
@@ -3833,12 +3839,12 @@ typedef NET_ReplayUrlInfo_S* pNET_ReplayUrlInfo_S;
 /**
  * @struct tagNETTVReplayCtrlInfo
  * @brief 回放控制信息
- * - `dwCtrlType=NET_REPLAY_CTRL_START` 时，调用方填写通道/起止时间，服务端返回 `szSessionId` 与 `szUrl`
- * - `dwCtrlType=NET_REPLAY_CTRL_STOP` / `NET_REPLAY_CTRL_PAUSE` / `NET_REPLAY_CTRL_SET_SPEED` / `NET_REPLAY_CTRL_SET_SEEK` 时，优先使用 `szSessionId` 标识会话
+ * - `dwCtrlType=NET_REPLAY_CTRL_START` 时，调用方填写通道/起止时间，服务端返回 `strSessionId` 与 `strUrl`
+ * - `dwCtrlType=NET_REPLAY_CTRL_STOP` / `NET_REPLAY_CTRL_PAUSE` / `NET_REPLAY_CTRL_SET_SPEED` / `NET_REPLAY_CTRL_SET_SEEK` 时，优先使用 `strSessionId` 标识会话
  * - `fSpeed` 仅在 `NET_REPLAY_CTRL_SET_SPEED` 时有效，例如 0.5 / 1.0 / 2.0 / 4.0
  * - `nSeekTime` 仅在 `NET_REPLAY_CTRL_SET_SEEK` 时有效，表示回放时间轴上的跳转秒数
  * - `nReplayType` 表示平台点播回放控制类型，参见 `NET_REPLAY_PLATFORM_CTRL_TYPE_E`
- * - `szUserIp` 为点播方（使用者）IP，标识哪台设备发起的点播，建议在 `NET_REPLAY_CTRL_START` 时填写；为空表示不指定
+ * - `strUserIp` 为点播方（使用者）IP，标识哪台设备发起的点播，建议在 `NET_REPLAY_CTRL_START` 时填写；为空表示不指定
  */
 typedef struct tagNET_ReplayCtrlInfo
 {
@@ -3847,11 +3853,11 @@ typedef struct tagNET_ReplayCtrlInfo
     FLOAT fSpeed;                                 /* 播放倍速 */
     INT32 nSeekTime;                              /* 跳转播放时间，单位秒 */
     INT32 nReplayType;                            /* 平台点播回放控制类型 */
-    CHAR  szSessionId[NET_REPLAY_SESSION_ID_LEN]; /* 回放会话ID */
-    CHAR  szStartTime[NET_LEN_64];                /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
-    CHAR  szEndTime[NET_LEN_64];                  /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
-    CHAR  szUrl[NET_MAX_URL_LEN];                 /* 当前回放播放地址 */
-    CHAR  szUserIp[NET_LEN_64];                   /* 点播方(使用者)IP，标识哪台设备发起的点播，为空表示未指定 */
+    CHAR  strSessionId[NET_REPLAY_SESSION_ID_LEN]; /* 回放会话ID */
+    CHAR  strStartTime[NET_LEN_64];                /* 开始时间 "YYYY-MM-DD HH:MM:SS" */
+    CHAR  strEndTime[NET_LEN_64];                  /* 结束时间 "YYYY-MM-DD HH:MM:SS" */
+    CHAR  strUrl[NET_MAX_URL_LEN];                 /* 当前回放播放地址 */
+    CHAR  strUserIp[NET_LEN_64];                   /* 点播方(使用者)IP，标识哪台设备发起的点播，为空表示未指定 */
     BYTE  byReserved[64];                         /* 保留字段 */
 } NET_ReplayCtrlInfo_S;
 
@@ -3874,8 +3880,8 @@ typedef NET_ReplayRecordTime_S* pNET_ReplayRecordTime_S;
  * @struct tagNETTVReplayRecordList
  * @brief NVR回放录像时间段查询结果
  * - 调用方至少填写 `dwChannel`
- * - 兼容旧方式：仅填写 `szDate`
- * - 新方式：可额外填写 `bFilterByEventType`、`dwEventType`、`szStartTime`、`szEndTime`
+ * - 兼容旧方式：仅填写 `strDate`
+ * - 新方式：可额外填写 `bFilterByEventType`、`dwEventType`、`strStartTime`、`strEndTime`
  * - 返回普通录像、人员事件、车辆事件、其他事件四类时间段
  */
 typedef struct tagNET_ReplayRecordList
@@ -3883,9 +3889,9 @@ typedef struct tagNET_ReplayRecordList
     INT32                  uChannel;                                            /* 通道号 Channel ID */
     BOOL                   bFilterByEventType;                                  /* 是否按事件类型过滤 FALSE:不过滤 TRUE:按 uEventType 过滤 */
     INT32                  uEventType;                                          /* 事件类型，取值可对齐 NVR 事件类型定义；兼容旧请求时忽略 */
-    CHAR                   szDate[NET_LEN_32];                                  /* 日期 "YYYY-MM-DD" */
-    CHAR                   szStartTime[NET_MAX_DATE_STRING_LEN];                /* 开始时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天开始 */
-    CHAR                   szEndTime[NET_MAX_DATE_STRING_LEN];                  /* 结束时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天结束 */
+    CHAR                   strDate[NET_LEN_32];                                  /* 日期 "YYYY-MM-DD" */
+    CHAR                   strStartTime[NET_MAX_DATE_STRING_LEN];                /* 开始时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天开始 */
+    CHAR                   strEndTime[NET_MAX_DATE_STRING_LEN];                  /* 结束时间 "YYYY-MM-DD HH:MM:SS"，为空则按整天结束 */
     INT32                  nVideoCount;                                         /* 普通录像时间段数量 */
     NET_ReplayRecordTime_S astVideoTimes[NET_REPLAY_RECORD_SEGMENT_MAX];
     INT32                  nPersonEventCount;                                   /* 人员事件时间段数量 */
@@ -3905,8 +3911,8 @@ typedef NET_ReplayRecordList_S* pNET_ReplayRecordList_S;
  */
 typedef struct tagNET_PreviewRtspUrl
 {
-    CHAR szRtspMainUrl[NET_MAX_URL_LEN]; /* 主码流RTSP地址 */
-    CHAR szRtspSubUrl[NET_MAX_URL_LEN];  /* 子码流RTSP地址 */
+    CHAR strRtspMainUrl[NET_MAX_URL_LEN]; /* 主码流RTSP地址 */
+    CHAR strRtspSubUrl[NET_MAX_URL_LEN];  /* 子码流RTSP地址 */
     BYTE byReserved[64];                 /* 保留字段 */
 }NET_PreviewRtspUrl_S;
 
@@ -3933,7 +3939,7 @@ typedef NET_WifiStaCfg_S* pNET_WifiStaCfg_S;
 typedef struct tagNET_WifiWepKey
 {
     INT32 nIndex;               /* 密钥索引 1-4 */
-    CHAR  szValue[NET_LEN_132]; /* 密钥内容 */
+    CHAR  strValue[NET_LEN_132]; /* 密钥内容 */
     BYTE  byReserved[32];       /* 保留字段 */
 } NET_WifiWepKey_S;
 
@@ -3947,32 +3953,32 @@ typedef NET_WifiWepKey_S* pNET_WifiWepKey_S;
 typedef struct tagNET_WifiStaConnect
 {
     UINT32           uChannel;                            /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR             szSsid[NET_NAME_MAX_LEN];            /* SSID */
+    CHAR             strSsid[NET_NAME_MAX_LEN];            /* SSID */
     INT32            nSecurityMode;                       /* NET_WIFI_SECURITY_MODE_E */
-    CHAR             szIpAddress[NET_IPADDR_STR_MAX_LEN];
-    CHAR             szPassword[NET_LEN_132];
-    CHAR             szPairwise[NET_LEN_32];              /* TKIP/CCMP */
+    CHAR             strIpAddress[NET_IPADDR_STR_MAX_LEN];
+    CHAR             strPassword[NET_LEN_132];
+    CHAR             strPairwise[NET_LEN_32];              /* TKIP/CCMP */
     INT32            nWepKeyLen;                          /* 64/128 */
     BOOL             bWepIsHex;                           /* true=hex,false=ascii */
-    CHAR             szAuthAlg[NET_LEN_32];               /* OPEN/SHARED */
+    CHAR             strAuthAlg[NET_LEN_32];               /* OPEN/SHARED */
     INT32            nWepKeyCount;
     NET_WifiWepKey_S astWepKeys[4];
 
-    CHAR             szEapIdentity[NET_LEN_132];
-    CHAR             szEapPassword[NET_LEN_132];
-    CHAR             szPeapVersion[NET_LEN_16];
-    CHAR             szPhase2[NET_LEN_64];
-    CHAR             szAnonymousIdentity[NET_LEN_132];
-    CHAR             szCaCertPath[NET_LEN_260];
-    CHAR             szPeapLabel[NET_LEN_32];
+    CHAR             strEapIdentity[NET_LEN_132];
+    CHAR             strEapPassword[NET_LEN_132];
+    CHAR             strPeapVersion[NET_LEN_16];
+    CHAR             strPhase2[NET_LEN_64];
+    CHAR             strAnonymousIdentity[NET_LEN_132];
+    CHAR             strCaCertPath[NET_LEN_260];
+    CHAR             strPeapLabel[NET_LEN_32];
 
-    CHAR             szTlsIdentity[NET_LEN_132];
-    CHAR             szPrivateKeyPasswd[NET_LEN_132];
-    CHAR             szEapolVersion[NET_LEN_16];
-    CHAR             szClientCertPath[NET_LEN_260];
-    CHAR             szPrivateKeyPath[NET_LEN_260];
-    CHAR             szCtrlInterface[NET_LEN_260];
-    CHAR             szInterfaceName[NET_LEN_64];
+    CHAR             strTlsIdentity[NET_LEN_132];
+    CHAR             strPrivateKeyPasswd[NET_LEN_132];
+    CHAR             strEapolVersion[NET_LEN_16];
+    CHAR             strClientCertPath[NET_LEN_260];
+    CHAR             strPrivateKeyPath[NET_LEN_260];
+    CHAR             strCtrlInterface[NET_LEN_260];
+    CHAR             strInterfaceName[NET_LEN_64];
     BYTE             byReserved[256];
 } NET_WifiStaConnect_S;
 
@@ -3985,10 +3991,10 @@ typedef NET_WifiStaConnect_S* pNET_WifiStaConnect_S;
 typedef struct tagNET_4GInfo
 {
     UINT32 uChannel;                 /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR   szApn[NET_LEN_64];
-    CHAR   szUserName[NET_LEN_132];
-    CHAR   szPassword[NET_LEN_132];
-    CHAR   szCallNumber[NET_LEN_32];
+    CHAR   strApn[NET_LEN_64];
+    CHAR   strUserName[NET_LEN_132];
+    CHAR   strPassword[NET_LEN_132];
+    CHAR   strCallNumber[NET_LEN_32];
     INT32  nMtu;
     INT32  nAuthMode;                /* 0:None,1:PAP,2:CHAP,3:PAP&CHAP */
     INT32  nNetworkMode;             /* 0:Auto,1:4G,2:3G,3:2G */
@@ -4006,11 +4012,11 @@ typedef struct tagNET_HotspotInfo
 {
     UINT32 uChannel;                       /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL   bEnabled;
-    CHAR   szSsid[NET_NAME_MAX_LEN];
-    CHAR   szSecurityMode[NET_LEN_64];
-    CHAR   szEncryptionType[NET_LEN_64];
-    CHAR   szPassword[NET_LEN_132];
-    CHAR   szConfirmPassword[NET_LEN_132];
+    CHAR   strSsid[NET_NAME_MAX_LEN];
+    CHAR   strSecurityMode[NET_LEN_64];
+    CHAR   strEncryptionType[NET_LEN_64];
+    CHAR   strPassword[NET_LEN_132];
+    CHAR   strConfirmPassword[NET_LEN_132];
     BYTE   byReserved[128];
 } NET_HotspotInfo_S;
 
@@ -4023,9 +4029,9 @@ typedef NET_HotspotInfo_S* pNET_HotspotInfo_S;
 typedef struct tagNET_HotspotConnDevice
 {
     INT32 nIndex;
-    CHAR  szMac[NET_LEN_64];
-    CHAR  szIp[NET_IPADDR_STR_MAX_LEN];
-    CHAR  szConnTime[NET_LEN_64];
+    CHAR  strMac[NET_LEN_64];
+    CHAR  strIp[NET_IPADDR_STR_MAX_LEN];
+    CHAR  strConnTime[NET_LEN_64];
 } NET_HotspotConnDevice_S;
 
 typedef NET_HotspotConnDevice_S* pNET_HotspotConnDevice_S;
@@ -4037,7 +4043,7 @@ typedef NET_HotspotConnDevice_S* pNET_HotspotConnDevice_S;
 typedef struct tagNET_HotspotConnInfo
 {
     UINT32                  uChannel;                             /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    CHAR                    szStatus[NET_LEN_32];
+    CHAR                    strStatus[NET_LEN_32];
     INT32                   nTotal;
     INT32                   nDeviceCount;
     NET_HotspotConnDevice_S astDevices[NET_HOTSPOT_CONN_MAX_NUM];
@@ -4115,24 +4121,24 @@ typedef struct tagNET_ChannelInfo
     INT32  nCtrlPort;                            /* 管理端口 */
     INT32  nReserved[3];                         /* 保留字段 */
 
-    CHAR   szChannelName[NET_LEN_64];            /* 通道名称 */
-    CHAR   szDevName[NET_LEN_64];                /* 设备名称 */
-    CHAR   szDevType[NET_LEN_64];                /* 设备类型 */
-    CHAR   szSerialNum[NET_LEN_64];              /* 序列号 */
+    CHAR   strChannelName[NET_LEN_64];            /* 通道名称 */
+    CHAR   strDevName[NET_LEN_64];                /* 设备名称 */
+    CHAR   strDevType[NET_LEN_64];                /* 设备类型 */
+    CHAR   strSerialNum[NET_LEN_64];              /* 序列号 */
 
-    CHAR   szFirmwareVersion[NET_LEN_64];        /* 固件版本 */
-    CHAR   szDeviceIP[NET_IPADDR_STR_MAX_LEN];   /* IP地址 */
-    CHAR   szMac[NET_LEN_64];                    /* MAC地址 */
-    CHAR   szSubnetMask[NET_IPADDR_STR_MAX_LEN]; /* 子网掩码 */
+    CHAR   strFirmwareVersion[NET_LEN_64];        /* 固件版本 */
+    CHAR   strDeviceIP[NET_IPADDR_STR_MAX_LEN];   /* IP地址 */
+    CHAR   strMac[NET_LEN_64];                    /* MAC地址 */
+    CHAR   strSubnetMask[NET_IPADDR_STR_MAX_LEN]; /* 子网掩码 */
 
-    CHAR   szMfrsName[NET_LEN_64];               /* 厂商名称 */
-    CHAR   szAppProtoName[NET_LEN_64];           /* 协议名称 */
-    CHAR   szOnvifDeviceUrl[NET_MAX_URL_LEN];    /* ONVIF URL */
+    CHAR   strMfrsName[NET_LEN_64];               /* 厂商名称 */
+    CHAR   strAppProtoName[NET_LEN_64];           /* 协议名称 */
+    CHAR   strOnvifDeviceUrl[NET_MAX_URL_LEN];    /* ONVIF URL */
 
-    CHAR   szPreviewMainUrl[NET_MAX_URL_LEN];    /* 主码流预览地址 */
-    CHAR   szPreviewSubUrl[NET_MAX_URL_LEN];     /* 子码流预览地址 */
-    CHAR   szRtspMainUrl[NET_MAX_URL_LEN];       /* 直连主码流地址 */
-    CHAR   szRtspSubUrl[NET_MAX_URL_LEN];        /* 直连子码流地址 */
+    CHAR   strPreviewMainUrl[NET_MAX_URL_LEN];    /* 主码流预览地址 */
+    CHAR   strPreviewSubUrl[NET_MAX_URL_LEN];     /* 子码流预览地址 */
+    CHAR   strRtspMainUrl[NET_MAX_URL_LEN];       /* 直连主码流地址 */
+    CHAR   strRtspSubUrl[NET_MAX_URL_LEN];        /* 直连子码流地址 */
 
     BYTE   byReserved[512];                      /* 保留字段 */
 }NET_ChannelInfo_S;
@@ -4435,23 +4441,6 @@ typedef struct tagNET_CapturePolygon
 typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
 
 /**
- * @enum  tagNET_FACE_EMOTION_E
- * @brief 人脸表情类别，与 IPC 侧 face_expression 模型输出一致
- * @note 用于 NET_CaptureExtraInfo_S::nFaceExpression
- */
-typedef enum tagNET_FACE_EMOTION_E
-{
-    NET_FACE_EMOTION_UNKNOWN  = -1,  /* 未分析 */
-    NET_FACE_EMOTION_ANGER    = 0,   /* 生气 */
-    NET_FACE_EMOTION_DISGUST  = 1,   /* 厌恶 */
-    NET_FACE_EMOTION_FEAR     = 2,   /* 恐惧 */
-    NET_FACE_EMOTION_HAPPY    = 3,   /* 高兴 */
-    NET_FACE_EMOTION_SAD      = 4,   /* 难过 */
-    NET_FACE_EMOTION_SURPRISE = 5,   /* 惊讶 */
-    NET_FACE_EMOTION_NEUTRAL  = 6    /* 中立 */
-}NET_FACE_EMOTION_E;
-
-/**
  * @struct tagNET_CaptureExtraInfo
  * @brief 通用抓拍扩展属性，承载人脸、行人和车辆的附加信息。
  */
@@ -4472,7 +4461,7 @@ typedef struct tagNET_CaptureExtraInfo
     CHAR                 strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
     CHAR                 strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
     NET_CapturePolygon_S stTargetRegion;
-    INT32                nFaceExpression;    /* 人脸表情类别，取值参见 NET_FACE_EMOTION_E，-1 表示未分析 */
+    INT32                nFaceExpression; 
     BYTE                 byReserved[64];
 } NET_CaptureExtraInfo_S;
 
@@ -5147,7 +5136,7 @@ typedef struct tagNET_MotionAlarmInfo
     UINT32                 uChannel;               /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                   bEnable;                /* 是否启用 0-不启用 1-启用 */
     BOOL                   bDynamicAnalysisEnable; /* 是否启用动态分析 */
-    INT32                  uMode;                  /* 模式 0-普通模式 1-专家模式 NET_MOTION_MODE_E */
+    INT32                  uMode;                  /* 模式 0-普通模式 1-专家模式 3-NVR后智能模式 NET_MOTION_MODE_E */
     NET_MotionNormalMode_S stNormalMode;           /* 普通模式参数 */
     NET_MotionExpertMode_S stExpertMode;           /* 专家模式参数 */
     NET_AlarmSchedule_S    stAlarmSchedule;        /* 布防时间 */
@@ -5251,6 +5240,7 @@ typedef struct tagNET_CrossLineAlarmInfo
     NET_BoundaryPlane_S stRule[4];       /* 越界检测区域规则，最多4个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_CrossLineAlarmInfo_S;
 
@@ -5290,6 +5280,7 @@ typedef struct tagNET_IntrusionAlarmInfo
     NET_IntrusionRule_S stRule[4];       /* 区域入侵检测规则，最多4个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_IntrusionAlarmInfo_S;
 
@@ -5308,6 +5299,7 @@ typedef struct tagNET_EnterRegionAlarmInfo
     NET_IntrusionRule_S stRule[4];       /* 进入区域检测规则，最多4个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_EnterRegionAlarmInfo_S;
 
@@ -5326,6 +5318,7 @@ typedef struct tagNET_LeaveRegionAlarmInfo
     NET_IntrusionRule_S stRule[4];       /* 离开区域检测规则，最多4个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_LeaveRegionAlarmInfo_S;
 
@@ -5365,6 +5358,7 @@ typedef struct tagNET_LoiteringAlarmInfo
     NET_LoiteringRule_S stRule[4];       /* 区域入侵检测规则，最多4个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_LoiteringAlarmInfo_S;
 
@@ -5382,6 +5376,7 @@ typedef struct tagNET_SceneChangeAlarmInfo
     INT32               nSensitivity;    /* 灵敏度 [1,100] */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_SceneChangeAlarmInfo_S;
 
@@ -5416,6 +5411,7 @@ typedef struct tagNET_CrowdGatheringAlarmInfo
     NET_CrowdGatheringRule_S astRule[4];      /* 人员聚集侦测规则，最多4个 */
     NET_AlarmSchedule_S      stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S        stLinkageList;   /* 联动配置 */
+    INT32                    nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                     byReserved[256]; /* 保留字段 */
 }NET_CrowdGatheringAlarmInfo_S;
 
@@ -5450,6 +5446,7 @@ typedef struct tagNET_ParkingAlarmInfo
     NET_ParkingRule_S   astRule[8];      /* 停车侦测规则，最多8个 */
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_ParkingAlarmInfo_S;
 
@@ -5484,6 +5481,7 @@ typedef struct tagNET_GarbageExposureCfg
     NET_GarbageExposureRule_S stRule;          /* 垃圾暴露检测规则 */
     NET_AlarmSchedule_S       stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S         stLinkageList;   /* 联动配置 */
+    INT32                     nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                      byReserved[256]; /* 保留字段 */
 }NET_GarbageExposureCfg_S;
 
@@ -5519,6 +5517,7 @@ typedef struct tagNET_GarbageOverflowCfg
     INT32                     nTimeThreshold;  /* 时间阈值(秒) */
     NET_AlarmSchedule_S       stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S         stLinkageList;   /* 联动配置 */
+    INT32                     nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                      byReserved[256]; /* 保留字段 */
 }NET_GarbageOverflowCfg_S;
 
@@ -5551,6 +5550,7 @@ typedef struct tagNET_ManholeCoverAbnormalCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_ManholeCoverAbnormalCfg_S;
 
 typedef NET_ManholeCoverAbnormalCfg_S* pNET_ManholeCoverAbnormalCfg_S;
@@ -5568,6 +5568,7 @@ typedef struct tagNET_SleepOnDutyCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_SleepOnDutyCfg_S;
 
 typedef NET_SleepOnDutyCfg_S* pNET_SleepOnDutyCfg_S;
@@ -5589,6 +5590,7 @@ typedef struct tagNET_ElectricVehicleInElevatorCfg
     FLOAT               afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     INT32               nTimeThreshold;                               /* 时间阈值，单位秒，范围0~10；占用原保留空间，保持布局大小。 */
     BYTE                byReserved[256];                              /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_ElectricVehicleInElevatorCfg_S;
 
 typedef NET_ElectricVehicleInElevatorCfg_S* pNET_ElectricVehicleInElevatorCfg_S;
@@ -5609,6 +5611,7 @@ typedef struct tagNET_PersonFallDownCfg
     FLOAT               afPointX[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点X坐标数组 [0-8192] */
     FLOAT               afPointY[NET_AI_SIMPLE_REGION_POINT_MAX_NUM]; /* 区域顶点Y坐标数组 [0-8192] */
     BYTE                byReserved[256];                              /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_PersonFallDownCfg_S;
 
 typedef NET_PersonFallDownCfg_S* pNET_PersonFallDownCfg_S;
@@ -5626,6 +5629,7 @@ typedef struct tagNET_ConstructionOccupyRoadCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_ConstructionOccupyRoadCfg_S;
 
 typedef NET_ConstructionOccupyRoadCfg_S* pNET_ConstructionOccupyRoadCfg_S;
@@ -5643,6 +5647,7 @@ typedef struct tagNET_CongestionCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_CongestionCfg_S;
 
 typedef NET_CongestionCfg_S* pNET_CongestionCfg_S;
@@ -5660,6 +5665,7 @@ typedef struct tagNET_LicensePlateRecognitionCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_LicensePlateRecognitionCfg_S;
 
 typedef NET_LicensePlateRecognitionCfg_S* pNET_LicensePlateRecognitionCfg_S;
@@ -5677,6 +5683,7 @@ typedef struct tagNET_HighAltitudeSeatbeltCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_HighAltitudeSeatbeltCfg_S;
 
 typedef NET_HighAltitudeSeatbeltCfg_S* pNET_HighAltitudeSeatbeltCfg_S;
@@ -5694,6 +5701,7 @@ typedef struct tagNET_SafetyHelmetCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_SafetyHelmetCfg_S;
 
 typedef NET_SafetyHelmetCfg_S* pNET_SafetyHelmetCfg_S;
@@ -5711,6 +5719,7 @@ typedef struct tagNET_PersonFallCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_PersonFallCfg_S;
 
 typedef NET_PersonFallCfg_S* pNET_PersonFallCfg_S;
@@ -5728,6 +5737,7 @@ typedef struct tagNET_PhoneUsageCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_PhoneUsageCfg_S;
 
 typedef NET_PhoneUsageCfg_S* pNET_PhoneUsageCfg_S;
@@ -5745,6 +5755,7 @@ typedef struct tagNET_SmokingCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_SmokingCfg_S;
 
 typedef NET_SmokingCfg_S* pNET_SmokingCfg_S;
@@ -5762,6 +5773,7 @@ typedef struct tagNET_OpenFlameCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_OpenFlameCfg_S;
 
 typedef NET_OpenFlameCfg_S* pNET_OpenFlameCfg_S;
@@ -5779,6 +5791,7 @@ typedef struct tagNET_BareSoilCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_BareSoilCfg_S;
 
 typedef NET_BareSoilCfg_S* pNET_BareSoilCfg_S;
@@ -5796,6 +5809,7 @@ typedef struct tagNET_HoleProtectionBarCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_HoleProtectionBarCfg_S;
 
 typedef NET_HoleProtectionBarCfg_S* pNET_HoleProtectionBarCfg_S;
@@ -5813,6 +5827,7 @@ typedef struct tagNET_ReflectiveClothingCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_ReflectiveClothingCfg_S;
 
 typedef NET_ReflectiveClothingCfg_S* pNET_ReflectiveClothingCfg_S;
@@ -5884,6 +5899,7 @@ typedef struct tagNET_PetRecognitionInfo
     NET_SmartRegion_S   stRegion;               /* 宠物识别检测区域 */
     NET_AlarmSchedule_S stAlarmSchedule;        /* 布防时间 */
     NET_LinkageList_S   stLinkageList;          /* 联动配置 */
+    INT32               nMode;                  /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256];        /* 保留字段 */
 }NET_PetRecognitionInfo_S;
 
@@ -5902,6 +5918,7 @@ typedef struct tagNET_ClimbFenceInfo
     NET_SmartRegionRule_S stRule[4];       /* 翻越围栏检测规则，最多4个 */
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    INT32                 nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                  byReserved[256]; /* 保留字段 */
 }NET_ClimbFenceInfo_S;
 
@@ -5921,6 +5938,7 @@ typedef struct tagNET_DimissionInfo
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */
     BYTE                  byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_DimissionInfo_S;
 
 typedef NET_DimissionInfo_S* pNET_DimissionInfo_S;
@@ -5939,6 +5957,7 @@ typedef struct tagNET_IllegalLaneInfo
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_IllegalLaneInfo_S;
 
 typedef NET_IllegalLaneInfo_S* pNET_IllegalLaneInfo_S;
@@ -5957,6 +5976,7 @@ typedef struct tagNET_RetrogradeInfo
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_RetrogradeInfo_S;
 
 typedef NET_RetrogradeInfo_S* pNET_RetrogradeInfo_S;
@@ -5975,6 +5995,7 @@ typedef struct tagNET_NonmotorVehicleIntrusionInfo
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */
     BYTE                  byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_NonmotorVehicleIntrusionInfo_S;
 
 typedef NET_NonmotorVehicleIntrusionInfo_S* pNET_NonmotorVehicleIntrusionInfo_S;
@@ -5993,6 +6014,7 @@ typedef struct tagNET_OccupationEmergencyInfo
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */
     BYTE                  byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_OccupationEmergencyInfo_S;
 
 typedef NET_OccupationEmergencyInfo_S* pNET_OccupationEmergencyInfo_S;
@@ -6011,6 +6033,7 @@ typedef struct tagNET_PedestrianIntrusionInfo
     NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S     stLinkageList;   /* 联动配置 */
     BYTE                  byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_PedestrianIntrusionInfo_S;
 
 typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
@@ -6316,6 +6339,7 @@ typedef struct tagNET_SmokeFireCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_SmokeFireCfg_S;
 
 typedef NET_SmokeFireCfg_S* pNET_SmokeFireCfg_S;
@@ -6333,6 +6357,7 @@ typedef struct tagNET_RoadPondingCfg
     NET_AlarmSchedule_S stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S   stLinkageList;   /* 联动配置 */
     BYTE                byReserved[256]; /* 保留字段 */
+    INT32               nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
 }NET_RoadPondingCfg_S;
 
 typedef NET_RoadPondingCfg_S* pNET_RoadPondingCfg_S;
@@ -6366,6 +6391,7 @@ typedef struct tagNET_UnattendedObjectAlarmInfo
     NET_UnattendedObjectRule_S stRule[4];       /* 物品遗留侦测规则，最多4个 */
     NET_AlarmSchedule_S        stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S          stLinkageList;   /* 联动配置 */
+    INT32                      nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                       byReserved[256]; /* 保留字段 */
 }NET_UnattendedObjectAlarmInfo_S;
 
@@ -6400,6 +6426,7 @@ typedef struct tagNET_ObjectRemovalAlarmInfo
     NET_ObjectRemovalRule_S stRule[4];       /* 物品拿取侦测规则，最多4个 */
     NET_AlarmSchedule_S     stAlarmSchedule; /* 布防时间 */
     NET_LinkageList_S       stLinkageList;   /* 联动配置 */
+    INT32                   nMode;           /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                    byReserved[256]; /* 保留字段 */
 }NET_ObjectRemovalAlarmInfo_S;
 
@@ -6422,6 +6449,7 @@ typedef struct tagNET_AudioAnomalyAlarmInfo
     INT32               nDownSensitivity;   /* 音量突降灵敏度 [1,100] */
     NET_AlarmSchedule_S stAlarmSchedule;    /* 布防时间 */
     NET_LinkageList_S   stLinkageList;      /* 联动配置 */
+    INT32               nMode;              /* 智能模式:0-前智能(IPC) 1-后智能(NVR) */
     BYTE                byReserved[256];    /* 保留字段 */
 }NET_AudioAnomalyAlarmInfo_S;
 
@@ -6530,8 +6558,8 @@ typedef NET_FaceCompareInfo_S* pNET_FaceCompareInfo_S;
  */
 typedef struct tagNET_FaceLibInfo
 {
-    CHAR  szFaceLibName[NET_FACE_DB_NAME_LEN];    /* 目标库名称 */
-    CHAR  szFaceLibNameNew[NET_FACE_DB_NAME_LEN]; /* 目标库新名称（修改目标库/重命名时使用） */
+    CHAR  strFaceLibName[NET_FACE_DB_NAME_LEN];    /* 目标库名称 */
+    CHAR  strFaceLibNameNew[NET_FACE_DB_NAME_LEN]; /* 目标库新名称（修改目标库/重命名时使用） */
     
     INT32 nTotalFace;                             /* 总人脸数 */
     INT32 nNormalNum;                             /* 正常个数 */
@@ -6577,13 +6605,13 @@ typedef NET_FaceIdInfo_S* pNET_FaceIdInfo_S;
 typedef struct tagNET_FaceInfo
 {
     INT32 nId;                                 /* 人脸ID */
-    CHAR  szFaceLibName[NET_FACE_DB_NAME_LEN]; /* 名单组名称 */
-    CHAR  szName[NET_FACE_MEMBER_NAME_LEN];    /* 名字 */
-    CHAR  szPhoneNum[NET_FACE_IDNUMBER_LEN];   /* 联系方式 */
-    CHAR  szPicPath[NET_LEN_260];              /* 图片完整路径/名称 */
-    CHAR  szPicType[NET_LEN_64];               /* 图片类型 */
+    CHAR  strFaceLibName[NET_FACE_DB_NAME_LEN]; /* 名单组名称 */
+    CHAR  strName[NET_FACE_MEMBER_NAME_LEN];    /* 名字 */
+    CHAR  strPhoneNum[NET_FACE_IDNUMBER_LEN];   /* 联系方式 */
+    CHAR  strPicPath[NET_LEN_260];              /* 图片完整路径/名称 */
+    CHAR  strPicType[NET_LEN_64];               /* 图片类型 */
     INT32 nPicSize;                            /* 图片大小 */
-    CHAR  szPicDate[NET_LEN_64];               /* 图片日期 */
+    CHAR  strPicDate[NET_LEN_64];               /* 图片日期 */
     INT32 nModelState;                         /* 模型状态, 0未处理，1成功，-1失败 */
     INT32 nRatingLevel;                        /* 评估等级, 0全部，1评分未知，2低，3高 */
     BYTE  byReserved[256];                     /* 保留字段 */
@@ -6598,7 +6626,7 @@ typedef NET_FaceInfo_S* pNET_FaceInfo_S;
  */
 typedef struct tagNET_FaceInfoList
 {
-    CHAR           szFaceLibName[NET_FACE_DB_NAME_LEN]; /* 人脸库ID/LibId, 对应JSON "LibId", 由请求体携带 */
+    CHAR           strFaceLibName[NET_FACE_DB_NAME_LEN]; /* 人脸库ID/LibId, 对应JSON "LibId", 由请求体携带 */
     INT32          nFaceInfoCount;                      /* 人脸信息数量 */
     NET_FaceInfo_S astFaceInfos[NET_FACE_INFO_MAX_NUM]; /* 人脸信息列表 */
     BYTE           byReserved[256];                     /* 保留字段 */
@@ -6632,7 +6660,7 @@ typedef NET_Alarmer_S* pNET_Alarmer_S;
  */
 typedef struct tagNET_VideoResolution
 {
-    CHAR  szName[NET_LEN_32];                        /* 分辨率名称, 如 1920*1080 */
+    CHAR  strName[NET_LEN_32];                        /* 分辨率名称, 如 1920*1080 */
     INT32 uWidth;                                    /*  视频编码分辨率 */
     INT32 uHeight;                                   /*  视频编码分辨率 */
     FLOAT fFrameRateMin;                             /*  该分辨率支持的最小帧率fps */
@@ -6691,7 +6719,7 @@ typedef NET_VideoEncodeOption_S* pNET_VideoEncodeOption_S;
  */
 typedef struct tagNET_VideoEncodeAbility
 {
-    CHAR   szVideoCodec[NET_LEN_32];                                /* 视频编码字符串, 如 H.264/H.265 */
+    CHAR   strVideoCodec[NET_LEN_32];                                /* 视频编码字符串, 如 H.264/H.265 */
     INT32  enVideoCodec;                                            /* 视频编码 NET_VIDEO_CODE_TYPE_E */
     INT32  nSupportAdjustComplexity;                                /* 是否支持调整编码复杂度 */
     INT32  anEncodeComplexity[NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM]; /* 支持的编码复杂度 */

@@ -77,8 +77,9 @@ private:
     /**
      * @brief   : 检测结果区域判定并交报警状态机
      * @param    {std::vector<DetectedTarget_S>} &vecResults：攀爬检测输出
+     * @param    {cv::Mat} &rgbMat：原始分辨率RGB帧 用于编码人员大图小图
      */
-    void processPassage(const std::vector<DetectedTarget_S> &vecResults);
+    void processPassage(const std::vector<DetectedTarget_S> &vecResults, const cv::Mat &rgbMat);
 
     /**
      * @brief   : 配置区域转判定多边形（区域无效不参与判定）

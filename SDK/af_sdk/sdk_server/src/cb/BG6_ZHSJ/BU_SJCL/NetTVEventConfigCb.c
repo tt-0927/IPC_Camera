@@ -1371,8 +1371,6 @@ NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigB
     return registerSetCmdCb(NET_SET_ROOFTOP_STAY_INFO, pCb);
 }
 
-/* ---- 平安校园扩展事件：排队拥挤 / 后厨无关人员 / 门禁异常 / 社交关系 /
- *      后厨穿戴 / 消防设施 / 打架斗殴 / 鼠患（均为单区域配置） ---- */
 /**
  * @brief 注册获取排队拥挤配置的回调函数
  * @param [in] pCb 用于填充 NET_QueueCrowdingInfo_S 的回调函数

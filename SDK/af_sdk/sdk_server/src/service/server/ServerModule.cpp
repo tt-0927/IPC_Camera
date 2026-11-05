@@ -50,10 +50,10 @@ CServerModule::~CServerModule()
 /**
  * 启动HTTP服务器
  * @details 创建HTTP服务器实例，绑定指定端口，开始监听请求
- * @param dwPort 服务器端口号
+ * @param uPort 服务器端口号
  * @return TRUE表示成功，FALSE表示失败
  */
-BOOL CServerModule::Start(UINT32 dwPort)
+BOOL CServerModule::Start(UINT32 uPort)
 {
     if (m_bRunning)
     {
@@ -61,17 +61,17 @@ BOOL CServerModule::Start(UINT32 dwPort)
         return NET_FALSE;
     }
 
-    NETSDK_LOG_MESSAGE_INFO("Starting HTTP Server on port %u...", dwPort);
+    NETSDK_LOG_MESSAGE_INFO("Starting HTTP Server on port %u...", uPort);
 
-    if (CSdkHttpServer::instance()->startServer(static_cast<uint32_t>(dwPort)) != 0)
+    if (CSdkHttpServer::instance()->startServer(static_cast<uint32_t>(uPort)) != 0)
     {
-        NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server on port %u", dwPort);
+        NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server on port %u", uPort);
         return NET_FALSE;
     }
 
-    m_uPort = dwPort;
+    m_uPort = uPort;
     m_bRunning = true;
-    NETSDK_LOG_MESSAGE_INFO("HTTP Server started successfully on port %u", dwPort);
+    NETSDK_LOG_MESSAGE_INFO("HTTP Server started successfully on port %u", uPort);
     return NET_TRUE;
 }
 

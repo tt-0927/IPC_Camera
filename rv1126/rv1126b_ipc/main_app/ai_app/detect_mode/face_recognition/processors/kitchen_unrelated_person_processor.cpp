@@ -6,6 +6,7 @@
 #include "kitchen_unrelated_person_processor.hpp"
 
 #include <algorithm>
+#include <cstddef>
 
 void CKitchenUnrelatedPersonProcessor::setRules(
     const Alarm::KitchenUnrelatedPersonEntry_S &stConfig)
@@ -28,10 +29,12 @@ float CKitchenUnrelatedPersonProcessor::sensitivityToConfidence(
 }
 
 int CKitchenUnrelatedPersonProcessor::process(
-    const DetectContext_S &stDetectContext,
-    std::vector<FaceTargetResult_S> &vstCandidates)
+    const std::vector<FaceBaseTarget_S> &vstTargets,
+    const std::vector<FaceAttributeTarget_S> &vstAttributeResults,
+    const std::vector<bool> &vbAttributeReady,
+    std::vector<int> &vstCandidateIndices)
 {
-    vstCandidates.clear();
+    vstCandidateIndices.clear();
 
     /* 规则快照：setRules 可能来自配置线程 */
     Alarm::KitchenUnrelatedPersonEntry_S stRules;
@@ -43,17 +46,16 @@ int CKitchenUnrelatedPersonProcessor::process(
     const float fConfidenceThreshold = sensitivityToConfidence(
         stRules.stRule.nSensitivity);
 
-    const std::vector<FaceTargetResult_S> &vstTargets = stDetectContext.vstDetectResult;
-    vstCandidates.reserve(vstTargets.size());
-    for (const auto &stTarget : vstTargets)
+    vstCandidateIndices.reserve(vstTargets.size());
+    for (size_t i = 0; i < vstTargets.size(); ++i)
     {
-        /* 属性分析失败(bAttributeReady=false)不进候选，避免侧脸/模糊人脸误报 */
-        if (stTarget.stDetectResult.fConfidence >= fConfidenceThreshold &&
-            stTarget.bAttributeReady &&
-            !stTarget.stAttributeResult.bIsMask)
+        /* 属性分析失败(未就绪)不进候选，避免侧脸/模糊人脸误报 */
+        if (vstTargets[i].stDetectResult.fConfidence >= fConfidenceThreshold &&
+            i < vbAttributeReady.size() && vbAttributeReady[i] &&
+            i < vstAttributeResults.size() && !vstAttributeResults[i].bIsMask)
         {
-            vstCandidates.push_back(stTarget);
+            vstCandidateIndices.push_back(static_cast<int>(i));
         }
     }
-    return static_cast<int>(vstCandidates.size());
+    return static_cast<int>(vstCandidateIndices.size());
 }

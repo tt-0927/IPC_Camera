@@ -52,7 +52,7 @@
         (rev2 & 0xFF)             /* 附加版本2占最低8位 */ \
     ))
 
-#define NETTVSDK_VERSION        NETTVSDK_MAKE_VERSION(1, 0, 0, 0)			/* 当前版本 */
+#define NETTVSDK_VERSION        NETTVSDK_MAKE_VERSION(1, 0, 1, 0)			/* 当前版本 */
 
 /* ==================== 录像下载任务管理 ====================
  * 异步下载的核心是"任务句柄"：调用方拿到句柄后可查询进度、等待结束或停止。
@@ -86,13 +86,13 @@ struct DownloadClientGuard
 {
     DownloadTask* task;
 
-    DownloadClientGuard(DownloadTask* downloadTask, httplib::Client* downloadClient)
-        : task(downloadTask)
+    DownloadClientGuard(DownloadTask* pDownloadTask, httplib::Client* pDownloadClient)
+        : task(pDownloadTask)
     {
         if (task)
         {
             std::lock_guard<std::mutex> lock(task->clientMutex);
-            task->client = downloadClient;
+            task->client = pDownloadClient;
         }
     }
 
@@ -117,27 +117,27 @@ using DownloadTaskPtr = std::shared_ptr<DownloadTask>;
 std::mutex g_downloadTaskRegistryMutex;
 std::unordered_map<DownloadTask*, DownloadTaskPtr> g_downloadTaskRegistry;
 
-DownloadTaskPtr FindDownloadTask(LPVOID hTask)
+DownloadTaskPtr FindDownloadTask(LPVOID pTask)
 {
-    if (!hTask)
+    if (!pTask)
     {
         return DownloadTaskPtr();
     }
     std::lock_guard<std::mutex> lock(g_downloadTaskRegistryMutex);
-    const auto it = g_downloadTaskRegistry.find(static_cast<DownloadTask*>(hTask));
+    const auto it = g_downloadTaskRegistry.find(static_cast<DownloadTask*>(pTask));
     return it == g_downloadTaskRegistry.end() ? DownloadTaskPtr() : it->second;
 }
 
 /* 原子地把任务从注册表摘除；摘除后其它线程再也拿不到该任务。
  * 返回的 shared_ptr 保证已经进入其它接口的线程可安全完成本次访问。 */
-DownloadTaskPtr TakeDownloadTask(LPVOID hTask)
+DownloadTaskPtr TakeDownloadTask(LPVOID pTask)
 {
-    if (!hTask)
+    if (!pTask)
     {
         return DownloadTaskPtr();
     }
     std::lock_guard<std::mutex> lock(g_downloadTaskRegistryMutex);
-    const auto it = g_downloadTaskRegistry.find(static_cast<DownloadTask*>(hTask));
+    const auto it = g_downloadTaskRegistry.find(static_cast<DownloadTask*>(pTask));
     if (it == g_downloadTaskRegistry.end())
     {
         return DownloadTaskPtr();
@@ -159,17 +159,17 @@ DownloadTaskPtr TakeDownloadTask(LPVOID hTask)
  */
 static std::string NetTV_MakeDownloadTaskId()
 {
-    static std::atomic<UINT64> sequence{0};
-    static const UINT64 processSalt =
+    static std::atomic<UINT64> uSequence{0};
+    static const UINT64 kProcessSalt =
         static_cast<UINT64>(::getpid()) ^
         static_cast<UINT64>(std::chrono::high_resolution_clock::now()
                                 .time_since_epoch().count());
-    const UINT64 value = ++sequence;
-    const UINT64 now = static_cast<UINT64>(std::chrono::high_resolution_clock::now()
+    const UINT64 uValue = ++uSequence;
+    const UINT64 uNow = static_cast<UINT64>(std::chrono::high_resolution_clock::now()
                                                 .time_since_epoch().count());
 
     std::ostringstream stream;
-    stream << std::hex << processSalt << "_" << now << "_" << value;
+    stream << std::hex << kProcessSalt << "_" << uNow << "_" << uValue;
     return stream.str();
 }
 
@@ -242,40 +242,40 @@ NET_API BOOL STDCALL NET_clientCleanup(void)
 
 /**
  * @brief 设置日志输出到文件
- * @param dwLogLevel 日志输出等级（spdlog 阈值语义，数值越大输出越少）：0-TRACE 全量(最详细)，1-DEBUG，2-INFO，3-WARN(仅 warn/error)，4-ERROR(仅 error)；无“关闭”档，0 为全量输出
- * @param strLogDir 日志文件存放目录
- * @param dwLogFileSize 单个日志文件最大大小（字节），默认5MB
- * @param dwLogFileNum 日志文件最大数量，默认10个
+ * @param nLogLevel 日志输出等级（spdlog 阈值语义，数值越大输出越少）：0-TRACE 全量(最详细)，1-DEBUG，2-INFO，3-WARN(仅 warn/error)，4-ERROR(仅 error)；无“关闭”档，0 为全量输出
+ * @param pstrLogDir 日志文件存放目录
+ * @param nLogFileSize 单个日志文件最大大小（字节），默认5MB
+ * @param nLogFileNum 日志文件最大数量，默认10个
  * @return 成功返回TRUE，失败返回FALSE
  * @note 必须在NET_TV_Init之前调用
  */
-NET_API BOOL STDCALL NET_clientSetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 dwLogFileSize,IN INT32 dwLogFileNum)
+NET_API BOOL STDCALL NET_clientSetLogToFile(IN INT32 nLogLevel,IN CHAR  *pstrLogDir,IN INT32 nLogFileSize,IN INT32 nLogFileNum)
 {
-    if (strLogDir == NULL)
+    if (pstrLogDir == NULL)
     {
         return FALSE;
     }
 
     /* 构造完整日志路径 */
-    char szLogPath[512] = {0};
+    char strLogPath[512] = {0};
 #ifdef _WIN32
-    snprintf(szLogPath, sizeof(szLogPath), "%s\\NetTVSDKClient.log", strLogDir);
+    snprintf(strLogPath, sizeof(strLogPath), "%s\\NetTVSDKClient.log", pstrLogDir);
 #else
-    snprintf(szLogPath, sizeof(szLogPath), "%s/NetTVSDKClient.log", strLogDir);
+    snprintf(strLogPath, sizeof(strLogPath), "%s/NetTVSDKClient.log", pstrLogDir);
 #endif
 
-    if (dwLogFileSize <= 0)
+    if (nLogFileSize <= 0)
     {
-        dwLogFileSize = 5 * 1024 * 1024; // Default 5MB
+        nLogFileSize = 5 * 1024 * 1024; // Default 5MB
     }
 
-    if (dwLogFileNum <= 0)
+    if (nLogFileNum <= 0)
     {
-        dwLogFileNum = 10; // Default 10 files
+        nLogFileNum = 10; // Default 10 files
     }
 
 	/* 初始化日志 */
-    if (initSdkLogBySize("NetTVSDKClient", szLogPath, dwLogFileSize, dwLogFileNum) != 0)
+    if (initSdkLogBySize("NetTVSDKClient", strLogPath, nLogFileSize, nLogFileNum) != 0)
     {
         return FALSE;
     }
@@ -284,7 +284,7 @@ NET_API BOOL STDCALL NET_clientSetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLog
 	syncPrintf(true);
 
     /* 设置日志等级 */
-	setLogLevel(dwLogLevel);
+	setLogLevel(nLogLevel);
 
 	return TRUE;
 }
@@ -360,12 +360,12 @@ NET_API BOOL STDCALL NET_clientSetRevTimeOut(IN pNET_RevTimeout_S pstRevTimeout)
 
 /**
  * @brief 设置连接超时时间
- * @param dwWaitTime 单次连接等待时间
- * @param dwTrytimes 连接重试次数
+ * @param nWaitTime 单次连接等待时间
+ * @param nTrytimes 连接重试次数
  * @return 成功返回TRUE，失败返回FALSE
  */
-NET_API BOOL STDCALL NET_clientSetConnectTime(IN INT32 dwWaitTime,
-                                                           IN INT32 dwTrytimes)
+NET_API BOOL STDCALL NET_clientSetConnectTime(IN INT32 nWaitTime,
+                                                           IN INT32 nTrytimes)
 {
 	CHECK_SDK_INIT(FALSE);
     auto pDevMgr = CSessionManager::instance();
@@ -376,7 +376,7 @@ NET_API BOOL STDCALL NET_clientSetConnectTime(IN INT32 dwWaitTime,
 		return FALSE;
 	}
 
-	pDevMgr->SetGlobalConnectTime(dwWaitTime, dwTrytimes);
+	pDevMgr->SetGlobalConnectTime(nWaitTime, nTrytimes);
 	CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
 	return TRUE;
 }
@@ -393,9 +393,9 @@ NET_API LPVOID STDCALL NET_clientLogin(IN pNET_DeviceLoginInfo_S pstDevLoginInfo
                                                         OUT pNET_DeviceInfo_S pstDevInfo)
 {
     NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_clientLogin called, IP=%s, Port=%d, User=%s",
-                  pstDevLoginInfo ? pstDevLoginInfo->szIPAddr : "NULL",
+                  pstDevLoginInfo ? pstDevLoginInfo->strIPAddr : "NULL",
                   pstDevLoginInfo ? pstDevLoginInfo->uPort : 0,
-                  pstDevLoginInfo ? pstDevLoginInfo->szUserName : "NULL");
+                  pstDevLoginInfo ? pstDevLoginInfo->strUserName : "NULL");
 
 	CHECK_SDK_INIT(NULL);
 	auto pDevMgr = CSessionManager::instance();
@@ -405,7 +405,7 @@ NET_API LPVOID STDCALL NET_clientLogin(IN pNET_DeviceLoginInfo_S pstDevLoginInfo
         NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientLogin failed, DeviceManager is NULL");
 		return NULL;
 	}
-	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->szIPAddr, pstDevLoginInfo->uPort, pstDevLoginInfo->szUserName, pstDevLoginInfo->szPassword);
+	LPVOID lpUserID = pDevMgr->Login(pstDevLoginInfo->strIPAddr, pstDevLoginInfo->uPort, pstDevLoginInfo->strUserName, pstDevLoginInfo->strPassword);
     if (!lpUserID)
     {
         CErrorManage::instance()->SetLastError(NET_E_NO_USER);
@@ -600,16 +600,16 @@ NET_API BOOL STDCALL NET_clientDeviceControl(IN LPVOID lpUserID,
         pstCtrlInfo->uSize = sizeof(NET_DeviceControlInfo_S);
     }
 
-    std::string body = SDKConvert::to_string(*pstCtrlInfo);
-    std::string respBody;
-    if (!CCommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", NET_API_PATH_DEVICE_CONTROL, body, respBody))
+    std::string strBody = SDKConvert::to_string(*pstCtrlInfo);
+    std::string strRespBody;
+    if (!CCommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID, "POST", NET_API_PATH_DEVICE_CONTROL, strBody, strRespBody))
     {
         return FALSE;
     }
 
-    const int respCode = SDKConvert::get_respCode(respBody);
-    CErrorManage::instance()->SetLastError(respCode);
-    return respCode == NET_E_SUCCEED ? TRUE : FALSE;
+    const int nRespCode = SDKConvert::get_respCode(strRespBody);
+    CErrorManage::instance()->SetLastError(nRespCode);
+    return nRespCode == NET_E_SUCCEED ? TRUE : FALSE;
 }
 
 /* ==================== 配置 / 能力集（委托 ConfigQuery） ==================== */
@@ -618,45 +618,45 @@ NET_API BOOL STDCALL NET_clientDeviceControl(IN LPVOID lpUserID,
  * @brief 获取设备能力集接口
  */
 NET_API BOOL STDCALL NET_clientGetDeviceCapability(IN LPVOID lpUserID,
-                                                   IN INT32 dwChannelID,
-                                                   IN INT32 dwCommand,
+                                                   IN INT32 nChannelID,
+                                                   IN INT32 nCommand,
                                                    OUT LPVOID lpOutBuffer,
-                                                   OUT INT32 dwOutBufferSize,
-                                                   OUT INT32 *pdwBytesReturned)
+                                                   OUT INT32 nOutBufferSize,
+                                                   OUT INT32 *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
-    return CConfigQuery::instance()->GetDeviceCapability(lpUserID, dwChannelID, dwCommand,
-                                                              lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+    return CConfigQuery::instance()->GetDeviceCapability(lpUserID, nChannelID, nCommand,
+                                                              lpOutBuffer, nOutBufferSize, pnBytesReturned);
 }
 
 /**
  * @brief 获取设备配置接口（通用）
  */
 NET_API BOOL STDCALL NET_clientGetDevConfig(IN  LPVOID  lpUserID,
-                                            IN    INT32   dwChannelID,
-                                            IN    INT32   dwCommand,
+                                            IN    INT32   nChannelID,
+                                            IN    INT32   nCommand,
                                             INOUT LPVOID  lpOutBuffer,
-                                            OUT   INT32   dwOutBufferSize,
-                                            OUT   INT32   *pdwBytesReturned)
+                                            OUT   INT32   nOutBufferSize,
+                                            OUT   INT32   *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
-    return CConfigQuery::instance()->GetDevConfig(lpUserID, dwChannelID, dwCommand,
-                                                        lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+    return CConfigQuery::instance()->GetDevConfig(lpUserID, nChannelID, nCommand,
+                                                        lpOutBuffer, nOutBufferSize, pnBytesReturned);
 }
 
 /**
  * @brief 设置设备配置接口（通用）
  */
 NET_API BOOL STDCALL NET_clientSetDevConfig(IN  LPVOID  lpUserID,
-                                            IN    INT32   dwChannelID,
-                                            IN    INT32   dwCommand,
+                                            IN    INT32   nChannelID,
+                                            IN    INT32   nCommand,
                                             INOUT LPVOID  lpOutBuffer,
-                                            OUT   INT32   dwOutBufferSize,
-                                            OUT   INT32   *pdwBytesReturned)
+                                            OUT   INT32   nOutBufferSize,
+                                            OUT   INT32   *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
-    return CConfigQuery::instance()->SetDevConfig(lpUserID, dwChannelID, dwCommand,
-                                                        lpOutBuffer, dwOutBufferSize, pdwBytesReturned);
+    return CConfigQuery::instance()->SetDevConfig(lpUserID, nChannelID, nCommand,
+                                                        lpOutBuffer, nOutBufferSize, pnBytesReturned);
 }
 
 /**
@@ -685,7 +685,7 @@ NET_API BOOL STDCALL NET_clientSetUserPassword(IN LPVOID lpUserID,
  */
 NET_API BOOL STDCALL NET_clientControlReplay(IN    LPVOID lpUserID,
                                              INOUT pNET_ReplayCtrlInfo_S pstInfo,
-                                             OUT   INT32 *pdwBytesReturned)
+                                             OUT   INT32 *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
@@ -703,17 +703,17 @@ NET_API BOOL STDCALL NET_clientControlReplay(IN    LPVOID lpUserID,
         return FALSE;
     }
 
-    std::string body = SDKConvert::to_string(*pstInfo);
-    std::string respBody;
-    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_CONTROL(), body, respBody))
+    std::string strBody = SDKConvert::to_string(*pstInfo);
+    std::string strRespBody;
+    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_CONTROL(), strBody, strRespBody))
     {
         return FALSE;
     }
 
-    SDKConvert::to_respStruct(respBody, *pstInfo);
-    if (pdwBytesReturned)
+    SDKConvert::to_respStruct(strRespBody, *pstInfo);
+    if (pnBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayCtrlInfo_S);
+        *pnBytesReturned = sizeof(NET_ReplayCtrlInfo_S);
     }
 
     return TRUE;
@@ -724,7 +724,7 @@ NET_API BOOL STDCALL NET_clientControlReplay(IN    LPVOID lpUserID,
  */
 NET_API BOOL STDCALL NET_clientGetReplayRecordList(IN    LPVOID lpUserID,
                                                    INOUT pNET_ReplayRecordList_S pstInfo,
-                                                   OUT   INT32 *pdwBytesReturned)
+                                                   OUT   INT32 *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
@@ -742,17 +742,17 @@ NET_API BOOL STDCALL NET_clientGetReplayRecordList(IN    LPVOID lpUserID,
         return FALSE;
     }
 
-    std::string body = SDKConvert::to_string(*pstInfo);
-    std::string respBody;
-    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_RECORD_LIST(), body, respBody))
+    std::string strBody = SDKConvert::to_string(*pstInfo);
+    std::string strRespBody;
+    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_RECORD_LIST(), strBody, strRespBody))
     {
         return FALSE;
     }
 
-    SDKConvert::to_respStruct(respBody, *pstInfo);
-    if (pdwBytesReturned)
+    SDKConvert::to_respStruct(strRespBody, *pstInfo);
+    if (pnBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayRecordList_S);
+        *pnBytesReturned = sizeof(NET_ReplayRecordList_S);
     }
 
     return TRUE;
@@ -767,7 +767,7 @@ NET_API BOOL STDCALL NET_clientGetReplayRecordList(IN    LPVOID lpUserID,
  */
 NET_API BOOL STDCALL NET_clientQueryRecordFiles(IN    LPVOID lpUserID,
                                                 INOUT pNET_RecordFileQuery_S pstQuery,
-                                                OUT   INT32 *pdwBytesReturned)
+                                                OUT   INT32 *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
@@ -790,44 +790,44 @@ NET_API BOOL STDCALL NET_clientQueryRecordFiles(IN    LPVOID lpUserID,
 
     /* 条件互斥裁剪：只保留优先级最高的一组，避免设备侧报 102。
      * 下面这个裁剪对 3588 与 6860 都成立 —— 两端的校验规则完全相同。 */
-    if (pstQuery->stFind.szStartTime[0] != '\0' && pstQuery->stFind.szEndTime[0] != '\0')
+    if (pstQuery->stFind.strStartTime[0] != '\0' && pstQuery->stFind.strEndTime[0] != '\0')
     {
-        pstQuery->stFind.szDate[0] = '\0';
-        pstQuery->stFind.szYear[0] = '\0';
-        pstQuery->stFind.szMonth[0] = '\0';
+        pstQuery->stFind.strDate[0] = '\0';
+        pstQuery->stFind.strYear[0] = '\0';
+        pstQuery->stFind.strMonth[0] = '\0';
     }
-    else if (pstQuery->stFind.szDate[0] != '\0')
+    else if (pstQuery->stFind.strDate[0] != '\0')
     {
-        pstQuery->stFind.szStartTime[0] = '\0';
-        pstQuery->stFind.szEndTime[0] = '\0';
-        pstQuery->stFind.szYear[0] = '\0';
-        pstQuery->stFind.szMonth[0] = '\0';
+        pstQuery->stFind.strStartTime[0] = '\0';
+        pstQuery->stFind.strEndTime[0] = '\0';
+        pstQuery->stFind.strYear[0] = '\0';
+        pstQuery->stFind.strMonth[0] = '\0';
     }
-    else if (pstQuery->stFind.szYear[0] != '\0')
+    else if (pstQuery->stFind.strYear[0] != '\0')
     {
-        pstQuery->stFind.szStartTime[0] = '\0';
-        pstQuery->stFind.szEndTime[0] = '\0';
-        pstQuery->stFind.szDate[0] = '\0';
+        pstQuery->stFind.strStartTime[0] = '\0';
+        pstQuery->stFind.strEndTime[0] = '\0';
+        pstQuery->stFind.strDate[0] = '\0';
     }
 
-    std::string body = SDKConvert::to_string(*pstQuery);
-    std::string respBody;
-    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_RECORD_QUERY_FILES(), body, respBody))
+    std::string strBody = SDKConvert::to_string(*pstQuery);
+    std::string strRespBody;
+    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_RECORD_QUERY_FILES(), strBody, strRespBody))
     {
         return FALSE;
     }
 
-    const int nRespCode = SDKConvert::get_respCode(respBody);
+    const int nRespCode = SDKConvert::get_respCode(strRespBody);
     if (nRespCode != NET_E_SUCCEED)
     {
         CErrorManage::instance()->SetLastError(nRespCode);
         return FALSE;
     }
 
-    SDKConvert::to_respStruct(respBody, *pstQuery);
-    if (pdwBytesReturned)
+    SDKConvert::to_respStruct(strRespBody, *pstQuery);
+    if (pnBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_RecordFileQuery_S);
+        *pnBytesReturned = sizeof(NET_RecordFileQuery_S);
     }
 
     return TRUE;
@@ -850,10 +850,10 @@ NET_API BOOL STDCALL NET_clientQueryRecordFiles(IN    LPVOID lpUserID,
  */
 NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
                                                   IN INT32 nChannelID,
-                                                  IN const CHAR* szDate,
+                                                  IN const CHAR* pstrDate,
                                                   IN INT32 nStartTime,
                                                   IN INT32 nEndTime,
-                                                  IN const CHAR* szSavePath,
+                                                  IN const CHAR* pstrSavePath,
                                                   IN NET_DownloadProgressCb cbProgress,
                                                   IN LPVOID lpUserData)
 {
@@ -861,9 +861,9 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
 
     /* 参数校验 */
     if (!lpUserID || nChannelID < 0 ||
-        !szDate || szDate[0] == '\0' ||
+        !pstrDate || pstrDate[0] == '\0' ||
         nStartTime < 0 || nEndTime <= nStartTime ||
-        !szSavePath || szSavePath[0] == '\0')
+        !pstrSavePath || pstrSavePath[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
@@ -884,16 +884,16 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
     }
 
     NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_clientDownloadRecordFile start, host=%s:%d, chn=%d, date=%s, [%d-%d], save=%s",
-                            strHost.c_str(), NET_DOWNLOAD_HTTP_PORT, nChannelID, szDate,
-                            nStartTime, nEndTime, szSavePath);
+                            strHost.c_str(), NET_DOWNLOAD_HTTP_PORT, nChannelID, pstrDate,
+                            nStartTime, nEndTime, pstrSavePath);
 
     /*
      * 日期 "2026-08-24" → "20260824"，秒数 56286 → "153806"(HHMMSS)，
      * 拼成设备端下载服务期望的 "20260824_153806"。
      */
-    auto format_datetime = [](const char* szDateIn, INT32 nSeconds) -> std::string {
+    auto formatDateTime = [](const char* pstrDateIn, INT32 nSeconds) -> std::string {
         std::string strDate;
-        for (const char* p = szDateIn; p && *p; ++p)
+        for (const char* p = pstrDateIn; p && *p; ++p)
         {
             if (*p != '-')
             {
@@ -903,13 +903,13 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
         int nHour = nSeconds / 3600;
         int nMin = (nSeconds % 3600) / 60;
         int nSec = nSeconds % 60;
-        char szTime[16] = {0};
-        std::snprintf(szTime, sizeof(szTime), "%02d%02d%02d", nHour, nMin, nSec);
-        return strDate + "_" + szTime;
+        char strTime[16] = {0};
+        std::snprintf(strTime, sizeof(strTime), "%02d%02d%02d", nHour, nMin, nSec);
+        return strDate + "_" + strTime;
     };
 
-    const std::string strStartTime = format_datetime(szDate, nStartTime);
-    const std::string strEndTime = format_datetime(szDate, nEndTime);
+    const std::string strStartTime = formatDateTime(pstrDate, nStartTime);
+    const std::string strEndTime = formatDateTime(pstrDate, nEndTime);
 
     /*
      * decode 参数由本地保存路径后缀推断（mkv/mp4/mov/ts，其他按 mkv），
@@ -917,25 +917,25 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
      */
     std::string strDecode;
     {
-        std::string savePath(szSavePath);
-        size_t dotPos = savePath.find_last_of('.');
-        if (dotPos != std::string::npos) {
-            std::string ext = savePath.substr(dotPos + 1);
-            for (auto& c : ext) c = static_cast<char>(tolower(c));
-            if (ext == "mkv" || ext == "mp4" || ext == "mov" || ext == "ts") {
-                strDecode = ext;
+        std::string strSavePath(pstrSavePath);
+        size_t uDotPos = strSavePath.find_last_of('.');
+        if (uDotPos != std::string::npos) {
+            std::string strExt = strSavePath.substr(uDotPos + 1);
+            for (auto& c : strExt) c = static_cast<char>(tolower(c));
+            if (strExt == "mkv" || strExt == "mp4" || strExt == "mov" || strExt == "ts") {
+                strDecode = strExt;
             }
         }
     }
 
     /* 工作线程已预先绑定任务；同步接口则为NULL。 */
-    DownloadTask* task = g_activeDownloadTask;
+    DownloadTask* pTask = g_activeDownloadTask;
 
     /* 异步任务走独立路由并携带 taskId；同步接口继续使用旧路由。 */
     std::string strPath;
-    if (task)
+    if (pTask)
     {
-        strPath = NET_API_URL_SDK_RECORD_DOWNLOAD(nChannelID, strStartTime, strEndTime, task->taskId);
+        strPath = NET_API_URL_SDK_RECORD_DOWNLOAD(nChannelID, strStartTime, strEndTime, pTask->taskId);
     }
     else
     {
@@ -956,19 +956,19 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
     client.set_write_timeout(30);
 
     /* 打开本地保存文件 */
-    std::ofstream outFile(szSavePath, std::ios::binary | std::ios::trunc);
+    std::ofstream outFile(pstrSavePath, std::ios::binary | std::ios::trunc);
     if (!outFile.is_open())
     {
-        NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile open save file failed: %s", szSavePath);
+        NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile open save file failed: %s", pstrSavePath);
         CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
         return FALSE;
     }
 
     /* HTTP响应状态记录：默认失败，ResponseHandler中置为成功 */
-    std::atomic<int>  httpStatus{0};
+    std::atomic<int>  nHttpStatus{0};
     /* 累计已下载字节数：用于进度回调与状态查询 */
-    std::atomic<UINT64> downloaded{0};
-    DownloadClientGuard clientGuard(task, &client);
+    std::atomic<UINT64> uDownloaded{0};
+    DownloadClientGuard clientGuard(pTask, &client);
 
     /*
      * 总字节数估算：设备以 chunked 方式输出，通常拿不到真实总长，
@@ -976,108 +976,108 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
      * 后续若响应头给出合法 Content-Length 则以响应头为准。
      * 估算值仅用于进度展示，不能作为下载完成条件。
      */
-    UINT64 totalBytes = 0;
+    UINT64 uTotalBytes = 0;
     {
-        INT32 durationSec = nEndTime - nStartTime;
-        if (durationSec <= 0) durationSec = 1;
+        INT32 nDurationSec = nEndTime - nStartTime;
+        if (nDurationSec <= 0) nDurationSec = 1;
         const UINT64 kBitrateBps = 3ULL * 1024ULL * 1024ULL;  /* 3 Mbps */
-        UINT64 est = static_cast<UINT64>(durationSec) * kBitrateBps / 8ULL;
-        if (est < 1024ULL * 1024ULL) est = 1024ULL * 1024ULL;
-        totalBytes = est;
+        UINT64 uEst = static_cast<UINT64>(nDurationSec) * kBitrateBps / 8ULL;
+        if (uEst < 1024ULL * 1024ULL) uEst = 1024ULL * 1024ULL;
+        uTotalBytes = uEst;
     }
 
     /*
      * 响应头处理：取HTTP状态码，并尝试用 Content-Length / X-Total-Estimate-Bytes
      * 覆盖估算总量（非法值一律忽略，保留估算值）。
      */
-    auto respHandler = [&httpStatus, &totalBytes](const httplib::Response& resp) -> bool {
-        httpStatus = resp.status;
-        const UINT64 MAX_REASONABLE = 16384ULL * 1024ULL * 1024ULL * 1024ULL; /* 16TB */
+    auto respHandler = [&nHttpStatus, &uTotalBytes](const httplib::Response& resp) -> bool {
+        nHttpStatus = resp.status;
+        const UINT64 kMaxReasonable = 16384ULL * 1024ULL * 1024ULL * 1024ULL; /* 16TB */
 
-        auto try_apply_header = [&](const char* headerName) -> bool {
-            auto it = resp.headers.find(headerName);
+        auto tryApplyHeader = [&](const char* pstrHeaderName) -> bool {
+            auto it = resp.headers.find(pstrHeaderName);
             if (it == resp.headers.end()) return false;
-            const std::string& s = it->second;
+            const std::string& strHeaderValue = it->second;
             try {
-                UINT64 v = static_cast<UINT64>(std::stoull(s));
-                if (v > 0 && v <= MAX_REASONABLE) {
-                    totalBytes = v;
+                UINT64 uValue = static_cast<UINT64>(std::stoull(strHeaderValue));
+                if (uValue > 0 && uValue <= kMaxReasonable) {
+                    uTotalBytes = uValue;
                     return true;
                 }
                 NETSDK_LOG_MESSAGE_WARN("[NetTVSDK] NET_clientDownloadRecordFile ignore invalid %s=%s",
-                                        headerName, s.c_str());
+                                        pstrHeaderName, strHeaderValue.c_str());
                 return false;
             } catch (...) {
                 NETSDK_LOG_MESSAGE_WARN("[NetTVSDK] NET_clientDownloadRecordFile %s parse failed: %s",
-                                        headerName, s.c_str());
+                                        pstrHeaderName, strHeaderValue.c_str());
                 return false;
             }
         };
 
-        if (!try_apply_header("Content-Length")) {
-            try_apply_header("X-Total-Estimate-Bytes");
+        if (!tryApplyHeader("Content-Length")) {
+            tryApplyHeader("X-Total-Estimate-Bytes");
         }
 
         NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_clientDownloadRecordFile resp status=%d, content-type=%s, total(estimate/header)=%llu",
                                 resp.status,
                                 resp.get_header_value("Content-Type").c_str(),
-                                (unsigned long long)totalBytes);
+                                (unsigned long long)uTotalBytes);
         return true;
     };
 
     /* 跨lambda共享"本地写文件是否真的失败" */
     std::atomic<bool> bWriteFileFailed{false};
-    std::atomic<int>  bWriteFileErrno{0};
+    std::atomic<int>  nWriteFileErrno{0};
 
     /*
      * 数据接收回调：逐段写文件 + 进度回调。
      * 取消请求置位后立即返回false，让httplib尽快中止本次传输。
      */
-    auto contentReceiver = [&outFile, &downloaded, &totalBytes, &bWriteFileFailed, &bWriteFileErrno,
-                           cbProgress, lpUserData, task](
-                                const char* data, size_t size) -> bool {
-        if (task && task->cancelRequested.load())
+    auto contentReceiver = [&outFile, &uDownloaded, &uTotalBytes, &bWriteFileFailed, &nWriteFileErrno,
+                           cbProgress, lpUserData, pTask](
+                                const char* pstrData, size_t uSize) -> bool {
+        if (pTask && pTask->cancelRequested.load())
         {
             return false;
         }
-        if (size == 0) {
+        if (uSize == 0) {
             return true; /* 0字节chunk（如终止符），不处理，继续 */
         }
         if (!outFile.is_open()) {
             return false;
         }
-        outFile.write(data, static_cast<std::streamsize>(size));
+        outFile.write(pstrData, static_cast<std::streamsize>(uSize));
         if (outFile.good())
         {
-            downloaded += static_cast<UINT64>(size);
+            uDownloaded += static_cast<UINT64>(uSize);
 
             /* 总量在下载结束前不动态扩展，避免进度从100%回退。 */
-            if (task)
+            if (pTask)
             {
-                task->downloadedBytes = downloaded.load();
-                task->totalBytes = totalBytes;
+                pTask->downloadedBytes = uDownloaded.load();
+                pTask->totalBytes = uTotalBytes;
             }
             if (cbProgress)
             {
                 /* 回调始终报告真实下载量；百分比上限由调用方处理。 */
-                cbProgress(downloaded.load(), totalBytes, lpUserData);
+                cbProgress(uDownloaded.load(), uTotalBytes, lpUserData);
             }
             return true;
         }
         else
         {
-            int e = errno;
+            int nErrno = errno;
             bWriteFileFailed = true;
-            bWriteFileErrno  = e;
+            nWriteFileErrno  = nErrno;
             NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile write file FAILED at %llu bytes, size_request=%zu, errno=%d",
-                                     (unsigned long long)downloaded.load(), size, e);
+                                     (unsigned long long)uDownloaded.load(), uSize, nErrno);
             return false; /* 通知httplib取消传输 */
         }
     };
 
-    if (task)
+    if (pTask)
     {
-        task->status = NET_DOWNLOAD_TASK_RUNNING;
+        pTask->status = NET_DOWNLOAD_TASK_RUNNING;
     }
     auto res = client.Get(strPath.c_str(), respHandler, contentReceiver);
 
@@ -1085,7 +1085,7 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
     outFile.flush();
     outFile.close();
 
-    UINT64 dl = downloaded.load();
+    UINT64 uDl = uDownloaded.load();
 
     /* ==================== 结束判断逻辑 ====================
      * 1. 本地写文件失败：铁定失败
@@ -1101,29 +1101,29 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
     if (bWriteFileFailed)
     {
         NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile aborted: local file write failed, errno=%d, downloaded=%llu bytes, save=%s",
-                                 (int)bWriteFileErrno, (unsigned long long)dl, szSavePath);
-        if (task) task->resultError = NET_E_TRANSFILE_FAIL;
+                                 (int)nWriteFileErrno, (unsigned long long)uDl, pstrSavePath);
+        if (pTask) pTask->resultError = NET_E_TRANSFILE_FAIL;
         CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
         return FALSE;
     }
 
     /* #2 HTTP状态码非200 */
-    if (httpStatus != 0 && httpStatus != NET_HTTP_RESP_CODE_SUCCESS)
+    if (nHttpStatus != 0 && nHttpStatus != NET_HTTP_RESP_CODE_SUCCESS)
     {
         /* 409 = 该通道已有下载任务在跑。设备端对同一通道做了互斥（rfs 库的读/搜索
          * 状态按通道共享，同通道并行会让后者输出残缺），这里单独报"忙"，
          * 让调用方在前一个任务结束后重试，而不是笼统的传输失败。 */
-        if (httpStatus.load() == NET_HTTP_RESP_CODE_CONFLICT)
+        if (nHttpStatus.load() == NET_HTTP_RESP_CODE_CONFLICT)
         {
             NETSDK_LOG_MESSAGE_WARN("[NetTVSDK] NET_clientDownloadRecordFile aborted: channel busy (http 409), downloaded=%llu bytes",
-                                    (unsigned long long)dl);
-            if (task) task->resultError = NET_E_BUSY;
+                                    (unsigned long long)uDl);
+            if (pTask) pTask->resultError = NET_E_BUSY;
             CErrorManage::instance()->SetLastError(NET_E_BUSY);
             return FALSE;
         }
         NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile aborted: http status=%d, downloaded=%llu bytes",
-                                 httpStatus.load(), (unsigned long long)dl);
-        if (task) task->resultError = NET_E_TRANSFILE_FAIL;
+                                 nHttpStatus.load(), (unsigned long long)uDl);
+        if (pTask) pTask->resultError = NET_E_TRANSFILE_FAIL;
         CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
         return FALSE;
     }
@@ -1131,50 +1131,50 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
     /* #3 HTTP流读取错误。正常 chunked EOF 会返回有效响应，不会进入此分支。 */
     if (!res)
     {
-        if (task && task->cancelRequested.load())
+        if (pTask && pTask->cancelRequested.load())
         {
-            task->status = NET_DOWNLOAD_TASK_CANCELED;
-            task->resultError = NET_E_TRANSFILE_FAIL;
+            pTask->status = NET_DOWNLOAD_TASK_CANCELED;
+            pTask->resultError = NET_E_TRANSFILE_FAIL;
             CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
             return FALSE;
         }
-        const int errCode = static_cast<int>(res.error());
+        const int nErrCode = static_cast<int>(res.error());
         NETSDK_LOG_MESSAGE_ERROR("[NetTVSDK] NET_clientDownloadRecordFile httplib error=%d, downloaded=%llu bytes, httpStatus=%d; partial file is not successful",
-                                 errCode, (unsigned long long)dl, httpStatus.load());
-        if (task) task->resultError = NET_E_TRANSFILE_FAIL;
+                                 nErrCode, (unsigned long long)uDl, nHttpStatus.load());
+        if (pTask) pTask->resultError = NET_E_TRANSFILE_FAIL;
         CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
         return FALSE;
     }
 
     /* #4 成功（可能是0字节） */
-    if (dl == 0)
+    if (uDl == 0)
     {
         NETSDK_LOG_MESSAGE_WARN("[NetTVSDK] NET_clientDownloadRecordFile success but 0 bytes downloaded (empty segment?), status=%d",
-                                httpStatus.load());
+                                nHttpStatus.load());
     }
 
     /* 下载真正结束后才发送一次"完成"回调，避免估算总量造成提前100%。 */
-    if (task && task->cancelRequested.load())
+    if (pTask && pTask->cancelRequested.load())
     {
-        task->status = NET_DOWNLOAD_TASK_CANCELED;
-        task->resultError = NET_E_TRANSFILE_FAIL;
+        pTask->status = NET_DOWNLOAD_TASK_CANCELED;
+        pTask->resultError = NET_E_TRANSFILE_FAIL;
         CErrorManage::instance()->SetLastError(NET_E_TRANSFILE_FAIL);
         return FALSE;
     }
-    if (dl > 0 && cbProgress)
+    if (uDl > 0 && cbProgress)
     {
-        cbProgress(dl, dl, lpUserData);
+        cbProgress(uDl, uDl, lpUserData);
     }
-    if (task)
+    if (pTask)
     {
-        task->downloadedBytes = dl;
-        task->totalBytes = dl;
-        task->status = NET_DOWNLOAD_TASK_SUCCEEDED;
-        task->resultError = NET_E_SUCCEED;
+        pTask->downloadedBytes = uDl;
+        pTask->totalBytes = uDl;
+        pTask->status = NET_DOWNLOAD_TASK_SUCCEEDED;
+        pTask->resultError = NET_E_SUCCEED;
     }
 
     NETSDK_LOG_MESSAGE_INFO("[NetTVSDK] NET_clientDownloadRecordFile success, downloaded=%llu bytes, save=%s",
-                            (unsigned long long)dl, szSavePath);
+                            (unsigned long long)uDl, pstrSavePath);
 
     CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
     return TRUE;
@@ -1185,10 +1185,10 @@ NET_API BOOL STDCALL NET_clientDownloadRecordFile(IN LPVOID lpUserID,
  */
 NET_API BOOL STDCALL NET_clientStartDownloadRecordFile(IN  LPVOID lpUserID,
                                                        IN  INT32 nChannelID,
-                                                       IN  const CHAR* szDate,
+                                                       IN  const CHAR* pstrDate,
                                                        IN  INT32 nStartTime,
                                                        IN  INT32 nEndTime,
-                                                       IN  const CHAR* szSavePath,
+                                                       IN  const CHAR* pstrSavePath,
                                                        IN  NET_DownloadProgressCb cbProgress,
                                                        IN  LPVOID lpUserData,
                                                        OUT LPVOID* phTask)
@@ -1203,75 +1203,75 @@ NET_API BOOL STDCALL NET_clientStartDownloadRecordFile(IN  LPVOID lpUserID,
     /* 异步接口在创建线程前完成参数和SDK状态校验，避免"启动成功"后才发现参数错误。 */
     CHECK_SDK_INIT(FALSE);
     if (!lpUserID || nChannelID < 0 ||
-        !szDate || szDate[0] == '\0' ||
+        !pstrDate || pstrDate[0] == '\0' ||
         nStartTime < 0 || nEndTime <= nStartTime ||
-        !szSavePath || szSavePath[0] == '\0')
+        !pstrSavePath || pstrSavePath[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
     DownloadTaskPtr task = std::make_shared<DownloadTask>();
-    DownloadTask* rawTask = task.get();
-    rawTask->userId = lpUserID;
-    rawTask->channelId = nChannelID;
-    rawTask->taskId = NetTV_MakeDownloadTaskId();
+    DownloadTask* pRawTask = task.get();
+    pRawTask->userId = lpUserID;
+    pRawTask->channelId = nChannelID;
+    pRawTask->taskId = NetTV_MakeDownloadTaskId();
     try
     {
-        rawTask->worker = std::thread([rawTask, lpUserID, nChannelID, date = std::string(szDate),
-                                       nStartTime, nEndTime, path = std::string(szSavePath),
+        pRawTask->worker = std::thread([pRawTask, lpUserID, nChannelID, date = std::string(pstrDate),
+                                       nStartTime, nEndTime, path = std::string(pstrSavePath),
                                        cbProgress, lpUserData]() {
-            g_activeDownloadTask = rawTask;
-            BOOL result = FALSE;
-            INT32 workerError = NET_E_SUCCEED;
+            g_activeDownloadTask = pRawTask;
+            BOOL bResult = FALSE;
+            INT32 nWorkerError = NET_E_SUCCEED;
             try
             {
-                rawTask->status = NET_DOWNLOAD_TASK_RUNNING;
+                pRawTask->status = NET_DOWNLOAD_TASK_RUNNING;
                 /* 若用户在请求真正发起前就取消了，则不再发起下载，避免出现
                  * "stop() 早于 Get() 生效" 导致连接被拉起的窗口。 */
-                if (rawTask->cancelRequested.load())
+                if (pRawTask->cancelRequested.load())
                 {
-                    workerError = NET_E_TRANSFILE_FAIL;
-                    CErrorManage::instance()->SetLastError(workerError);
-                    result = FALSE;
+                    nWorkerError = NET_E_TRANSFILE_FAIL;
+                    CErrorManage::instance()->SetLastError(nWorkerError);
+                    bResult = FALSE;
                 }
                 else
                 {
-                    result = NET_clientDownloadRecordFile(lpUserID, nChannelID, date.c_str(),
+                    bResult = NET_clientDownloadRecordFile(lpUserID, nChannelID, date.c_str(),
                                                           nStartTime, nEndTime, path.c_str(),
                                                           cbProgress, lpUserData);
-                    workerError = CErrorManage::instance()->GetLastError();
+                    nWorkerError = CErrorManage::instance()->GetLastError();
                 }
             }
             catch (...)
             {
-                workerError = NET_E_TRANSFILE_FAIL;
-                CErrorManage::instance()->SetLastError(workerError);
-                result = FALSE;
+                nWorkerError = NET_E_TRANSFILE_FAIL;
+                CErrorManage::instance()->SetLastError(nWorkerError);
+                bResult = FALSE;
             }
             g_activeDownloadTask = nullptr;
-            if (rawTask->cancelRequested.load())
+            if (pRawTask->cancelRequested.load())
             {
-                rawTask->status = NET_DOWNLOAD_TASK_CANCELED;
-                rawTask->resultError = (workerError == NET_E_SUCCEED)
+                pRawTask->status = NET_DOWNLOAD_TASK_CANCELED;
+                pRawTask->resultError = (nWorkerError == NET_E_SUCCEED)
                                            ? NET_E_TRANSFILE_FAIL
-                                           : workerError;
+                                           : nWorkerError;
             }
             else
             {
-                rawTask->status = result ? NET_DOWNLOAD_TASK_SUCCEEDED
+                pRawTask->status = bResult ? NET_DOWNLOAD_TASK_SUCCEEDED
                                          : NET_DOWNLOAD_TASK_FAILED;
-                rawTask->resultError = result
+                pRawTask->resultError = bResult
                                            ? NET_E_SUCCEED
-                                           : ((workerError == NET_E_SUCCEED)
+                                           : ((nWorkerError == NET_E_SUCCEED)
                                                   ? NET_E_TRANSFILE_FAIL
-                                                  : workerError);
+                                                  : nWorkerError);
             }
             {
-                std::lock_guard<std::mutex> lock(rawTask->completeMutex);
-                rawTask->completed = true;
+                std::lock_guard<std::mutex> lock(pRawTask->completeMutex);
+                pRawTask->completed = true;
             }
-            rawTask->completeCv.notify_all();
+            pRawTask->completeCv.notify_all();
         });
     }
     catch (...)
@@ -1282,9 +1282,9 @@ NET_API BOOL STDCALL NET_clientStartDownloadRecordFile(IN  LPVOID lpUserID,
 
     {
         std::lock_guard<std::mutex> lock(g_downloadTaskRegistryMutex);
-        g_downloadTaskRegistry.emplace(rawTask, task);
+        g_downloadTaskRegistry.emplace(pRawTask, task);
     }
-    *phTask = rawTask;
+    *phTask = pRawTask;
     CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
     return TRUE;
 }
@@ -1300,10 +1300,10 @@ NET_API BOOL STDCALL NET_clientCancelDownloadRecordFile(IN LPVOID hTask)
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
-    INT32 status = task->status.load();
-    if (status == NET_DOWNLOAD_TASK_SUCCEEDED ||
-        status == NET_DOWNLOAD_TASK_FAILED ||
-        status == NET_DOWNLOAD_TASK_CANCELED)
+    INT32 nStatus = task->status.load();
+    if (nStatus == NET_DOWNLOAD_TASK_SUCCEEDED ||
+        nStatus == NET_DOWNLOAD_TASK_FAILED ||
+        nStatus == NET_DOWNLOAD_TASK_CANCELED)
     {
         return TRUE;
     }
@@ -1311,7 +1311,7 @@ NET_API BOOL STDCALL NET_clientCancelDownloadRecordFile(IN LPVOID hTask)
     /* 先置位，避免设备停止请求返回前继续写入本地文件。 */
     task->cancelRequested = true;
 
-    /* 通过 SDK 专用 DeviceControl/CUSTOM 入口把 taskId 放进 szExt 转发给设备，
+    /* 通过 SDK 专用 DeviceControl/CUSTOM 入口把 taskId 放进 strExt 转发给设备，
      * 由 control 再发送给 file_system，只停止当前SDK任务，不影响其它任务。 */
     NET_DeviceControlInfo_S stopInfo;
     std::memset(&stopInfo, 0, sizeof(stopInfo));
@@ -1321,20 +1321,20 @@ NET_API BOOL STDCALL NET_clientCancelDownloadRecordFile(IN LPVOID hTask)
     stopInfo.uCommand = NET_CUSTOM_CTRL_STOP_SDK_DOWNLOAD_RECORD_FILE;
     stopInfo.uParam1 = -1;
     stopInfo.uParam2 = 0;
-    if (task->taskId.size() >= sizeof(stopInfo.szExt))
+    if (task->taskId.size() >= sizeof(stopInfo.strExt))
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
-    std::memcpy(stopInfo.szExt, task->taskId.c_str(), task->taskId.size() + 1);
+    std::memcpy(stopInfo.strExt, task->taskId.c_str(), task->taskId.size() + 1);
 
-    BOOL remoteStopOk = NET_clientDeviceControl(task->userId, &stopInfo);
-    if (!remoteStopOk)
+    BOOL bRemoteStopOk = NET_clientDeviceControl(task->userId, &stopInfo);
+    if (!bRemoteStopOk)
     {
-        const INT32 remoteError = CErrorManage::instance()->GetLastError();
+        const INT32 nRemoteError = CErrorManage::instance()->GetLastError();
         NETSDK_LOG_MESSAGE_WARN("[NetTVSDK] NET_clientCancelDownloadRecordFile: device stop failed, channel=%d, error=%d",
-                                task->channelId, remoteError);
-        CErrorManage::instance()->SetLastError(remoteError);
+                                task->channelId, nRemoteError);
+        CErrorManage::instance()->SetLastError(nRemoteError);
     }
 
     /* 无论设备端请求是否成功，都必须停止本地HTTP接收，避免句柄/线程泄漏。 */
@@ -1355,8 +1355,8 @@ NET_API BOOL STDCALL NET_clientCancelDownloadRecordFile(IN LPVOID hTask)
  */
 NET_API BOOL STDCALL NET_clientGetDownloadRecordFileStatus(IN  LPVOID hTask,
                                                            OUT INT32* pnStatus,
-                                                           OUT UINT64* pdwDownloadedBytes,
-                                                           OUT UINT64* pdwTotalBytes)
+                                                           OUT UINT64* pulDownloadedBytes,
+                                                           OUT UINT64* pulTotalBytes)
 {
     DownloadTaskPtr task = FindDownloadTask(hTask);
     if (!task)
@@ -1365,8 +1365,8 @@ NET_API BOOL STDCALL NET_clientGetDownloadRecordFileStatus(IN  LPVOID hTask,
         return FALSE;
     }
     if (pnStatus) *pnStatus = task->status.load();
-    if (pdwDownloadedBytes) *pdwDownloadedBytes = task->downloadedBytes.load();
-    if (pdwTotalBytes) *pdwTotalBytes = task->totalBytes.load();
+    if (pulDownloadedBytes) *pulDownloadedBytes = task->downloadedBytes.load();
+    if (pulTotalBytes) *pulTotalBytes = task->totalBytes.load();
     return TRUE;
 }
 
@@ -1374,7 +1374,7 @@ NET_API BOOL STDCALL NET_clientGetDownloadRecordFileStatus(IN  LPVOID hTask,
  * @brief 等待下载任务结束
  */
 NET_API BOOL STDCALL NET_clientWaitDownloadRecordFile(IN LPVOID hTask,
-                                                      IN UINT32 dwTimeoutMs)
+                                                      IN UINT32 uTimeoutMs)
 {
     DownloadTaskPtr task = FindDownloadTask(hTask);
     if (!task)
@@ -1383,12 +1383,12 @@ NET_API BOOL STDCALL NET_clientWaitDownloadRecordFile(IN LPVOID hTask,
         return FALSE;
     }
     std::unique_lock<std::mutex> lock(task->completeMutex);
-    if (dwTimeoutMs == 0xFFFFFFFFU)
+    if (uTimeoutMs == 0xFFFFFFFFU)
     {
         task->completeCv.wait(lock, [task] { return task->completed; });
         return TRUE;
     }
-    return task->completeCv.wait_for(lock, std::chrono::milliseconds(dwTimeoutMs),
+    return task->completeCv.wait_for(lock, std::chrono::milliseconds(uTimeoutMs),
                                      [task] { return task->completed; }) ? TRUE : FALSE;
 }
 
@@ -1476,7 +1476,7 @@ NET_API BOOL STDCALL NET_clientCancelAndReleaseDownloadRecordFile(NET_INOUT LPVO
  */
 NET_API BOOL STDCALL NET_clientGetReplayUrl(IN    LPVOID lpUserID,
                                             INOUT pNET_ReplayUrlInfo_S pstInfo,
-                                            OUT   INT32 *pdwBytesReturned)
+                                            OUT   INT32 *pnBytesReturned)
 {
     CHECK_SDK_INIT(FALSE);
 
@@ -1494,17 +1494,17 @@ NET_API BOOL STDCALL NET_clientGetReplayUrl(IN    LPVOID lpUserID,
         return FALSE;
     }
 
-    std::string body = SDKConvert::to_string(*pstInfo);
-    std::string respBody;
-    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_URL(), body, respBody))
+    std::string strBody = SDKConvert::to_string(*pstInfo);
+    std::string strRespBody;
+    if (!CCommandExecutor::instance()->ExecuteRaw(lpUserID, "POST", NET_API_URL_REPLAY_GET_URL(), strBody, strRespBody))
     {
         return FALSE;
     }
 
-    SDKConvert::to_respStruct(respBody, *pstInfo);
-    if (pdwBytesReturned)
+    SDKConvert::to_respStruct(strRespBody, *pstInfo);
+    if (pnBytesReturned)
     {
-        *pdwBytesReturned = sizeof(NET_ReplayUrlInfo_S);
+        *pnBytesReturned = sizeof(NET_ReplayUrlInfo_S);
     }
 
     return TRUE;
@@ -1517,21 +1517,21 @@ NET_API BOOL STDCALL NET_clientGetReplayUrl(IN    LPVOID lpUserID,
  */
 BOOL STDCALL
 NET_clientUploadFile(IN LPVOID   lpUserID,
-                  IN const CHAR* szFilePath,
-                  IN const CHAR* szRemoteName)
+                  IN const CHAR* pstrFilePath,
+                  IN const CHAR* pstrRemoteName)
 {
-    if (!lpUserID || !szFilePath || !szRemoteName) {
+    if (!lpUserID || !pstrFilePath || !pstrRemoteName) {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
-    std::string remoteName(szRemoteName);
-    std::string url = std::string(NET_API_PATH_UPGRADE_UPLOAD)
-                      + "?" NET_API_PARAM_FILENAME "=" + remoteName;
+    std::string strRemoteName(pstrRemoteName);
+    std::string strUrl = std::string(NET_API_PATH_UPGRADE_UPLOAD)
+                      + "?" NET_API_PARAM_FILENAME "=" + strRemoteName;
 
-    std::string ignoreResp;
+    std::string strIgnoreResp;
     return CCommandExecutor::instance()->ExecuteUpload(
-        lpUserID, "PUT", url, std::string(szFilePath), ignoreResp);
+        lpUserID, "PUT", strUrl, std::string(pstrFilePath), strIgnoreResp);
 }
 
 /**
@@ -1539,18 +1539,18 @@ NET_clientUploadFile(IN LPVOID   lpUserID,
  */
 NET_API BOOL STDCALL
 NET_clientUploadAlarmAudio(IN LPVOID lpUserID,
-                           IN const CHAR* szFilePath,
-                           IN const CHAR* szRemoteName)
+                           IN const CHAR* pstrFilePath,
+                           IN const CHAR* pstrRemoteName)
 {
-    if (!lpUserID || !szFilePath || !szRemoteName) {
+    if (!lpUserID || !pstrFilePath || !pstrRemoteName) {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
-    std::string ignoreResp;
+    std::string strIgnoreResp;
     return CCommandExecutor::instance()->ExecuteUpload(
-        lpUserID, "PUT", NET_API_URL_ALARM_AUDIO_UPLOAD(szRemoteName),
-        std::string(szFilePath), ignoreResp);
+        lpUserID, "PUT", NET_API_URL_ALARM_AUDIO_UPLOAD(pstrRemoteName),
+        std::string(pstrFilePath), strIgnoreResp);
 }
 
 /* ==================== 录像帧流（委托 RecordFrameHub） ==================== */
@@ -1574,10 +1574,10 @@ NET_clientStartRecordFrameStream(IN LPVOID lpUserID,
  */
 NET_API BOOL STDCALL
 NET_clientStopRecordFrameStream(IN LPVOID lpUserID,
-                             IN const CHAR* szStreamId)
+                             IN const CHAR* pstrStreamId)
 {
     CHECK_SDK_INIT(FALSE);
-    return CRecordFrameHub::instance()->StopStream(lpUserID, szStreamId);
+    return CRecordFrameHub::instance()->StopStream(lpUserID, pstrStreamId);
 }
 
 /* ==================== 语音对讲（委托 VoiceComHub） ==================== */
@@ -1599,10 +1599,10 @@ NET_clientStartVoiceCom(IN LPVOID              lpUserID,
  */
 BOOL STDCALL
 NET_clientVoiceComSendData(IN LPVOID       lpUserID,
-                        IN const CHAR*  pData,
-                        IN UINT32       dwSize)
+                        IN const CHAR*  pstrData,
+                        IN UINT32       uSize)
 {
-    return CVoiceComHub::instance()->SendData(lpUserID, pData, dwSize);
+    return CVoiceComHub::instance()->SendData(lpUserID, pstrData, uSize);
 }
 
 /**
@@ -1620,8 +1620,8 @@ NET_clientStopVoiceCom(IN LPVOID lpUserID)
  * @brief 设备发现接口（局域网搜索）
  */
 BOOL STDCALL
-NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
-                        IN  UINT32                           dwTimeoutMs,
+NET_clientSearchDiscovery(IN  const CHAR*                      pstrInterfaceIP,
+                        IN  UINT32                           uTimeoutMs,
                         OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
                         IN  int                              nMaxCount,
                         OUT int*                             pnOutCount)
@@ -1632,8 +1632,8 @@ NET_clientSearchDiscovery(IN  const CHAR*                      szInterfaceIP,
     }
 
     CDiscoveryProber searcher;
-    int ret = searcher.search(szInterfaceIP, dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
-    if (ret < 0) {
+    int nRet = searcher.search(pstrInterfaceIP, uTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
+    if (nRet < 0) {
         CErrorManage::instance()->SetLastError(NET_E_SYSCALL_FALIED);
         return FALSE;
     }
@@ -1654,11 +1654,11 @@ NET_clientSetPoeNetwork(IN const NET_PoeNetworkConfig_S* pstConfig)
     }
 
     CDiscoveryProber prober;
-    const int ret = prober.set_network(*pstConfig);
-    if (ret != 0)
+    const int nRet = prober.set_network(*pstConfig);
+    if (nRet != 0)
     {
         CErrorManage::instance()->SetLastError(
-            ret == -2 ? NET_E_INVALID_PARAM : NET_E_SYSCALL_FALIED);
+            nRet == -2 ? NET_E_INVALID_PARAM : NET_E_SYSCALL_FALIED);
         return FALSE;
     }
 

@@ -53,7 +53,7 @@ void deal(Json::Object* pRootJson, NET_WifiWepKey_S& stInfo, bool bOutStruct)
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Index", stInfo.nIndex);
-    convert.field(pRootJson, "Value", stInfo.szValue);
+    convert.field(pRootJson, "Value", stInfo.strValue);
 }
 
 
@@ -65,31 +65,31 @@ void deal(Json::Object* pRootJson, NET_WifiStaConnect_S& stInfo, bool bOutStruct
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Ssid", stInfo.szSsid);
+    convert.field(pRootJson, "Ssid", stInfo.strSsid);
     convert.field(pRootJson, "SecurityMode", stInfo.nSecurityMode);
-    convert.field(pRootJson, "IpAddress", stInfo.szIpAddress);
-    convert.field(pRootJson, "Password", stInfo.szPassword);
-    convert.field(pRootJson, "Pairwise", stInfo.szPairwise);
+    convert.field(pRootJson, "IpAddress", stInfo.strIpAddress);
+    convert.field(pRootJson, "Password", stInfo.strPassword);
+    convert.field(pRootJson, "Pairwise", stInfo.strPairwise);
     convert.field(pRootJson, "WepKeyLen", stInfo.nWepKeyLen);
     convert.field(pRootJson, "WepIsHex", stInfo.bWepIsHex);
-    convert.field(pRootJson, "AuthAlg", stInfo.szAuthAlg);
+    convert.field(pRootJson, "AuthAlg", stInfo.strAuthAlg);
     convert.field(pRootJson, "WepKeyCount", stInfo.nWepKeyCount);
 
-    convert.field(pRootJson, "EapIdentity", stInfo.szEapIdentity);
-    convert.field(pRootJson, "EapPassword", stInfo.szEapPassword);
-    convert.field(pRootJson, "PeapVersion", stInfo.szPeapVersion);
-    convert.field(pRootJson, "Phase2", stInfo.szPhase2);
-    convert.field(pRootJson, "AnonymousIdentity", stInfo.szAnonymousIdentity);
-    convert.field(pRootJson, "CaCertPath", stInfo.szCaCertPath);
-    convert.field(pRootJson, "PeapLabel", stInfo.szPeapLabel);
+    convert.field(pRootJson, "EapIdentity", stInfo.strEapIdentity);
+    convert.field(pRootJson, "EapPassword", stInfo.strEapPassword);
+    convert.field(pRootJson, "PeapVersion", stInfo.strPeapVersion);
+    convert.field(pRootJson, "Phase2", stInfo.strPhase2);
+    convert.field(pRootJson, "AnonymousIdentity", stInfo.strAnonymousIdentity);
+    convert.field(pRootJson, "CaCertPath", stInfo.strCaCertPath);
+    convert.field(pRootJson, "PeapLabel", stInfo.strPeapLabel);
 
-    convert.field(pRootJson, "TlsIdentity", stInfo.szTlsIdentity);
-    convert.field(pRootJson, "PrivateKeyPasswd", stInfo.szPrivateKeyPasswd);
-    convert.field(pRootJson, "EapolVersion", stInfo.szEapolVersion);
-    convert.field(pRootJson, "ClientCertPath", stInfo.szClientCertPath);
-    convert.field(pRootJson, "PrivateKeyPath", stInfo.szPrivateKeyPath);
-    convert.field(pRootJson, "CtrlInterface", stInfo.szCtrlInterface);
-    convert.field(pRootJson, "InterfaceName", stInfo.szInterfaceName);
+    convert.field(pRootJson, "TlsIdentity", stInfo.strTlsIdentity);
+    convert.field(pRootJson, "PrivateKeyPasswd", stInfo.strPrivateKeyPasswd);
+    convert.field(pRootJson, "EapolVersion", stInfo.strEapolVersion);
+    convert.field(pRootJson, "ClientCertPath", stInfo.strClientCertPath);
+    convert.field(pRootJson, "PrivateKeyPath", stInfo.strPrivateKeyPath);
+    convert.field(pRootJson, "CtrlInterface", stInfo.strCtrlInterface);
+    convert.field(pRootJson, "InterfaceName", stInfo.strInterfaceName);
 
     {
         int nKeyCount = stInfo.nWepKeyCount;
@@ -142,10 +142,10 @@ void deal(Json::Object* pRootJson, NET_4GInfo_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Apn", stInfo.szApn);
-    convert.field(pRootJson, "UserName", stInfo.szUserName);
-    convert.field(pRootJson, "Password", stInfo.szPassword);
-    convert.field(pRootJson, "CallNumber", stInfo.szCallNumber);
+    convert.field(pRootJson, "Apn", stInfo.strApn);
+    convert.field(pRootJson, "UserName", stInfo.strUserName);
+    convert.field(pRootJson, "Password", stInfo.strPassword);
+    convert.field(pRootJson, "CallNumber", stInfo.strCallNumber);
     convert.field(pRootJson, "Mtu", stInfo.nMtu);
     convert.field(pRootJson, "AuthMode", stInfo.nAuthMode);
     convert.field(pRootJson, "NetworkMode", stInfo.nNetworkMode);
@@ -162,11 +162,11 @@ void deal(Json::Object* pRootJson, NET_HotspotInfo_S& stInfo, bool bOutStruct)
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enabled", stInfo.bEnabled);
-    convert.field(pRootJson, "Ssid", stInfo.szSsid);
-    convert.field(pRootJson, "SecurityMode", stInfo.szSecurityMode);
-    convert.field(pRootJson, "EncryptionType", stInfo.szEncryptionType);
-    convert.field(pRootJson, "Password", stInfo.szPassword);
-    convert.field(pRootJson, "ConfirmPassword", stInfo.szConfirmPassword);
+    convert.field(pRootJson, "Ssid", stInfo.strSsid);
+    convert.field(pRootJson, "SecurityMode", stInfo.strSecurityMode);
+    convert.field(pRootJson, "EncryptionType", stInfo.strEncryptionType);
+    convert.field(pRootJson, "Password", stInfo.strPassword);
+    convert.field(pRootJson, "ConfirmPassword", stInfo.strConfirmPassword);
 }
 
 
@@ -179,9 +179,9 @@ void deal(Json::Object* pRootJson, NET_HotspotConnDevice_S& stInfo, bool bOutStr
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Index", stInfo.nIndex);
-    convert.field(pRootJson, "Mac", stInfo.szMac);
-    convert.field(pRootJson, "Ip", stInfo.szIp);
-    convert.field(pRootJson, "ConnTime", stInfo.szConnTime);
+    convert.field(pRootJson, "Mac", stInfo.strMac);
+    convert.field(pRootJson, "Ip", stInfo.strIp);
+    convert.field(pRootJson, "ConnTime", stInfo.strConnTime);
 }
 
 
@@ -193,7 +193,7 @@ void deal(Json::Object* pRootJson, NET_HotspotConnInfo_S& stInfo, bool bOutStruc
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Status", stInfo.szStatus);
+    convert.field(pRootJson, "Status", stInfo.strStatus);
     convert.field(pRootJson, "Total", stInfo.nTotal);
 
     if (!bOutStruct)

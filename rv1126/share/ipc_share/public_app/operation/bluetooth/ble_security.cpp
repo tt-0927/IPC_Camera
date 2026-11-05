@@ -1,5 +1,5 @@
 #include "ble_security.h"
-
+#include "ble_provisioning_define.h"
 #include "dlog.h"
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
@@ -16,7 +16,7 @@ namespace BleProvisioning
 {
 namespace
 {
-const char *kSecretPath = "/opt/course/config/ble_setup_secret";
+const char *kSecretPath = BLE_SETUP_SECRET_FILE;
 const unsigned int kMaxAuthFailures = 5;
 const int64_t kAuthLockSeconds = 60;
 const int64_t kSessionSeconds = 300;
@@ -276,7 +276,9 @@ void BleSecurityManager::resetSession()
 bool BleSecurityManager::requiresSecureSession(uint16_t command)
 {
     /* 认证和心跳保持明文；所有 Wi-Fi、平台业务命令必须使用安全信封。 */
-    return command >= CMD_WIFI_SET_CREDENTIALS && command <= CMD_PLATFORM_GET_STATUS;
+    return (command >= CMD_WIFI_SET_CREDENTIALS &&
+        command <= CMD_PLATFORM_GET_STATUS) ||
+       command == CMD_4G_GET_STATUS;
 }
 
 StatusCode BleSecurityManager::decryptProvisioningPayload(

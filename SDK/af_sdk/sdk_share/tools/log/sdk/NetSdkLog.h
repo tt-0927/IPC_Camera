@@ -58,47 +58,47 @@ extern "C" {          /*C++编译器才能支持，C编译器不支持*/
 typedef void* NetSdkLogHandle_S;
 
 /* 初始化日志
- * logname:日志名称，不能跟其他日志名重复，否则会导致段错误
- * logfile:日志的完整路径跟名称：如：/opt/course/log/control.log
+ * pstrLogName:日志名称，不能跟其他日志名重复，否则会导致段错误
+ * pstrLogFile:日志的完整路径跟名称：如：/opt/course/log/control.log
  *  */
-int initSdkLog(char* logname,char* logfile);
+int initSdkLog(char* pstrLogName,char* pstrLogFile);
 
 /* 初始化对应日志等级的日志文件,使用前一定得先调用initSdkLog()初始化日志环境
- * logname:日志名称，不能跟其他日志名重复，否则会导致段错误
- * logfile:日志的完整路径跟名称：如：/opt/course/log/control.log
- * level:日志等级，目前单独的日志只支持warn，error，user
+ * pstrLogName:日志名称，不能跟其他日志名重复，否则会导致段错误
+ * pstrLogFile:日志的完整路径跟名称：如：/opt/course/log/control.log
+ * nLevel:日志等级，目前单独的日志只支持warn，error，user
  * */
-int initSdkLogLevel(char* logname,char* logfile,int level);
+int initSdkLogLevel(char* pstrLogName,char* pstrLogFile,int nLevel);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief    : 初始化滚动日志 (按大小和数量分割)
  * @note     : 使用滚动日志策略，当文件达到指定大小时进行切换。不能与 initSdkLog() 同时使用。
- * @param    {char*} logname: 日志名称，不能跟其他日志名重复，否则会导致段错误
- * @param    {char*} logfile: 日志的完整路径跟名称：如：/opt/course/log/control.log
- * @param    {int} max_file_size: 单个日志文件的最大大小（单位：字节）
- * @param    {int} max_files: 最大保留的日志文件数量
+ * @param    {char*} pstrLogName: 日志名称，不能跟其他日志名重复，否则会导致段错误
+ * @param    {char*} pstrLogFile: 日志的完整路径跟名称：如：/opt/course/log/control.log
+ * @param    {int} nMaxFileSize: 单个日志文件的最大大小（单位：字节）
+ * @param    {int} nMaxFiles: 最大保留的日志文件数量
  * @return   {int} 0：成功，非0：失败
  */
-int initSdkLogBySize(char *logname, char *logfile, int max_file_size, int max_files);
+int initSdkLogBySize(char *pstrLogName, char *pstrLogFile, int nMaxFileSize, int nMaxFiles);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief    : 初始化对应等级的滚动日志文件 (按大小和数量分割)
  * @note     : 使用前一定得先调用 initSdkLogBySize()初始化日志环境
- * @param    {char*} logname: 日志名称，不能跟其他日志名重复，否则会导致段错误
- * @param    {char*} logfile: 日志的完整路径跟名称：如：/opt/course/log/control.log
- * @param    {int} level: 日志等级，目前单独的日志只支持warn，error，user
- * @param    {int} max_file_size: 单个日志文件的最大大小（单位：字节）
- * @param    {int} max_files: 最大保留的日志文件数量
+ * @param    {char*} pstrLogName: 日志名称，不能跟其他日志名重复，否则会导致段错误
+ * @param    {char*} pstrLogFile: 日志的完整路径跟名称：如：/opt/course/log/control.log
+ * @param    {int} nLevel: 日志等级，目前单独的日志只支持warn，error，user
+ * @param    {int} nMaxFileSize: 单个日志文件的最大大小（单位：字节）
+ * @param    {int} nMaxFiles: 最大保留的日志文件数量
  * @return   {int} 0：成功，非0：失败
  */
-int initSdkLogLevelBySize(char *logname, char *logfile, int level, int max_file_size, int max_files);
+int initSdkLogLevelBySize(char *pstrLogName, char *pstrLogFile, int nLevel, int nMaxFileSize, int nMaxFiles);
 
 /* 设置日志输出等级
- * level:日志等级
+ * nLevel:日志等级
  * */
-int setLogLevel(int level);
+int setLogLevel(int nLevel);
 
 /* 反初始化日志 */
 int uninitSdkLog();
@@ -107,16 +107,16 @@ int uninitSdkLog();
 int syncPrintf(bool bStatus);
 
 /*获取当前时间*/
-int getCurrTime(char *outputBuf, char *timeFormat);
+int getCurrTime(char *pstrOutputBuf, char *pstrTimeFormat);
 
 /*设置立即刷新等级*/
 int setFlushLevel(int nLevel);
 
 /*查找并跳过ANSI转义序列 */
-void skip_ansi_escape_sequences(char *str);
+void skip_ansi_escape_sequences(char *pstrStr);
 
 /* 打印 */
-int netSdk_log(int level, const char *filename_in, int line_in, const char *funcname_in, const char *format, ...);
+int netSdk_log(int nLevel, const char *pstrFileName, int nLine, const char *pstrFuncName, const char *pstrFormat, ...);
 
 #define NETSDK_LOG_MESSAGE_TRACE(format, ...) \
     do { \

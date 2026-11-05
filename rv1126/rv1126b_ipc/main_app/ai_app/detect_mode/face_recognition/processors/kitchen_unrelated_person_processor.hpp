@@ -9,10 +9,11 @@
 #include <vector>
 
 #include "alarm_define.h"              /* Alarm::KitchenUnrelatedPersonEntry_S */
-#include "face_recognition_define.hpp" /* FaceTargetResult_S */
+#include "face_attribute_model.hpp"   /* FaceAttributeTarget_S */
+#include "face_recognition_define.hpp" /* FaceBaseTarget_S */
 
 /**
- * @brief 后厨无关人员进入事件处理器：人脸检测过灵敏度门槛且属性分析判定未戴口罩的目标产出候选
+ * @brief 后厨无关人员进入事件处理器：人脸检测过灵敏度门槛且属性分析判定未戴口罩的目标产出候选下标
  * @note 纯规则判定，不碰模型与图像；规则可来自配置线程，算法线程串行 process
  */
 class CKitchenUnrelatedPersonProcessor
@@ -22,11 +23,13 @@ public:
     void setRules(const Alarm::KitchenUnrelatedPersonEntry_S &stConfig);
 
     /**
-     * @brief  一帧检测上下文 → 候选目标
+     * @brief  基础目标 + 属性分析结果（均对齐输入向量）→ 候选下标
      * @return 候选数量，无候选时为 0
      */
-    int process(const DetectContext_S &stDetectContext,
-                std::vector<FaceTargetResult_S> &vstCandidates);
+    int process(const std::vector<FaceBaseTarget_S> &vstTargets,
+                const std::vector<FaceAttributeTarget_S> &vstAttributeResults,
+                const std::vector<bool> &vbAttributeReady,
+                std::vector<int> &vstCandidateIndices);
 
 private:
     static float sensitivityToConfidence(unsigned int nSensitivity);

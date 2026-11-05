@@ -5243,12 +5243,7 @@ static NET_COMMON_ECODE_E cb_set_open_flame_leave_info(INT32 dwChannelID, LPVOID
     Alarm::OpenFlameLeaveDetection_S stCfg = {};
     TvSdkConvert::ToOpenFlameLeave(*pIn, stCfg);
     return tvsdk_set_event_config(AC_SET_OPEN_FLAME_LEAVE_CFG, Convert::to_string(stCfg));
-}
-
-/* ================= 平安校园扩展事件（排队拥挤/后厨无关人员/门禁异常/社交关系/
- *   后厨穿戴/消防设施/打架斗殴/鼠患） ================= */
-
-/* 排队拥挤 */
+}/* 排队拥挤 */
 /**
  * @brief 获取排队拥挤配置。
  * @param [in] dwChannelID 通道号，IPC 单通道设备忽略该参数。
@@ -5267,7 +5262,7 @@ static NET_COMMON_ECODE_E cb_get_queue_crowding_info(INT32 dwChannelID, LPVOID l
 
     Alarm::QueueCrowdingDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillQueueCrowdingInfo(stCfg, *(NET_QueueCrowdingInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillQueueCrowdingInfo(stCfg, *(pNET_QueueCrowdingInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5320,7 +5315,7 @@ static NET_COMMON_ECODE_E cb_get_kitchen_unrelated_person_info(INT32 dwChannelID
 
     Alarm::KitchenUnrelatedPersonEntry_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillKitchenUnrelatedPersonInfo(stCfg, *(NET_KitchenUnrelatedPersonInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillKitchenUnrelatedPersonInfo(stCfg, *(pNET_KitchenUnrelatedPersonInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5371,7 +5366,7 @@ static NET_COMMON_ECODE_E cb_get_access_control_abnormal_info(INT32 dwChannelID,
 
     Alarm::AccessControlAbnormalPassage_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillAccessControlAbnormalInfo(stCfg, *(NET_AccessControlAbnormalInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillAccessControlAbnormalInfo(stCfg, *(pNET_AccessControlAbnormalInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5423,7 +5418,7 @@ static NET_COMMON_ECODE_E cb_get_social_relationship_info(INT32 dwChannelID, LPV
 
     Alarm::SocialRelationshipAnalysis_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillSocialRelationshipInfo(stCfg, *(NET_SocialRelationshipInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillSocialRelationshipInfo(stCfg, *(pNET_SocialRelationshipInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5474,7 +5469,7 @@ static NET_COMMON_ECODE_E cb_get_kitchen_clothing_info(INT32 dwChannelID, LPVOID
 
     Alarm::KitchenClothingCompliance_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillKitchenClothingInfo(stCfg, *(NET_KitchenClothingInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillKitchenClothingInfo(stCfg, *(pNET_KitchenClothingInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5526,7 +5521,7 @@ static NET_COMMON_ECODE_E cb_get_fire_equipment_abnormal_info(INT32 dwChannelID,
 
     Alarm::FireEquipmentAbnormalDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillFireEquipmentAbnormalInfo(stCfg, *(NET_FireEquipmentAbnormalInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillFireEquipmentAbnormalInfo(stCfg, *(pNET_FireEquipmentAbnormalInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -5578,7 +5573,7 @@ static NET_COMMON_ECODE_E cb_get_fight_detection_info(INT32 dwChannelID, LPVOID 
 
     Alarm::FightDetection_S stCfg = {};
     Convert::to_struct(outJson, stCfg);
-    TvSdkConvert::FillFightDetectionInfo(stCfg, *(NET_FightDetectionInfo_S *)lpOutBuffer);
+    TvSdkConvert::FillFightDetectionInfo(stCfg, *(pNET_FightDetectionInfo_S)lpOutBuffer);
     return NET_E_SUCCEED;
 }
 
@@ -7561,6 +7556,7 @@ static NET_COMMON_ECODE_E cb_get_face_capture_info(INT32 dwChannelID, LPVOID lpO
     pOut->uChannel = 0;
     return NET_E_SUCCEED;
 }
+
 /**
  * @brief 设置旧版人脸抓拍配置，新人脸能力先读取当前配置并保留协议未暴露的开关。
  * @param [in] dwChannelID SDK通道号，沿用单通道设备处理方式。
@@ -8425,7 +8421,6 @@ void register_all()
     NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(cb_set_key_area_abnormal_stay_info);
     NET_serverRegisterGetOpenFlameLeaveInfoCb(cb_get_open_flame_leave_info);
     NET_serverRegisterSetOpenFlameLeaveInfoCb(cb_set_open_flame_leave_info);
-    /* 平安校园扩展事件（614~629） */
     NET_serverRegisterGetQueueCrowdingInfoCb(cb_get_queue_crowding_info);
     NET_serverRegisterSetQueueCrowdingInfoCb(cb_set_queue_crowding_info);
     NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(cb_get_kitchen_unrelated_person_info);

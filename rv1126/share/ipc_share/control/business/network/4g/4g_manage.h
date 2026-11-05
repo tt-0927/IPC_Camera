@@ -106,6 +106,15 @@ public:
     RetCode setConfig(const ::Network::Network_4G_Config_t &config);
     RetCode connect();
     bool isWiredConnected();
+    /** ECM/PDP数据链路、注册状态和usb0地址均已就绪。 */
+    bool isDataConnected() const
+    {
+        return m_4gDataConnected.load();
+    }
+    /** 通过绑定usb0的TCP探测判断4G是否真正能够访问公网。 */
+    bool has4GInternetAccess() const;
+    /** 4G优先；4G不可用时允许在线的有线接口作为平台出口。 */
+    bool hasUsableInternetAccess();
     void updateRouteIfNeeded(bool bWiredDisconnected);
     bool waitModuleReady();
 

@@ -531,8 +531,8 @@ void STDCALL OnChannelStatus(NET_ChannelInfo_S *pInfo, LPVOID pUserData)
                ch, pInfo->byOnline, onlineStr(pInfo->byOnline),
                pInfo->nDevState, pInfo->nRecordStatus);
         printf("  通道名 / ChnName: %s  设备名 / DevName: %s  IP: %s  序列号 / Serial: %s\n",
-               pInfo->szChannelName, pInfo->szDevName,
-               pInfo->szDeviceIP, pInfo->szSerialNum);
+               pInfo->strChannelName, pInfo->strDevName,
+               pInfo->strDeviceIP, pInfo->strSerialNum);
         s_first = false;
     } else if (it == s_prev.end() ||
                it->second.online != pInfo->byOnline ||
@@ -553,18 +553,18 @@ void STDCALL OnChannelStatus(NET_ChannelInfo_S *pInfo, LPVOID pUserData)
             oss << "  设备状态 / DevState:  ???  -->  " << (int)pInfo->nDevState << "\n";
             oss << "  录像状态 / RecState:  ???  -->  " << (int)pInfo->nRecordStatus << "\n";
         }
-        oss << "  通道名 / ChnName: " << pInfo->szChannelName
-            << "  设备名 / DevName: " << pInfo->szDevName
-            << "  IP: " << pInfo->szDeviceIP
-            << "  序列号 / Serial: " << pInfo->szSerialNum;
+        oss << "  通道名 / ChnName: " << pInfo->strChannelName
+            << "  设备名 / DevName: " << pInfo->strDevName
+            << "  IP: " << pInfo->strDeviceIP
+            << "  序列号 / Serial: " << pInfo->strSerialNum;
         printf("%s\n", oss.str().c_str());
    } else {
         printf("[通道状态/Channel Status] 通道 / Channel:%u  在线 / Online=%d(%s)  设备状态 / DevState=%d  录像状态 / RecState=%d\n",
                ch, pInfo->byOnline, onlineStr(pInfo->byOnline),
                pInfo->nDevState, pInfo->nRecordStatus);
         printf("  通道名 / ChnName: %s  设备名 / DevName: %s  IP: %s  序列号 / Serial: %s\n",
-               pInfo->szChannelName, pInfo->szDevName,
-               pInfo->szDeviceIP, pInfo->szSerialNum);
+               pInfo->strChannelName, pInfo->strDevName,
+               pInfo->strDeviceIP, pInfo->strSerialNum);
     }
 
     s_prev[ch] = {pInfo->byOnline, pInfo->nDevState, pInfo->nRecordStatus};
@@ -611,11 +611,11 @@ int main() {
     NET_DeviceInfo_S struDeviceInfo = {0};
 
     struLoginInfo.uPort = 9019;
-    strcpy(struLoginInfo.szIPAddr, "172.16.25.186");
-    strcpy(struLoginInfo.szUserName, "admin");
-    strcpy(struLoginInfo.szPassword, "itc20232024");
+    strcpy(struLoginInfo.strIPAddr, "172.16.25.216");
+    strcpy(struLoginInfo.strUserName, "admin");
+    strcpy(struLoginInfo.strPassword, "itc20232024");
 
-    printf("Logging in to %s:%d...\n", struLoginInfo.szIPAddr, struLoginInfo.uPort);
+    printf("Logging in to %s:%d...\n", struLoginInfo.strIPAddr, struLoginInfo.uPort);
     LPVOID lpUserID = NET_clientLogin(&struLoginInfo, &struDeviceInfo);
 
     if (lpUserID == NULL) { 

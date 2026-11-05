@@ -19,14 +19,14 @@ CSjgzDomain::CSjgzDomain()
      * ================================================================== */
 
     /* ===== IPC 专属（委托 CIpcBusiness） ===== */
-    m_getTable[NET_GET_4G_INFO]        = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleGet4GInfo(ch, cmd);
+    m_getTable[NET_GET_4G_INFO]        = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleGet4GInfo(ch, nCmd);
     };
-    m_getTable[NET_GET_HOTSPOT_CONN]   = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleGetHotspotConn(ch, cmd);
+    m_getTable[NET_GET_HOTSPOT_CONN]   = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleGetHotspotConn(ch, nCmd);
     };
-    m_getTable[NET_GET_SD_CARD_STATUS] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleGetSdCardStatus(ch, cmd);
+    m_getTable[NET_GET_SD_CARD_STATUS] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleGetSdCardStatus(ch, nCmd);
     };
 
     /* ===== 视频流/OSD/图像参数 ===== */
@@ -51,20 +51,20 @@ CSjgzDomain::CSjgzDomain()
      * ================================================================== */
 
     /* ===== IPC 专属（委托 CIpcBusiness） ===== */
-    m_setTable[NET_SET_CONFIG_WIFI_STA]   = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleSetWifiStaCfg(ch, cmd, req);
+    m_setTable[NET_SET_CONFIG_WIFI_STA]   = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleSetWifiStaCfg(ch, nCmd, req);
     };
-    m_setTable[NET_CONNECT_WIFI_STA]      = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleConnectWifiSta(ch, cmd, req);
+    m_setTable[NET_CONNECT_WIFI_STA]      = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleConnectWifiSta(ch, nCmd, req);
     };
-    m_setTable[NET_DISCONNECT_WIFI_STA]   = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleDisconnectWifiSta(ch, cmd, req);
+    m_setTable[NET_DISCONNECT_WIFI_STA]   = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleDisconnectWifiSta(ch, nCmd, req);
     };
-    m_setTable[NET_SET_4G_INFO]           = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleSet4GInfo(ch, cmd, req);
+    m_setTable[NET_SET_4G_INFO]           = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleSet4GInfo(ch, nCmd, req);
     };
-    m_setTable[NET_SET_HOTSPOT_INFO]      = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CIpcBusiness::instance()->HandleSetHotspotInfo(ch, cmd, req);
+    m_setTable[NET_SET_HOTSPOT_INFO]      = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CIpcBusiness::instance()->HandleSetHotspotInfo(ch, nCmd, req);
     };
 
     /* ===== 视频流/OSD/图像参数 ===== */

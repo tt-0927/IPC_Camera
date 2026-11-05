@@ -3692,8 +3692,6 @@ void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeave
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
-
-/* ---- 平安校园扩展：排队拥挤 ---- */
 /**
  * @brief IPC 排队拥挤配置转换为 TVSDK 结构。
  * @param [in] src IPC 排队拥挤配置。
@@ -3969,7 +3967,6 @@ void ToRooftopStay(const NET_RooftopStayInfo_S &src, Alarm::RooftopStayDetection
     ToSingleRuleAlarmSchedule(src.stAlarmSchedule, dst.aAlarmTime);
     ToLinkageList(src.stLinkageList, dst.stLinkageList);
 }
-
 #endif
 
 // --------- AudioAnomaly (IPC AudioAnomaly_S <-> SDK NET_AudioAnomalyAlarmInfo_S) ---------

@@ -43,25 +43,25 @@ public:
 
 public:
     /* ===================== SD卡状态（IPC独有） ===================== */
-    std::string HandleGetSdCardStatus(INT32 channelId, INT32 nCommand);
+    std::string HandleGetSdCardStatus(INT32 nChannelId, INT32 nCommand);
 
     /* ===================== WiFi无线网络（IPC独有） ===================== */
-    std::string HandleSetWifiStaCfg(INT32 channelId, INT32 nCommand, const std::string& req_data);
-    std::string HandleConnectWifiSta(INT32 channelId, INT32 nCommand, const std::string& req_data);
-    std::string HandleDisconnectWifiSta(INT32 channelId, INT32 nCommand, const std::string& req_data);
+    std::string HandleSetWifiStaCfg(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
+    std::string HandleConnectWifiSta(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
+    std::string HandleDisconnectWifiSta(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
 
     /* ===================== 4G蜂窝网络（IPC独有） ===================== */
-    std::string HandleGet4GInfo(INT32 channelId, INT32 nCommand);
-    std::string HandleSet4GInfo(INT32 channelId, INT32 nCommand, const std::string& req_data);
+    std::string HandleGet4GInfo(INT32 nChannelId, INT32 nCommand);
+    std::string HandleSet4GInfo(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
 
     /* ===================== Hotspot热点（IPC独有） ===================== */
-    std::string HandleSetHotspotInfo(INT32 channelId, INT32 nCommand, const std::string& req_data);
-    std::string HandleGetHotspotConn(INT32 channelId, INT32 nCommand);
+    std::string HandleSetHotspotInfo(INT32 nChannelId, INT32 nCommand, const std::string& req_data);
+    std::string HandleGetHotspotConn(INT32 nChannelId, INT32 nCommand);
 
     /* ===================== OSD能力集（IPC独有） ===================== */
     /**
      * @brief 处理OSD参数能力集 (NET_CAP_OSD)
      * @details IPC独有：查询摄像机OSD（字符叠加）能力集
      */
-    std::string HandleOsd(INT32 channelId, INT32 nCommand);
+    std::string HandleOsd(INT32 nChannelId, INT32 nCommand);
 };

@@ -107,6 +107,7 @@ void OperationServer::deal_message(
     std::string strData;
 #if CAP_BLUETOOTH
     unsigned int nUniqueId = 0;
+    int nBleReturn = -1;
 #endif
     if (stMessage.nActionCode != AC_UPLOAD_OPERATION_LOG)
     {
@@ -126,6 +127,7 @@ void OperationServer::deal_message(
         data = Json::to_string(pJsonData);
 #if CAP_BLUETOOTH
         Json::get(pJsonRoot, "UniqueId", nUniqueId);
+        Json::get(pJsonRoot, "Return", nBleReturn);
 #endif
         Json::deinit(pJsonRoot);
     }
@@ -155,15 +157,19 @@ void OperationServer::deal_message(
     case AC_PLATFORM_CONN:
     {
         bool success = false;
+        std::string reason;
         Json::Object *root = Json::init(data);
         if (root)
         {
             Json::get(root, "connection_status", success);
+            Json::get(root, "reason", reason);
             Json::deinit(root);
         }
         BleProvisioning::BleGattServer::instance().onExternalCommandResult(
             BleProvisioning::CMD_PLATFORM_CONNECT, nUniqueId, success,
-            success ? "platform_connected" : "platform_connect_failed");
+            success ? "platform_connected" :
+            (reason == "internet_unavailable" ? "internet_unavailable" :
+             "platform_connect_failed"));
         break;
     }
     case AC_PLATFORM_GETINFO:
@@ -199,6 +205,16 @@ void OperationServer::deal_message(
             (provisioningBusy ? "provisioning_busy" : "wifi_scan_failed"));
         break;
     }
+#if CAP_NETWORK_4G
+    case AC_GET_4G_INFO:
+    {
+        BleProvisioning::BleGattServer::instance().onExternalCommandResult(
+            BleProvisioning::CMD_4G_GET_STATUS, nUniqueId,
+            nBleReturn == 0 && !data.empty(),
+            nBleReturn == 0 && !data.empty() ? data : "4g_status_failed");
+        break;
+    }
+#endif
 #endif
     /* 测试服务器 */
     case AC_TEST_LOG_SERVER:

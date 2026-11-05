@@ -76,7 +76,7 @@ std::string CDeviceCapabilityBusiness::HandleVideoEncode(int nChannelId, int nCo
             NETSDK_LOG_MESSAGE_INFO("编码复杂度能力: stream=%d, index=%d, codec=%s, codecType=%d, count=%d, values=[%d,%d,%d], default=%u",
                                    nStreamIndex,
                                    nAbilityIndex,
-                                   stAbility.szVideoCodec,
+                                   stAbility.strVideoCodec,
                                    stAbility.enVideoCodec,
                                    stAbility.nEncodeComplexityNum,
                                    stAbility.anEncodeComplexity[0],

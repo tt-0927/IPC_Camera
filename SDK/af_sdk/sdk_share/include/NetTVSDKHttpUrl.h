@@ -129,6 +129,7 @@ typedef struct tagSessionMessage
     (std::string(NET_API_PATH_ALARM_AUDIO_UPLOAD) + \
      "?" NET_API_PARAM_FILENAME "=" + std::string(filename))
 
+
 /********************************** 	视频通用接口URL宏定义 	***************************/
 #define NET_API_PATH_REPLAY_GET_URL       "/TVAPI/V1.0/Replay/GetUrl"      /* 获取回放播放地址 */
 #define NET_API_PATH_REPLAY_CONTROL       "/TVAPI/V1.0/Replay/Control"     /* 控制回放开始/停止/倍速 */

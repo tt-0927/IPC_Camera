@@ -2,6 +2,7 @@
 
 #include "dlog.h"
 #include "share_define.h"
+#include "ble_provisioning_define.h"
 #include <gio/gio.h>
 #include <algorithm>
 #include <cctype>
@@ -26,7 +27,7 @@ const char *kServicePath = "/com/tv/provision/service0";
 const char *kCommandPath = "/com/tv/provision/service0/command0";
 const char *kResponsePath = "/com/tv/provision/service0/response0";
 
-const char *kServiceUuid = "7a1e0001-7d8b-4f31-9e45-545650524f56";
+const char *kServiceUuid = BLE_PROVISIONING_SERVICE_UUID;
 const char *kCommandUuid = "7a1e0002-7d8b-4f31-9e45-545650524f56";
 const char *kResponseUuid = "7a1e0003-7d8b-4f31-9e45-545650524f56";
 
@@ -259,7 +260,8 @@ BleGattServer::BleGattServer()
       /* 使用高位正整数命名空间，降低与 Web/其他调用方 UniqueId 碰撞概率。 */
       m_nextRequestId(0x40000000U),
       m_wifiState(0),
-      m_platformState(0), m_provisionCompletionPending(false)
+      m_platformState(0), m_provisionCompletionPending(false),
+      m_provisionCommitted(false)
 {
     std::memset(m_registrationIds, 0, sizeof(m_registrationIds));
     /* 广播名固定为“设备型号-芯片序列号”，方便 App 与二维码信息对应。 */
@@ -274,18 +276,24 @@ BleGattServer::BleGattServer()
         [this](const CommandFrame &f) { return handleAuthProve(f); });
     m_dispatcher.registerHandler(CMD_AUTH_GET_STATUS,
         [this](const CommandFrame &f) { return handleAuthStatus(f); });
+#if CAP_NETWORK_WIFI
     m_dispatcher.registerHandler(CMD_WIFI_SET_CREDENTIALS,
         [this](const CommandFrame &f) { return handleWifiCredentials(f); });
     m_dispatcher.registerHandler(CMD_WIFI_CONNECT,
         [this](const CommandFrame &f) { return handleWifiConnect(f); });
     m_dispatcher.registerHandler(CMD_WIFI_GET_STATUS,
         [this](const CommandFrame &f) { return handleWifiStatus(f); });
+    m_dispatcher.registerHandler(CMD_WIFI_CANCEL,
+        [this](const CommandFrame &f) { return handleWifiCancel(f); });
     m_dispatcher.registerHandler(CMD_WIFI_SCAN,
         [this](const CommandFrame &f) { return handleWifiScan(f); });
+#endif
     m_dispatcher.registerHandler(CMD_PLATFORM_CONNECT,
         [this](const CommandFrame &f) { return handlePlatformConnect(f); });
     m_dispatcher.registerHandler(CMD_PLATFORM_GET_STATUS,
         [this](const CommandFrame &f) { return handlePlatformStatus(f); });
+    m_dispatcher.registerHandler(CMD_4G_GET_STATUS,
+        [this](const CommandFrame &f) { return handle4GStatus(f); });
 }
 
 BleGattServer::~BleGattServer()
@@ -433,6 +441,40 @@ CommandResult BleGattServer::handleWifiStatus(const CommandFrame &)
     return result;
 }
 
+CommandResult BleGattServer::handleWifiCancel(const CommandFrame &)
+{
+    CommandResult result;
+    ExternalCommandSender sender;
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        sender = m_externalSender;
+        if (!sender)
+        {
+            result.status = STATUS_INTERNAL_ERROR;
+            return result;
+        }
+        /* 先使迟到的连接/扫描/平台回包失效，避免取消后再次推进状态机。 */
+        m_pendingWifiRequest.active = false;
+        m_pendingWifiScanRequest.active = false;
+        m_pendingPlatformRequest.active = false;
+        m_pendingPlatformStatusRequest.active = false;
+        m_provisionCompletionPending = false;
+        m_provisionCommitted = false;
+        m_wifiCredentials.clear();
+        m_wifiState = 0;
+        m_wifiDetail = "cancelled";
+        m_platformState = 0;
+        m_platformDetail = "cancelled";
+    }
+    if (sender(CMD_INTERNAL_CANCEL_PROVISIONING, "{}", nextRequestId()) < 0)
+    {
+        result.status = STATUS_INTERNAL_ERROR;
+        return result;
+    }
+    result.payload = makeFlowStatusPayload(0, "cancel_requested");
+    return result;
+}
+
 CommandResult BleGattServer::handleWifiScan(const CommandFrame &frame)
 {
     CommandResult result;
@@ -476,12 +518,14 @@ CommandResult BleGattServer::handlePlatformConnect(const CommandFrame &frame)
     std::string platformJson(frame.payload.begin(), frame.payload.end());
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
+#if !CAP_NETWORK_4G
         if (m_wifiState != 3)
         {
             result.status = STATUS_BUSY;
             result.payload = makeFlowStatusPayload(m_wifiState, "wifi_not_connected");
             return result;
         }
+#endif
         if (platformJson.empty() || platformJson.front() != '{' ||
             platformJson.back() != '}' || !m_externalSender)
         {
@@ -521,6 +565,45 @@ CommandResult BleGattServer::handlePlatformStatus(const CommandFrame &)
     CommandResult result;
     std::lock_guard<std::mutex> lock(m_flowMutex);
     result.payload = makeFlowStatusPayload(m_platformState, m_platformDetail);
+    return result;
+}
+
+CommandResult BleGattServer::handle4GStatus(const CommandFrame &frame)
+{
+    CommandResult result;
+#if CAP_NETWORK_4G
+    ExternalCommandSender sender;
+    uint32_t requestId = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        if (!m_externalSender)
+        {
+            result.status = STATUS_INTERNAL_ERROR;
+            return result;
+        }
+        if (m_pending4GStatusRequest.active)
+        {
+            result.status = STATUS_BUSY;
+            return result;
+        }
+        sender = m_externalSender;
+        m_pending4GStatusRequest.active = true;
+        m_pending4GStatusRequest.requestId = nextRequestId();
+        requestId = m_pending4GStatusRequest.requestId;
+        m_pending4GStatusRequest.frame = frame;
+        m_pending4GStatusRequest.deadline = std::chrono::steady_clock::now() +
+            std::chrono::seconds(kPlatformStatusTimeoutSeconds);
+    }
+    if (sender(CMD_4G_GET_STATUS, "{}", requestId) < 0)
+    {
+        std::lock_guard<std::mutex> lock(m_flowMutex);
+        m_pending4GStatusRequest.active = false;
+        result.status = STATUS_INTERNAL_ERROR;
+    }
+#else
+    (void)frame;
+    result.status = STATUS_NOT_IMPLEMENTED;
+#endif
     return result;
 }
 
@@ -571,6 +654,8 @@ void BleGattServer::onExternalCommandResult(uint16_t command, uint32_t requestId
             hasPending = true;
             m_pendingPlatformRequest.active = false;
             provisioningComplete = success && m_provisionCompletionPending;
+            if (provisioningComplete)
+                m_provisionCommitted = true;
             m_provisionCompletionPending = false;
         }
         else if (command == CMD_PLATFORM_GET_STATUS &&
@@ -590,6 +675,15 @@ void BleGattServer::onExternalCommandResult(uint16_t command, uint32_t requestId
             pending = m_pendingWifiScanRequest.frame;
             hasPending = true;
             m_pendingWifiScanRequest.active = false;
+            rawPayload = true;
+        }
+        else if (command == CMD_4G_GET_STATUS &&
+                 m_pending4GStatusRequest.active &&
+                 m_pending4GStatusRequest.requestId == requestId)
+        {
+            pending = m_pending4GStatusRequest.frame;
+            hasPending = true;
+            m_pending4GStatusRequest.active = false;
             rawPayload = true;
         }
         else
@@ -613,7 +707,18 @@ void BleGattServer::onExternalCommandResult(uint16_t command, uint32_t requestId
         publishResponse(pending, result);
     }
     if (provisioningComplete)
+    {
+        ExternalCommandSender sender;
+        {
+            std::lock_guard<std::mutex> lock(m_flowMutex);
+            m_provisionCommitted = true;
+            sender = m_externalSender;
+        }
+        if (sender && sender(CMD_INTERNAL_COMMIT_PROVISIONING, "{}",
+                             nextRequestId()) < 0)
+            dlog_warn("[BLE GATT] 提交BLE配网事务通知发送失败");
         scheduleClientDisconnect();
+    }
 }
 
 void BleGattServer::publishProvisioningCompleteEvent()
@@ -719,8 +824,12 @@ void BleGattServer::queryPlatformStatus()
     uint32_t requestId = 0;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
-        /* 必须先完成WiFi连接，防止仅有线联网时提前结束蓝牙配网。 */
+        /* WiFi型号等待WiFi完成；4G型号由control按实际公网可达性把关。 */
+#if CAP_NETWORK_4G
+        if (m_disconnectScheduled.load())
+#else
         if (m_wifiState != 3 || m_disconnectScheduled.load())
+#endif
             return;
         if (m_pendingPlatformStatusRequest.active)
             return;
@@ -774,6 +883,12 @@ void BleGattServer::checkPendingTimeouts()
         {
             m_pendingPlatformStatusRequest.active = false;
             dlog_warn("[BLE GATT] 平台状态查询超时");
+        }
+        if (m_pending4GStatusRequest.active &&
+            now >= m_pending4GStatusRequest.deadline)
+        {
+            expired.push_back(m_pending4GStatusRequest.frame);
+            m_pending4GStatusRequest.active = false;
         }
     }
     for (std::size_t i = 0; i < expired.size(); ++i)
@@ -1142,23 +1257,30 @@ void BleGattServer::resetClientSession()
     }
     ExternalCommandSender releaseSender;
     bool releaseProvisioning = false;
+    bool committed = false;
     {
         std::lock_guard<std::mutex> lock(m_flowMutex);
         releaseProvisioning = !m_boundDevicePath.empty();
         releaseSender = m_externalSender;
+        committed = m_provisionCommitted;
         m_wifiCredentials.clear();
         m_pendingWifiRequest.active = false;
         m_pendingWifiScanRequest.active = false;
         m_pendingPlatformRequest.active = false;
         m_pendingPlatformStatusRequest.active = false;
+        m_pending4GStatusRequest.active = false;
         m_provisionCompletionPending = false;
+        m_provisionCommitted = false;
         m_boundDevicePath.clear();
     }
     if (releaseProvisioning && releaseSender)
     {
         const uint32_t requestId = nextRequestId();
-        if (releaseSender(CMD_INTERNAL_RELEASE_PROVISIONING, "{}", requestId) < 0)
-            dlog_warn("[BLE GATT] 释放BLE配网所有权通知发送失败");
+        const uint16_t command = committed ? CMD_INTERNAL_RELEASE_PROVISIONING
+                                           : CMD_INTERNAL_CANCEL_PROVISIONING;
+        if (releaseSender(command, "{}", requestId) < 0)
+            dlog_warn("[BLE GATT] %sBLE配网事务通知发送失败",
+                      committed ? "释放" : "取消");
     }
 }
 

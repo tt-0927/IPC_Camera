@@ -79,9 +79,10 @@ private:
     /**
      * @brief   : 鼠患判定（类别过滤 + 置信度过滤 + 区域判定 + 状态机告警）
      * @param    {std::vector<DetectedTarget_S>} &vecResults：检测结果（坐标为 AI 帧分辨率）
+     * @param    {cv::Mat} &rgbMat：原始分辨率RGB帧 用于编码目标大小图
      * @return   {bool} true：本帧命中鼠患告警条件
      */
-    bool processMouseDetect(const std::vector<DetectedTarget_S> &vecResults);
+    bool processMouseDetect(const std::vector<DetectedTarget_S> &vecResults, const cv::Mat &rgbMat);
 
 private:
     /* 纯检测组件实例（推理内核） */

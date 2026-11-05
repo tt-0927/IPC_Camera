@@ -54,10 +54,13 @@ enum CommandCode : uint16_t
     CMD_PLATFORM_GET_STATUS = 0x0202,
     /* 设备主动通知：配网完成，随后只断开当前 BLE连接，不关闭适配器。 */
     CMD_PROVISION_COMPLETE_EVENT = 0x0203,
+    /* 4G设备能力：返回SIM、拨号、IP及usb0公网可达状态。 */
+    CMD_4G_GET_STATUS = 0x0301,
 
     /* 仅operation/control进程间使用，不允许App通过GATT调用。 */
     CMD_INTERNAL_RELEASE_PROVISIONING = 0xfff0,
-
+    CMD_INTERNAL_CANCEL_PROVISIONING = 0xfff1,
+    CMD_INTERNAL_COMMIT_PROVISIONING = 0xfff2,
     /* 0x0300-0x6fff：后续设备功能；0x7000-0x7fff：厂商扩展。 */
 };
 

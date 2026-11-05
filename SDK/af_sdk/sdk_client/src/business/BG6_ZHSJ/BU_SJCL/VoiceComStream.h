@@ -39,10 +39,10 @@ namespace tvsdk {
  * @author tianl (tianl@kfb.cn)
  * @brief 语音对讲回调函数类型
  * @details 当接收到设备端回传的音频帧时调用，格式由NET_TV_StartVoiceCom协商参数定义
- * @param data 音频数据指针
- * @param size 音频数据大小（字节）
+ * @param pstrData 音频数据指针
+ * @param uSize 音频数据大小（字节）
  */
-using VoiceComCallback = std::function<void(const char* data, size_t size)>;
+using VoiceComCallback = std::function<void(const char* pstrData, size_t uSize)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -68,24 +68,24 @@ public:
  * @author tianl (tianl@kfb.cn)
      * @brief 连接设备音频端口并启动收发
      * @param host 设备IP地址
-     * @param port 设备音频端口号
-     * @param audio_param 音频参数（采样率、通道数、编码格式等）
+     * @param nPort 设备音频端口号
+     * @param stAudioParam 音频参数（采样率、通道数、编码格式等）
      * @param callback 音频数据回调函数，用于接收设备发送的音频数据
      * @return true表示成功，false表示失败
      */
     bool start(const std::string& host,
-               int port,
-               const NET_VoiceComAudioParam_S& audio_param,
+               int nPort,
+               const NET_VoiceComAudioParam_S& stAudioParam,
                VoiceComCallback callback);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 发送音频数据到设备
-     * @param data 音频数据指针
-     * @param size 音频数据大小（字节）
+     * @param pstrData 音频数据指针
+     * @param uSize 音频数据大小（字节）
      * @return true表示成功，false表示失败
      */
-    bool send(const char* data, size_t size);
+    bool send(const char* pstrData, size_t uSize);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -104,19 +104,19 @@ private:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 发送音频参数协商帧
-     * @param audio_param 音频参数结构体
+     * @param stAudioParam 音频参数结构体
      * @return true表示成功，false表示失败
      */
-    bool send_audio_param(const NET_VoiceComAudioParam_S& audio_param);
+    bool send_audio_param(const NET_VoiceComAudioParam_S& stAudioParam);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 发送一帧数据（带长度头）
-     * @param data 帧数据指针
-     * @param size 帧数据大小（字节）
+     * @param pstrData 帧数据指针
+     * @param uSize 帧数据大小（字节）
      * @return true表示成功，false表示失败
      */
-    bool send_frame(const char* data, size_t size);
+    bool send_frame(const char* pstrData, size_t uSize);
 
     /**
  * @author tianl (tianl@kfb.cn)

@@ -3,7 +3,7 @@
  * @Author       : zhouzr@kfb.cn
  * @Date         : 2024-10-06 15:23:25
  * @LastEditors  : zhouzr@kfb.cn
- * @LastEditTime : 2026-07-29 17:43:13
+ * @LastEditTime : 2026-10-28 15:47:22
  * @Description  : 通讯命令码
  */
 
@@ -627,6 +627,92 @@ typedef enum
     /* 设置鼠患识别配置 */
     AC_SET_MOUSE_DETECTION_INFO = 2829,
 
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    /**
+     * @brief 课堂 AI 分析配置下发接口
+     */
+    /* 摄像机类型（学生机/教师机） */
+    AC_CLASSROOM_GET_DEVICE_ROLE = 2900,
+    AC_CLASSROOM_SET_DEVICE_ROLE = 2901,
+    /* 学生行为：站立检测 */
+    AC_CLASSROOM_GET_STU_STAND = 2902,
+    AC_CLASSROOM_SET_STU_STAND = 2903,
+    /* 学生行为：举手检测 */
+    AC_CLASSROOM_GET_STU_RAISE_HAND = 2904,
+    AC_CLASSROOM_SET_STU_RAISE_HAND = 2905,
+    /* 学生行为：抬头检测 */
+    AC_CLASSROOM_GET_STU_HEAD_UP = 2906,
+    AC_CLASSROOM_SET_STU_HEAD_UP = 2907,
+    /* 学生行为：低头检测 */
+    AC_CLASSROOM_GET_STU_HEAD_DOWN = 2908,
+    AC_CLASSROOM_SET_STU_HEAD_DOWN = 2909,
+    /* 学生行为：背身检测 */
+    AC_CLASSROOM_GET_STU_TURN_BACK = 2910,
+    AC_CLASSROOM_SET_STU_TURN_BACK = 2911,
+    /* 学生行为：使用手机检测 */
+    AC_CLASSROOM_GET_STU_PHONE = 2912,
+    AC_CLASSROOM_SET_STU_PHONE = 2913,
+    /* 学生行为：听讲检测 */
+    AC_CLASSROOM_GET_STU_LISTEN = 2914,
+    AC_CLASSROOM_SET_STU_LISTEN = 2915,
+    /* 学生行为：阅读检测 */
+    AC_CLASSROOM_GET_STU_READING = 2916,
+    AC_CLASSROOM_SET_STU_READING = 2917,
+    /* 学生行为：讨论检测 */
+    AC_CLASSROOM_GET_STU_DISCUSS = 2918,
+    AC_CLASSROOM_SET_STU_DISCUSS = 2919,
+    /* 学生行为：表情检测 */
+    AC_CLASSROOM_GET_STU_EXPRESSION = 2920,
+    AC_CLASSROOM_SET_STU_EXPRESSION = 2921,
+    /* 考勤人数统计 */
+    AC_CLASSROOM_GET_ATTENDANCE = 2922,
+    AC_CLASSROOM_SET_ATTENDANCE = 2923,
+    /* 学生人脸检测 */
+    AC_CLASSROOM_GET_FACE_DETECT = 2924,
+    AC_CLASSROOM_SET_FACE_DETECT = 2925,
+    /* 教师行为：指导学生 */
+    AC_CLASSROOM_GET_TEA_GUIDING = 2926,
+    AC_CLASSROOM_SET_TEA_GUIDING = 2927,
+    /* 教师行为：师生互动 */
+    AC_CLASSROOM_GET_TEA_INTERACT = 2928,
+    AC_CLASSROOM_SET_TEA_INTERACT = 2929,
+    /* 教师行为：巡视 */
+    AC_CLASSROOM_GET_TEA_PATROL = 2930,
+    AC_CLASSROOM_SET_TEA_PATROL = 2931,
+    /* 教师行为：站立 */
+    AC_CLASSROOM_GET_TEA_STAND = 2932,
+    AC_CLASSROOM_SET_TEA_STAND = 2933,
+    /* 教师行为：抬头 */
+    AC_CLASSROOM_GET_TEA_HEAD_UP = 2934,
+    AC_CLASSROOM_SET_TEA_HEAD_UP = 2935,
+    /* 教师行为：低头 */
+    AC_CLASSROOM_GET_TEA_HEAD_DOWN = 2936,
+    AC_CLASSROOM_SET_TEA_HEAD_DOWN = 2937,
+    /* 教师行为：使用手机 */
+    AC_CLASSROOM_GET_TEA_PHONE = 2938,
+    AC_CLASSROOM_SET_TEA_PHONE = 2939,
+    /* 教师行为：讲授 */
+    AC_CLASSROOM_GET_TEA_TEACHING = 2940,
+    AC_CLASSROOM_SET_TEA_TEACHING = 2941,
+    /* 教师行为：书写板书 */
+    AC_CLASSROOM_GET_TEA_BOARD_WRITE = 2942,
+    AC_CLASSROOM_SET_TEA_BOARD_WRITE = 2943,
+    /* 进入讲台 */
+    AC_CLASSROOM_GET_ENTER_PODIUM = 2944,
+    AC_CLASSROOM_SET_ENTER_PODIUM = 2945,
+    /* 黑板内容识别（OCR） */
+    AC_CLASSROOM_GET_BOARD_OCR = 2946,
+    AC_CLASSROOM_SET_BOARD_OCR = 2947,
+    /* 学生上讲台 */
+    AC_CLASSROOM_GET_STU_PODIUM = 2948,
+    AC_CLASSROOM_SET_STU_PODIUM = 2949,
+    /* 学生演示 */
+    AC_CLASSROOM_GET_STU_PRESENT = 2950,
+    AC_CLASSROOM_SET_STU_PRESENT = 2951,
+    /* 课程报告（只读） */
+    AC_CLASSROOM_GET_COURSE_REPORT = 2952,
+#endif
+
     /**
      * @brief 预览相关
      */
@@ -752,6 +838,8 @@ typedef enum
     AC_GET_METADATA_CONFIG = 4034,
     /* 设置Metadata配置 */
     AC_SET_METADATA_CONFIG = 4035,
+    /// @brief 网页功能配置（编译期由产品版本决定，只读）
+    AC_GET_WEB_FEATURE_CONFIG = 4036,
 
     /**
      * @brief 系统运维相关
@@ -844,8 +932,8 @@ typedef enum
     AC_GET_GB28181_INFO = 6020,
     AC_SET_GB28181_INFO = 6021,
     /// @brief GB28181服务配置
-    AC_GET_GB28181_SERVER_INFO = 6022,
-    AC_SET_GB28181_SERVER_INFO = 6023,
+    // AC_GET_GB28181_SERVER_INFO = 6022,
+    // AC_SET_GB28181_SERVER_INFO = 6023,
     /// @brief 其他高级配置
     AC_GET_OHTER_SENIOR_INFO = 6024,
     AC_SET_OHTER_SENIOR_INFO = 6025,
@@ -950,6 +1038,12 @@ typedef enum
     AC_SCAN_WIFI_STA = 6085,
      /* operation通知control释放BLE配网所有权，仅进程间内部使用。 */
      AC_RELEASE_BLE_PROVISIONING = 6086,
+    /* 获取用于扫描、匹配和认证设备的BLE连接字符串。 */
+    AC_GET_BLE_CONNECTION_INFO = 6087,
+    /* 取消BLE配网并恢复开始配网前的WiFi状态，仅进程间内部使用。 */
+    AC_CANCEL_BLE_PROVISIONING = 6088,
+    /* 平台连接成功后提交BLE配网事务，禁止后续断开触发回滚。 */
+    AC_COMMIT_BLE_PROVISIONING = 6089,
 
     /// @brief 4G配置
     AC_GET_4G_INFO = 6072,

@@ -35,8 +35,8 @@ std::string CDeviceBusiness::HandleGetLogList(INT32 nChannelId, INT32 nCommand, 
 
     std::string strStartTime = ParseStringParam(url_param, "StartTime");
     std::string strEndTime = ParseStringParam(url_param, "EndTime");
-    snprintf(stCfg.stCond.szStartTime, sizeof(stCfg.stCond.szStartTime), "%s", strStartTime.c_str());
-    snprintf(stCfg.stCond.szEndTime, sizeof(stCfg.stCond.szEndTime), "%s", strEndTime.c_str());
+    snprintf(stCfg.stCond.strStartTime, sizeof(stCfg.stCond.strStartTime), "%s", strStartTime.c_str());
+    snprintf(stCfg.stCond.strEndTime, sizeof(stCfg.stCond.strEndTime), "%s", strEndTime.c_str());
 
     stCfg.stPage.nCurPage = ParseIntParam(url_param, "CurPage", 1);
     stCfg.stPage.nPageSize = ParseIntParam(url_param, "PageSize", NET_LOG_QUERY_COND_NUM);

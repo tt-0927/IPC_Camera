@@ -22,45 +22,45 @@ namespace {
 
 /**
  * @brief 精确发送指定字节数的数据
- * @param fd socket文件描述符
- * @param data 发送数据缓冲区
- * @param size 需要发送的字节数
+ * @param nFd socket文件描述符
+ * @param pstrData 发送数据缓冲区
+ * @param uSize 需要发送的字节数
  * @return true表示成功发送指定字节数，false表示发送失败或连接断开
  */
-bool send_all(socket_fd_t fd, const char* data, size_t size) {
+bool send_all(socket_fd_t nFd, const char* pstrData, size_t uSize) {
 #ifdef _WIN32
-    int send_flags = 0;
+    int nSendFlags = 0;
 #else
-    int send_flags = MSG_NOSIGNAL;
+    int nSendFlags = MSG_NOSIGNAL;
 #endif
 
-    size_t sent = 0;
-    while (sent < size) {
-        ssize_t n = ::send(fd, data + sent, static_cast<int>(size - sent), send_flags);
-        if (n <= 0) {
+    size_t uSent = 0;
+    while (uSent < uSize) {
+        ssize_t lRet = ::send(nFd, pstrData + uSent, static_cast<int>(uSize - uSent), nSendFlags);
+        if (lRet <= 0) {
             return false;
         }
-        sent += static_cast<size_t>(n);
+        uSent += static_cast<size_t>(lRet);
     }
     return true;
 }
 
 /**
  * @brief 将主机字节序16位整数转换为大端序
- * @param value 主机字节序16位整数
+ * @param uValue 主机字节序16位整数
  * @return 大端序16位整数
  */
-uint16_t to_be16(uint16_t value) {
-    return htons(value);
+uint16_t to_be16(uint16_t uValue) {
+    return htons(uValue);
 }
 
 /**
  * @brief 将主机字节序32位整数转换为大端序
- * @param value 主机字节序32位整数
+ * @param uValue 主机字节序32位整数
  * @return 大端序32位整数
  */
-uint32_t to_be32(uint32_t value) {
-    return htonl(value);
+uint32_t to_be32(uint32_t uValue) {
+    return htonl(uValue);
 }
 
 } // namespace
@@ -88,16 +88,16 @@ CRecordFrameServer::~CRecordFrameServer() { stop(); }
 /**
  * @brief 启动服务端
  * @details 创建监听socket，设置SO_REUSEADDR，绑定端口，开始监听，启动接收线程
- * @param port 监听端口，默认9007
+ * @param nPort 监听端口，默认9007
  * @return true表示成功，false表示失败
  */
-bool CRecordFrameServer::start(int port) {
+bool CRecordFrameServer::start(int nPort) {
     if (m_bRunning) {
         return true;
     }
 
-    if (port <= 0 || port > 65535) {
-        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: invalid port %d", port);
+    if (nPort <= 0 || nPort > 65535) {
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: invalid port %d", nPort);
         return false;
     }
 
@@ -107,16 +107,16 @@ bool CRecordFrameServer::start(int port) {
         return false;
     }
 
-    int opt = 1;
-    setsockopt(m_nListenFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
+    int nOpt = 1;
+    setsockopt(m_nListenFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&nOpt), sizeof(nOpt));
 
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
+    sockaddr_in stAddr{};
+    stAddr.sin_family = AF_INET;
+    stAddr.sin_addr.s_addr = INADDR_ANY;
+    stAddr.sin_port = htons(static_cast<uint16_t>(nPort));
 
-    if (bind(m_nListenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: bind port %d failed, errno=%d", port, NETSDK_SOCKET_GET_ERROR());
+    if (bind(m_nListenFd, reinterpret_cast<sockaddr*>(&stAddr), sizeof(stAddr)) != 0) {
+        NETSDK_LOG_MESSAGE_ERROR("CRecordFrameServer: bind port %d failed, errno=%d", nPort, NETSDK_SOCKET_GET_ERROR());
         NETSDK_SOCKET_CLOSE(m_nListenFd);
         m_nListenFd = INVALID_SOCKET_FD;
         return false;
@@ -129,11 +129,11 @@ bool CRecordFrameServer::start(int port) {
         return false;
     }
 
-    m_nPort = port;
+    m_nPort = nPort;
     m_bRunning = true;
     m_stAcceptThread = std::thread(&CRecordFrameServer::accept_loop, this);
 
-    NETSDK_LOG_MESSAGE_INFO("CRecordFrameServer: listening on port %d", port);
+    NETSDK_LOG_MESSAGE_INFO("CRecordFrameServer: listening on port %d", nPort);
     return true;
 }
 
@@ -199,12 +199,12 @@ void CRecordFrameServer::set_stop_callback(RecordFrameStopCallback cb) {
 /**
  * @brief 开启录像帧流
  * @details 调用流启动回调函数，生成流ID，启动服务端（如果未运行），返回流信息
- * @param cond 流启动条件（通道、时间范围、媒体类型等）
- * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
+ * @param stCond 流启动条件（通道、时间范围、媒体类型等）
+ * @param stInfo 流信息（输出参数，包含流ID、端口、媒体类型等）
  * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCond_S& cond,
-                                                     NET_RecordFrameStreamInfo_S& info) {
+NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCond_S& stCond,
+                                                     NET_RecordFrameStreamInfo_S& stInfo) {
     RecordFrameStartCallback cb;
     {
         std::lock_guard<std::mutex> lock(m_stCallbackMutex);
@@ -214,38 +214,38 @@ NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCo
         return NET_E_NOT_SUPPORT;
     }
 
-    std::memset(&info, 0, sizeof(info));
-    info.uSize = sizeof(info);
-    NET_COMMON_ECODE_E code = cb(cond, info);
-    if (code != NET_E_SUCCEED) {
-        return code;
+    std::memset(&stInfo, 0, sizeof(stInfo));
+    stInfo.uSize = sizeof(stInfo);
+    NET_COMMON_ECODE_E enCode = cb(stCond, stInfo);
+    if (enCode != NET_E_SUCCEED) {
+        return enCode;
     }
 
-    if (info.uTcpPort == 0) {
-        info.uTcpPort = static_cast<UINT32>(m_nPort);
+    if (stInfo.uTcpPort == 0) {
+        stInfo.uTcpPort = static_cast<UINT32>(m_nPort);
     }
-    if (info.uMediaType == 0) {
-        info.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
+    if (stInfo.uMediaType == 0) {
+        stInfo.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
     }
-    if (info.szStreamId[0] == '\0') {
-        const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+    if (stInfo.strStreamId[0] == '\0') {
+        const auto lTicks = std::chrono::steady_clock::now().time_since_epoch().count();
 #ifdef _WIN32
-        _snprintf(info.szStreamId, sizeof(info.szStreamId) - 1, "rf-%llu", static_cast<unsigned long long>(ticks));
+        _snprintf(stInfo.strStreamId, sizeof(stInfo.strStreamId) - 1, "rf-%llu", static_cast<unsigned long long>(lTicks));
 #else
-        std::snprintf(info.szStreamId, sizeof(info.szStreamId), "rf-%llu", static_cast<unsigned long long>(ticks));
+        std::snprintf(stInfo.strStreamId, sizeof(stInfo.strStreamId), "rf-%llu", static_cast<unsigned long long>(lTicks));
 #endif
     }
 
     {
         std::lock_guard<std::mutex> lock(m_stStreamMutex);
-        m_strStreamId = info.szStreamId;
+        m_strStreamId = stInfo.strStreamId;
         ++m_uSsrc;
         if (m_uSsrc == 0) {
             m_uSsrc = 1;
         }
     }
 
-    if (!m_bRunning && !start(static_cast<int>(info.uTcpPort))) {
+    if (!m_bRunning && !start(static_cast<int>(stInfo.uTcpPort))) {
         return NET_E_SYSCALL_FALIED;
     }
 
@@ -255,11 +255,11 @@ NET_COMMON_ECODE_E CRecordFrameServer::open_stream(const NET_RecordFrameStreamCo
 /**
  * @brief 关闭录像帧流
  * @details 调用流停止回调函数，清除当前流ID
- * @param stream_id 流ID，标识要关闭的播放会话
+ * @param strStreamId 流ID，标识要关闭的播放会话
  * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-NET_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id) {
-    if (stream_id.empty()) {
+NET_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& strStreamId) {
+    if (strStreamId.empty()) {
         return NET_E_INVALID_PARAM;
     }
 
@@ -269,19 +269,19 @@ NET_COMMON_ECODE_E CRecordFrameServer::close_stream(const std::string& stream_id
         cb = m_fnStopCallback;
     }
 
-    NET_COMMON_ECODE_E code = NET_E_SUCCEED;
+    NET_COMMON_ECODE_E enCode = NET_E_SUCCEED;
     if (cb) {
-        code = cb(stream_id);
+        enCode = cb(strStreamId);
     }
 
     {
         std::lock_guard<std::mutex> lock(m_stStreamMutex);
-        if (m_strStreamId == stream_id) {
+        if (m_strStreamId == strStreamId) {
             m_strStreamId.clear();
         }
     }
 
-    return code;
+    return enCode;
 }
 
 /**
@@ -299,18 +299,18 @@ std::string CRecordFrameServer::current_stream_id() const {
  */
 void CRecordFrameServer::accept_loop() {
     while (m_bRunning) {
-        sockaddr_in cli_addr{};
-        socklen_t cli_len = sizeof(cli_addr);
-        socket_fd_t fd = accept(m_nListenFd, reinterpret_cast<sockaddr*>(&cli_addr), &cli_len);
-        if (fd == INVALID_SOCKET_FD) {
+        sockaddr_in stCliAddr{};
+        socklen_t uCliLen = sizeof(stCliAddr);
+        socket_fd_t nFd = accept(m_nListenFd, reinterpret_cast<sockaddr*>(&stCliAddr), &uCliLen);
+        if (nFd == INVALID_SOCKET_FD) {
             if (m_bRunning) {
                 NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: accept failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             continue;
         }
 
-        int tcp_no_delay = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
+        int nTcpNoDelay = 1;
+        if (setsockopt(nFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&nTcpNoDelay), sizeof(nTcpNoDelay)) != 0) {
             NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
         }
 
@@ -320,13 +320,13 @@ void CRecordFrameServer::accept_loop() {
                 shutdown(m_nClientFd, SHUT_RDWR);
                 NETSDK_SOCKET_CLOSE(m_nClientFd);
             }
-            m_nClientFd = fd;
+            m_nClientFd = nFd;
         }
 
         if (m_stClientThread.joinable()) {
             m_stClientThread.join();
         }
-        m_stClientThread = std::thread(&CRecordFrameServer::client_send_loop, this, fd);
+        m_stClientThread = std::thread(&CRecordFrameServer::client_send_loop, this, nFd);
     }
 }
 
@@ -334,14 +334,14 @@ void CRecordFrameServer::accept_loop() {
  * @brief 客户端数据发送循环
  * @details 持续从回调函数获取录像帧数据，封装为RTP-like协议格式发送给客户端，
  *          遇到流结束标志或发送失败时退出循环，关闭客户端连接
- * @param client_fd 客户端socket文件描述符
+ * @param nClientFd 客户端socket文件描述符
  */
-void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
-    std::vector<char> buffer(NET_RECORD_FRAME_MAX_PAYLOAD_SIZE);
+void CRecordFrameServer::client_send_loop(socket_fd_t nClientFd) {
+    std::vector<char> vecBuffer(NET_RECORD_FRAME_MAX_PAYLOAD_SIZE);
 
     while (m_bRunning) {
-        const std::string stream_id = current_stream_id();
-        if (stream_id.empty()) {
+        const std::string strStreamId = current_stream_id();
+        if (strStreamId.empty()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
             continue;
         }
@@ -356,34 +356,34 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
             break;
         }
 
-        NET_RecordFrameInfo_S frame_info{};
-        frame_info.uSize = sizeof(frame_info);
-        const int read_len = cb(stream_id, frame_info, buffer.data(), buffer.size());
-        if (read_len < 0) {
-            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: read callback returned %d", read_len);
+        NET_RecordFrameInfo_S stFrameInfo{};
+        stFrameInfo.uSize = sizeof(stFrameInfo);
+        const int nReadLen = cb(strStreamId, stFrameInfo, vecBuffer.data(), vecBuffer.size());
+        if (nReadLen < 0) {
+            NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: read callback returned %d", nReadLen);
             break;
         }
-        if (read_len == 0) {
+        if (nReadLen == 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             continue;
         }
 
-        frame_info.uPayloadLen = static_cast<UINT32>(read_len);
-        if (!send_packet(client_fd, frame_info, buffer.data())) {
+        stFrameInfo.uPayloadLen = static_cast<UINT32>(nReadLen);
+        if (!send_packet(nClientFd, stFrameInfo, vecBuffer.data())) {
             NETSDK_LOG_MESSAGE_WARN("CRecordFrameServer: send packet failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             break;
         }
 
-        if ((frame_info.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
-            frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_END) {
-            close_stream(stream_id);
+        if ((stFrameInfo.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0 ||
+            stFrameInfo.uMediaType == NET_RECORD_FRAME_MEDIA_END) {
+            close_stream(strStreamId);
             break;
         }
     }
 
     {
         std::lock_guard<std::mutex> lock(m_stClientMutex);
-        if (m_nClientFd == client_fd) {
+        if (m_nClientFd == nClientFd) {
             shutdown(m_nClientFd, SHUT_RDWR);
             NETSDK_SOCKET_CLOSE(m_nClientFd);
             m_nClientFd = INVALID_SOCKET_FD;
@@ -395,45 +395,45 @@ void CRecordFrameServer::client_send_loop(socket_fd_t client_fd) {
  * @brief 发送帧数据包
  * @details 将帧信息和帧数据封装为RTP-like协议格式（版本号、负载类型、序号、时间戳、SSRC、数据长度、标志位等），
  *          先发送帧头，再发送帧数据
- * @param fd socket文件描述符
- * @param frame_info 帧信息（序号、时间戳、媒体类型、数据长度等）
- * @param payload 帧数据指针
+ * @param nFd socket文件描述符
+ * @param stFrameInfo 帧信息（序号、时间戳、媒体类型、数据长度等）
+ * @param pstrPayload 帧数据指针
  * @return true表示成功，false表示失败
  */
-bool CRecordFrameServer::send_packet(socket_fd_t fd,
-                                    const NET_RecordFrameInfo_S& frame_info,
-                                    const char* payload) {
-    if (fd == INVALID_SOCKET_FD || frame_info.uPayloadLen > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+bool CRecordFrameServer::send_packet(socket_fd_t nFd,
+                                    const NET_RecordFrameInfo_S& stFrameInfo,
+                                    const char* pstrPayload) {
+    if (nFd == INVALID_SOCKET_FD || stFrameInfo.uPayloadLen > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
         return false;
     }
 
-    uint32_t ssrc = 0;
+    uint32_t uSsrc = 0;
     {
         std::lock_guard<std::mutex> lock(m_stStreamMutex);
-        ssrc = m_uSsrc;
+        uSsrc = m_uSsrc;
     }
 
-    NET_RecordFrameRtpHeader_S header{};
-    header.byVersion = 2;
-    header.byPayloadType = static_cast<UCHAR>(
-        frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_AUDIO ?
+    NET_RecordFrameRtpHeader_S stHeader{};
+    stHeader.byVersion = 2;
+    stHeader.byPayloadType = static_cast<UCHAR>(
+        stFrameInfo.uMediaType == NET_RECORD_FRAME_MEDIA_AUDIO ?
             NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO :
-        frame_info.uMediaType == NET_RECORD_FRAME_MEDIA_END ?
+        stFrameInfo.uMediaType == NET_RECORD_FRAME_MEDIA_END ?
             NET_RECORD_FRAME_PAYLOAD_TYPE_END :
             NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO);
-    header.wSeq = to_be16(static_cast<uint16_t>(frame_info.uSeq));
-    header.uTimestamp = to_be32(frame_info.uTimestamp);
-    header.uSsrc = to_be32(ssrc);
-    header.uPayloadLen = to_be32(frame_info.uPayloadLen);
-    header.uFlags = to_be32(frame_info.uFlags);
+    stHeader.wSeq = to_be16(static_cast<uint16_t>(stFrameInfo.uSeq));
+    stHeader.uTimestamp = to_be32(stFrameInfo.uTimestamp);
+    stHeader.uSsrc = to_be32(uSsrc);
+    stHeader.uPayloadLen = to_be32(stFrameInfo.uPayloadLen);
+    stHeader.uFlags = to_be32(stFrameInfo.uFlags);
 
-    if (!send_all(fd, reinterpret_cast<const char*>(&header), sizeof(header))) {
+    if (!send_all(nFd, reinterpret_cast<const char*>(&stHeader), sizeof(stHeader))) {
         return false;
     }
-    if (frame_info.uPayloadLen == 0) {
+    if (stFrameInfo.uPayloadLen == 0) {
         return true;
     }
-    return payload && send_all(fd, payload, frame_info.uPayloadLen);
+    return pstrPayload && send_all(nFd, pstrPayload, stFrameInfo.uPayloadLen);
 }
 
 }  // namespace tvsdk

@@ -11,30 +11,30 @@
 
 #include <cstring>
 
-static INT32 NormalizeEncodeComplexityNum(INT32 complexityNum)
+static INT32 NormalizeEncodeComplexityNum(INT32 nComplexityNum)
 {
-    if (complexityNum < 0)
+    if (nComplexityNum < 0)
     {
         return 0;
     }
-    if (complexityNum > NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    if (nComplexityNum > NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
     {
         return NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
     }
-    return complexityNum;
+    return nComplexityNum;
 }
 
-static INT32 NormalizeFrameRateNum(INT32 frameRateNum)
+static INT32 NormalizeFrameRateNum(INT32 nFrameRateNum)
 {
-    if (frameRateNum < 0)
+    if (nFrameRateNum < 0)
     {
         return 0;
     }
-    if (frameRateNum > NET_VIDEO_FRAME_RATE_MAX_NUM)
+    if (nFrameRateNum > NET_VIDEO_FRAME_RATE_MAX_NUM)
     {
         return NET_VIDEO_FRAME_RATE_MAX_NUM;
     }
-    return frameRateNum;
+    return nFrameRateNum;
 }
 
 static void DealFrameRateList(Json::Object* pRootJson, NET_VideoResolution_S& stInfo, bool bOutStruct)
@@ -46,17 +46,17 @@ static void DealFrameRateList(Json::Object* pRootJson, NET_VideoResolution_S& st
         Json::Object* pArray = Json::get(pRootJson, "FrameRateList");
         if (pArray)
         {
-            int frameRateNum = Json::Array::size(pArray);
-            if (frameRateNum > 0)
+            int nFrameRateNum = Json::Array::size(pArray);
+            if (nFrameRateNum > 0)
             {
-                stInfo.uFrameRateNum = NormalizeFrameRateNum((INT32)frameRateNum);
+                stInfo.uFrameRateNum = NormalizeFrameRateNum((INT32)nFrameRateNum);
                 for (INT32 i = 0; i < stInfo.uFrameRateNum; ++i)
                 {
-                    double frameRate = 0.0;
+                    double dFrameRate = 0.0;
                     Json::Object* pItem = Json::Array::get(pArray, i);
-                    if (pItem && Json::Value::get(pItem, frameRate))
+                    if (pItem && Json::Value::get(pItem, dFrameRate))
                     {
-                        stInfo.afFrameRate[i] = (FLOAT)frameRate;
+                        stInfo.afFrameRate[i] = (FLOAT)dFrameRate;
                     }
                 }
                 return;
@@ -90,7 +90,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoResolution_S& stInfo, bo
     {
         stInfo.uFrameRateNum = NormalizeFrameRateNum(stInfo.uFrameRateNum);
     }
-    convert.field(pRootJson, "Name", stInfo.szName);
+    convert.field(pRootJson, "Name", stInfo.strName);
     convert.field(pRootJson, "Width", (int&)stInfo.uWidth);
     convert.field(pRootJson, "Height", (int&)stInfo.uHeight);
     convert.field(pRootJson, "FrameRateMin", stInfo.fFrameRateMin);
@@ -159,7 +159,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoEncodeAbility_S& stInfo,
         stInfo.nEncodeComplexityNum = NormalizeEncodeComplexityNum(stInfo.nEncodeComplexityNum);
     }
 
-    convert.field(pRootJson, "VideoCodec", stInfo.szVideoCodec);
+    convert.field(pRootJson, "VideoCodec", stInfo.strVideoCodec);
     convert.field(pRootJson, "VideoCodecType", stInfo.enVideoCodec);
     convert.field(pRootJson, "SupportAdjustComplexity", stInfo.nSupportAdjustComplexity);
     convert.field(pRootJson, "EncodeComplexityNum", stInfo.nEncodeComplexityNum);
@@ -365,8 +365,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoEncodeCap_S& stInfo, boo
 static void dealIntArray(Json::Object* pRootJson,
                          const std::string& strKey,
                          INT32* pData,
-                         INT32 dwValidSize,
-                         INT32 dwMaxSize,
+                         INT32 nValidSize,
+                         INT32 nMaxSize,
                          bool bOutStruct)
 {
     if (!pRootJson || !pData)
@@ -389,7 +389,7 @@ static void dealIntArray(Json::Object* pRootJson,
             return;
         }
 
-        for (int i = 0; i < (int)vValue.size() && i < (int)dwMaxSize; i++)
+        for (int i = 0; i < (int)vValue.size() && i < (int)nMaxSize; i++)
         {
             pData[i] = (INT32)vValue[i];
         }
@@ -398,7 +398,7 @@ static void dealIntArray(Json::Object* pRootJson,
     {
         // Struct -> JSON
         Json::Object* pArray = Json::Array::init();
-        for (int i = 0; i < (int)dwValidSize && i < (int)dwMaxSize; i++)
+        for (int i = 0; i < (int)nValidSize && i < (int)nMaxSize; i++)
         {
             Json::Array::add(pArray, (int)pData[i]);
         }
@@ -696,64 +696,64 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_VideoOsdCfg_S& stInfo, bool b
     /* 当前IPC能力只开放4个自定义字符叠加槽位，结构体保留32槽位用于兼容。 */
     for (int i = 0; i < kOsdCustomSlotCount; ++i)
     {
-        char szKey[64] = {0};
+        char strKey[64] = {0};
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Id", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].nId);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Id", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].nId);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Enable", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].bEnable);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Enable", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].bEnable);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Name", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].strName);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Name", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].strName);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_X", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.nX);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_X", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.nX);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Y", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.nY);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Y", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.nY);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_W", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.nW);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_W", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.nW);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_H", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.nH);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_H", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.nH);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Attribute", i);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Attribute", i);
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enAttribute;
-            convert.field(pRootJson, szKey, nTmpValue);
+            convert.field(pRootJson, strKey, nTmpValue);
             if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enAttribute = (OSD_ATTRIBUTE_E)nTmpValue;
             }
         }
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_FontSize", i);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_FontSize", i);
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enFontSize;
-            convert.field(pRootJson, szKey, nTmpValue);
+            convert.field(pRootJson, strKey, nTmpValue);
             if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enFontSize = (OSD_FONT_SIZE_E)nTmpValue;
             }
         }
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_FontColor", i);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_FontColor", i);
         {
             int nTmpValue = (int)stInfo.OsdInfo[i].stOsdAttr.enFontColor;
-            convert.field(pRootJson, szKey, nTmpValue);
+            convert.field(pRootJson, strKey, nTmpValue);
             if (bOutStruct)
             {
                 stInfo.OsdInfo[i].stOsdAttr.enFontColor = (OSD_COLOR_E)nTmpValue;
             }
         }
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_CustomColor", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.strFontColor);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_CustomColor", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.strFontColor);
 
-        snprintf(szKey, sizeof(szKey), "OsdInfo%02d_Token", i);
-        convert.field(pRootJson, szKey, stInfo.OsdInfo[i].stOsdAttr.strToken);
+        snprintf(strKey, sizeof(strKey), "OsdInfo%02d_Token", i);
+        convert.field(pRootJson, strKey, stInfo.OsdInfo[i].stOsdAttr.strToken);
     }
 
 #undef CONVERT_ENUM_FIELD
@@ -770,8 +770,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PreviewRtspUrl_S& stInfo, boo
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "RtspMainUrl", stInfo.szRtspMainUrl);
-    convert.field(pRootJson, "RtspSubUrl", stInfo.szRtspSubUrl);
+    convert.field(pRootJson, "RtspMainUrl", stInfo.strRtspMainUrl);
+    convert.field(pRootJson, "RtspSubUrl", stInfo.strRtspSubUrl);
 }
 
 

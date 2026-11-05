@@ -221,7 +221,18 @@ CommandDispatcher::CommandDispatcher()
     registerHandler(CMD_GET_PROTOCOL_INFO, [](const CommandFrame &) {
         CommandResult result;
         const char info[] =
-            "TV-BLE/1;frame=crc16;max=1024;auth=hmac-sha256;cipher=aes-256-gcm";
+        "TV-BLE/1;frame=crc16;max=1024;auth=hmac-sha256;cipher=aes-256-gcm"
+        #if CAP_NETWORK_WIFI
+                    ";wifi=1"
+        #else
+                    ";wifi=0"
+        #endif
+        #if CAP_NETWORK_4G
+                    ";4g=1"
+        #else
+                    ";4g=0"
+        #endif
+                    ;
         result.payload.assign(info, info + sizeof(info) - 1);
         return result;
     });

@@ -37,7 +37,7 @@
 #define MAX_LOG_FILES (10)
 
 /* 服务端配置（与服务端 Demo 保持一致） */
-#define SERVER_IP   "172.16.25.233"
+#define SERVER_IP   "172.16.25.216"
 #define SERVER_PORT 9019
 #define USERNAME    "admin"
 #define PASSWORD    "itc20232024"
@@ -407,12 +407,12 @@ static void PrintNetworkCfg(const NET_NetworkCfgList_S* pList)
     for (UINT32 i = 0; i < pList->uNetworkCount && i < NET_MAX_NET_NUM; ++i)
     {
         const NET_NetworkCfg_S* pCfg = &pList->stNets[i];
-        printf("  ---- [%u] NetName : %s ----\n", i, pCfg->szNetName);
+        printf("  ---- [%u] NetName : %s ----\n", i, pCfg->strNetName);
         printf("  MTU          : %d\n", pCfg->uMTU);
         printf("  IPv4DHCP     : %s\n", pCfg->bIPv4DHCP ? "ON" : "OFF");
-        printf("  IPv4Address  : %s\n", pCfg->szIpv4Address);
-        printf("  IPv4Gateway  : %s\n", pCfg->szIPv4GateWay);
-        printf("  IPv4Subnet   : %s\n", pCfg->szIPv4SubnetMask);
+        printf("  IPv4Address  : %s\n", pCfg->strIpv4Address);
+        printf("  IPv4Gateway  : %s\n", pCfg->strIPv4GateWay);
+        printf("  IPv4Subnet   : %s\n", pCfg->strIPv4SubnetMask);
     }
     printf("=================================\n");
 }
@@ -522,11 +522,11 @@ static void PrintWifiStaConnect(const NET_WifiStaConnect_S* pCfg)
     }
 
     printf("\n[Client] ===== WIFI STA连接配置 =====\n");
-    printf("  Ssid         : %s\n", pCfg->szSsid);
+    printf("  Ssid         : %s\n", pCfg->strSsid);
     printf("  SecurityMode : %d\n", pCfg->nSecurityMode);
-    printf("  IpAddress    : %s\n", pCfg->szIpAddress);
-    printf("  Pairwise     : %s\n", pCfg->szPairwise);
-    printf("  Interface    : %s\n", pCfg->szInterfaceName);
+    printf("  IpAddress    : %s\n", pCfg->strIpAddress);
+    printf("  Pairwise     : %s\n", pCfg->strPairwise);
+    printf("  Interface    : %s\n", pCfg->strInterfaceName);
     printf("====================================\n");
 }
 
@@ -538,9 +538,9 @@ static void Print4GInfo(const NET_4GInfo_S* pCfg)
     }
 
     printf("\n[Client] ===== 4G配置信息 =====\n");
-    printf("  APN          : %s\n", pCfg->szApn);
-    printf("  UserName     : %s\n", pCfg->szUserName);
-    printf("  CallNumber   : %s\n", pCfg->szCallNumber);
+    printf("  APN          : %s\n", pCfg->strApn);
+    printf("  UserName     : %s\n", pCfg->strUserName);
+    printf("  CallNumber   : %s\n", pCfg->strCallNumber);
     printf("  MTU          : %d\n", pCfg->nMtu);
     printf("  AuthMode     : %d\n", pCfg->nAuthMode);
     printf("  NetworkMode  : %d\n", pCfg->nNetworkMode);
@@ -557,9 +557,9 @@ static void PrintHotspotInfo(const NET_HotspotInfo_S* pCfg)
 
     printf("\n[Client] ===== 热点配置信息 =====\n");
     printf("  Enabled      : %s\n", pCfg->bEnabled ? "ON" : "OFF");
-    printf("  SSID         : %s\n", pCfg->szSsid);
-    printf("  SecurityMode : %s\n", pCfg->szSecurityMode);
-    printf("  Encryption   : %s\n", pCfg->szEncryptionType);
+    printf("  SSID         : %s\n", pCfg->strSsid);
+    printf("  SecurityMode : %s\n", pCfg->strSecurityMode);
+    printf("  Encryption   : %s\n", pCfg->strEncryptionType);
     printf("================================\n");
 }
 
@@ -581,7 +581,7 @@ static void PrintHotspotConnInfo(const NET_HotspotConnInfo_S* pCfg)
     }
 
     printf("\n[Client] ===== 热点连接设备 =====\n");
-    printf("  Status      : %s\n", pCfg->szStatus);
+    printf("  Status      : %s\n", pCfg->strStatus);
     printf("  Total       : %d\n", pCfg->nTotal);
     printf("  DeviceCount : %d\n", pCfg->nDeviceCount);
     for (int i = 0; i < nCount; ++i)
@@ -589,9 +589,9 @@ static void PrintHotspotConnInfo(const NET_HotspotConnInfo_S* pCfg)
         printf("  Device[%d] Index=%d Mac=%s Ip=%s ConnTime=%s\n",
                i,
                pCfg->astDevices[i].nIndex,
-               pCfg->astDevices[i].szMac,
-               pCfg->astDevices[i].szIp,
-               pCfg->astDevices[i].szConnTime);
+               pCfg->astDevices[i].strMac,
+               pCfg->astDevices[i].strIp,
+               pCfg->astDevices[i].strConnTime);
     }
     printf("================================\n");
 }
@@ -612,8 +612,8 @@ static void PrintSecurityServicesInfo(const NET_SecurityServicesInfo_S* pInfo)
     printf("  AllowLowLevelPwd     : %s\n", pInfo->stPwdPolicy.bAllowLowLevelPwdLogin ? "YES" : "NO");
     printf("  SshEnable            : %s\n", pInfo->stSshAdmin.bSshEnable ? "ON" : "OFF");
     printf("  SshPort              : %d\n", pInfo->stSshAdmin.nSshPort);
-    printf("  SshStartTime         : %s\n", pInfo->stSshAdmin.szSshStartTime);
-    printf("  SshCountdown         : %s\n", pInfo->stSshAdmin.szSshCountdown);
+    printf("  SshStartTime         : %s\n", pInfo->stSshAdmin.strSshStartTime);
+    printf("  SshCountdown         : %s\n", pInfo->stSshAdmin.strSshCountdown);
     printf("================================\n");
 }
 
@@ -627,7 +627,7 @@ static void PrintLogServerInfo(const NET_LogServerInfo_S* pInfo)
     printf("\n[Client] ===== 日志服务器配置 =====\n");
     printf("  Enable      : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  SSL         : %s\n", pInfo->bEnSsl ? "ON" : "OFF");
-    printf("  ServerAddr  : %s\n", pInfo->szServerAddr);
+    printf("  ServerAddr  : %s\n", pInfo->strServerAddr);
     printf("  Port        : %d\n", pInfo->nPort);
     printf("================================\n");
 }
@@ -653,8 +653,8 @@ static void PrintLogListInfo(const NET_LogList_S* pInfo)
     printf("  Type=%d Action=%d Start=%s End=%s\n",
            pInfo->stCond.nType,
            pInfo->stCond.nAction,
-           pInfo->stCond.szStartTime,
-           pInfo->stCond.szEndTime);
+           pInfo->stCond.strStartTime,
+           pInfo->stCond.strEndTime);
     printf("  Page Cur=%d Size=%d Total=%d PageTotal=%d Count=%d\n",
            pInfo->stPage.nCurPage,
            pInfo->stPage.nPageSize,
@@ -665,13 +665,13 @@ static void PrintLogListInfo(const NET_LogList_S* pInfo)
     {
         printf("  Log[%d] Time=%s Type=%d Action=%d Chn=%s User=%s Host=%s Context=%s\n",
                i,
-               pInfo->astLogs[i].szStartTime,
+               pInfo->astLogs[i].strStartTime,
                pInfo->astLogs[i].nType,
                pInfo->astLogs[i].nAction,
-               pInfo->astLogs[i].szChnName,
-               pInfo->astLogs[i].szUser,
-               pInfo->astLogs[i].szHost,
-               pInfo->astLogs[i].szContext);
+               pInfo->astLogs[i].strChnName,
+               pInfo->astLogs[i].strUser,
+               pInfo->astLogs[i].strHost,
+               pInfo->astLogs[i].strContext);
     }
     printf("============================\n");
 }
@@ -690,10 +690,10 @@ static void PrintRecordInfo(const NET_RecordInfo_S* pInfo)
     printf("  RecordStatus : %d\n", pInfo->nRecordStatus);
     printf("  RecordFormat : %d\n", pInfo->nRecordFormat);
     printf("  EventType    : %d\n", pInfo->nEventType);
-    printf("  Path         : %s\n", pInfo->szPath);
-    printf("  RedunPath    : %s\n", pInfo->szRedunPath);
-    printf("  RecordName   : %s\n", pInfo->szRecordName);
-    printf("  RecordTime   : %s\n", pInfo->szRecordTime);
+    printf("  Path         : %s\n", pInfo->strPath);
+    printf("  RedunPath    : %s\n", pInfo->strRedunPath);
+    printf("  RecordName   : %s\n", pInfo->strRecordName);
+    printf("  RecordTime   : %s\n", pInfo->strRecordTime);
     printf("  StreamType   : %d\n", pInfo->nStreamType);
     printf("============================\n");
 }
@@ -794,10 +794,10 @@ static void PrintRecordFileList(const NET_RecordFileList_S* pInfo)
     printf("  Find ChnId=%d Type=%d Date=%s Start=%s End=%s Filename=%s\n",
            pInfo->stFind.nChnId,
            pInfo->stFind.nType,
-           pInfo->stFind.szDate,
-           pInfo->stFind.szStartTime,
-           pInfo->stFind.szEndTime,
-           pInfo->stFind.szFilename);
+           pInfo->stFind.strDate,
+           pInfo->stFind.strStartTime,
+           pInfo->stFind.strEndTime,
+           pInfo->stFind.strFilename);
     printf("  ResultCount : %d\n", pInfo->nResultCount);
     for (int i = 0; i < nResultCount; ++i)
     {
@@ -823,12 +823,12 @@ static void PrintRecordFileList(const NET_RecordFileList_S* pInfo)
         printf("  Result[%d] ChnId=%d Filename=%s DateCount=%d VideoTimeCount=%d\n",
                i,
                pInfo->astResults[i].nChnId,
-               pInfo->astResults[i].szFilename,
+               pInfo->astResults[i].strFilename,
                pInfo->astResults[i].nDateCount,
                pInfo->astResults[i].nVideoTimeCount);
         for (int j = 0; j < nDateCount; ++j)
         {
-            printf("    Date[%d]=%s\n", j, pInfo->astResults[i].aszDates[j]);
+            printf("    Date[%d]=%s\n", j, pInfo->astResults[i].astrDates[j]);
         }
         for (int j = 0; j < nVideoTimeCount; ++j)
         {
@@ -874,16 +874,16 @@ static void PrintRecordDownloadList(const NET_RecordDownloadList_S* pInfo)
         printf("  Download[%d] ChnId=%d Path=%s Start=%s End=%s\n",
                i,
                pInfo->astDownloads[i].nChnId,
-               pInfo->astDownloads[i].szPath,
-               pInfo->astDownloads[i].szStartTime,
-               pInfo->astDownloads[i].szEndTime);
+               pInfo->astDownloads[i].strPath,
+               pInfo->astDownloads[i].strStartTime,
+               pInfo->astDownloads[i].strEndTime);
     }
     printf("  ProgressCount : %d\n", pInfo->nProgressCount);
     for (int i = 0; i < nProgressCount; ++i)
     {
         printf("  Progress[%d] Filename=%s Progress=%d\n",
                i,
-               pInfo->astProgress[i].szFilename,
+               pInfo->astProgress[i].strFilename,
                pInfo->astProgress[i].nProgress);
     }
     printf("==============================\n");
@@ -897,7 +897,7 @@ static void PrintRecordDownloadProgress(const NET_RecordDownloadProgress_S* pInf
     }
 
     printf("\n[Client] ===== 录像下载进度通知 =====\n");
-    printf("  Filename : %s\n", pInfo->szFilename);
+    printf("  Filename : %s\n", pInfo->strFilename);
     printf("  Progress : %d\n", pInfo->nProgress);
     printf("==================================\n");
 }
@@ -905,7 +905,7 @@ static void PrintRecordDownloadProgress(const NET_RecordDownloadProgress_S* pInf
 static void STDCALL ConfigAlarmCallback(INT64 lCommand,
                                         NET_Alarmer_S* pAlarmer,
                                         CHAR* pAlarmInfo,
-                                        INT32* dwBufLen,
+                                        INT32* pnBufLen,
                                         LPVOID lpUserData)
 {
     (void)pAlarmer;
@@ -917,7 +917,7 @@ static void STDCALL ConfigAlarmCallback(INT64 lCommand,
         return;
     }
 
-    if (!pAlarmInfo || !dwBufLen || *dwBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
+    if (!pAlarmInfo || !pnBufLen || *pnBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
     {
         printf("[Client] 收到录像下载进度通知，但数据长度无效\n");
         return;
@@ -1194,7 +1194,7 @@ static void DoGetDeviceCfg()
     NET_DeviceBasicInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取设备基本信息...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1203,12 +1203,12 @@ static void DoGetDeviceCfg()
         NET_GET_DEVICECFG,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取设备基本信息成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取设备基本信息成功! BytesReturned=%d\n", nBytesReturned);
         PrintDeviceBasicInfo(&stInfo);
     }
     else
@@ -1224,14 +1224,14 @@ static void DoSetDeviceCfg()
     memset(&stInfo, 0, sizeof(stInfo));
 
     /* 先获取一次当前配置，便于在其基础上修改 */
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_DEVICECFG,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet)
@@ -1246,19 +1246,19 @@ static void DoSetDeviceCfg()
     strncpy(stInfo.strManufacturer, "DemoManufacturer-Config", sizeof(stInfo.strManufacturer) - 1);
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置设备基本信息(示例值)...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_DEVICECFG,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置设备基本信息成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置设备基本信息成功! BytesReturned=%d\n", nBytesReturnedSet);
         /* 再获取一次，验证修改结果 */
         DoGetDeviceCfg();
     }
@@ -1274,7 +1274,7 @@ static void DoGetNetworkCfg()
     NET_NetworkCfgList_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取网络配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1283,12 +1283,12 @@ static void DoGetNetworkCfg()
         NET_GET_NETWORKCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取网络配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取网络配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintNetworkCfg(&stCfg);
     }
     else
@@ -1304,14 +1304,14 @@ static void DoSetNetworkCfg()
     memset(&stCfg, 0, sizeof(stCfg));
 
     /* 先获取当前配置：SetNetworkCfg 严格按网卡名匹配，需保留设备实际网卡名 */
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_NETWORKCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet || stCfg.uNetworkCount == 0)
@@ -1323,24 +1323,24 @@ static void DoSetNetworkCfg()
     /* 修改第一个网卡为 Demo 值（网卡名保持设备实际值不变） */
     stCfg.stNets[0].uMTU     = 1400;
     stCfg.stNets[0].bIPv4DHCP = 0;
-    strncpy(stCfg.stNets[0].szIpv4Address,   "192.168.1.150", sizeof(stCfg.stNets[0].szIpv4Address) - 1);
-    strncpy(stCfg.stNets[0].szIPv4GateWay,   "192.168.1.1",   sizeof(stCfg.stNets[0].szIPv4GateWay) - 1);
-    strncpy(stCfg.stNets[0].szIPv4SubnetMask,"255.255.255.0", sizeof(stCfg.stNets[0].szIPv4SubnetMask) - 1);
+    strncpy(stCfg.stNets[0].strIpv4Address,   "192.168.1.150", sizeof(stCfg.stNets[0].strIpv4Address) - 1);
+    strncpy(stCfg.stNets[0].strIPv4GateWay,   "192.168.1.1",   sizeof(stCfg.stNets[0].strIPv4GateWay) - 1);
+    strncpy(stCfg.stNets[0].strIPv4SubnetMask,"255.255.255.0", sizeof(stCfg.stNets[0].strIPv4SubnetMask) - 1);
 
-    printf("[Client] 调用 NET_clientSetDevConfig 设置网络配置(示例值, NetName=%s)...\n", stCfg.stNets[0].szNetName);
-    INT32 dwBytesReturnedSet = 0;
+    printf("[Client] 调用 NET_clientSetDevConfig 设置网络配置(示例值, NetName=%s)...\n", stCfg.stNets[0].strNetName);
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_NETWORKCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置网络配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置网络配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         /* 再获取一次，验证修改结果 */
         DoGetNetworkCfg();
     }
@@ -1389,7 +1389,7 @@ static void DoGetSystemNtpCfg()
     NET_SystemNtpInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取系统校时配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -1397,12 +1397,12 @@ static void DoGetSystemNtpCfg()
         NET_GET_NTPCFG,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取系统校时配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取系统校时配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSystemNtpCfg(&stInfo);
     }
     else
@@ -1435,7 +1435,7 @@ static void DoSetSystemNtpCfg()
     NET_SystemNtpInfo_S stInfo;
     FillDemoSystemNtpCfg(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置系统校时配置(客户端当前时间示例)...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -1443,12 +1443,12 @@ static void DoSetSystemNtpCfg()
         NET_SET_NTPCFG,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置系统校时配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置系统校时配置成功! BytesReturned=%d\n", nBytesReturned);
         DoGetSystemNtpCfg();
     }
     else
@@ -1463,7 +1463,7 @@ static void DoGetAudioCfg()
     NET_AudioCfg_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取音频配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1472,12 +1472,12 @@ static void DoGetAudioCfg()
         NET_GET_AUDIOCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取音频配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取音频配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintAudioCfg(&stCfg);
     }
     else
@@ -1492,14 +1492,14 @@ static void DoSetAudioCfg()
     NET_AudioCfg_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_AUDIOCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet)
@@ -1519,19 +1519,19 @@ static void DoSetAudioCfg()
     stCfg.u32OutputVolume = 55;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置音频配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_AUDIOCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置音频配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置音频配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetAudioCfg();
     }
     else
@@ -1546,7 +1546,7 @@ static void DoGetVoiceComAudioCfg()
     NET_VoiceComAudioCfg_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取对讲音频参数...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1555,12 +1555,12 @@ static void DoGetVoiceComAudioCfg()
         NET_GET_VOICECOM_AUDIO_CFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取对讲音频参数成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取对讲音频参数成功! BytesReturned=%d\n", nBytesReturned);
         PrintVoiceComAudioCfg(&stCfg);
     }
     else
@@ -1575,14 +1575,14 @@ static void DoSetVoiceComAudioCfg()
     NET_VoiceComAudioCfg_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_VOICECOM_AUDIO_CFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet)
@@ -1601,19 +1601,19 @@ static void DoSetVoiceComAudioCfg()
     stCfg.bLittleEndian = TRUE;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置对讲音频参数...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_VOICECOM_AUDIO_CFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置对讲音频参数成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置对讲音频参数成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetVoiceComAudioCfg();
     }
     else
@@ -1628,7 +1628,7 @@ static void DoGetStreamCfg()
     NET_VideoEncodeOption_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取视频码流配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1637,12 +1637,12 @@ static void DoGetStreamCfg()
         NET_GET_STREAMCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取视频码流配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取视频码流配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintStreamCfg(&stCfg);
     }
     else
@@ -1657,14 +1657,14 @@ static void DoSetStreamCfg()
     NET_VideoEncodeOption_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_STREAMCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet)
@@ -1690,19 +1690,19 @@ static void DoSetStreamCfg()
     stCfg.nBitrateSmoothing = 50;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置视频码流配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_STREAMCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置视频码流配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置视频码流配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetStreamCfg();
     }
     else
@@ -1721,19 +1721,19 @@ static void DoSetConfigWifiSta()
     stCfg.bEnableBoost = FALSE;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置WIFI STA基础配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_CONFIG_WIFI_STA,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置WIFI STA基础配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置WIFI STA基础配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         PrintWifiStaCfg(&stCfg);
     }
     else
@@ -1748,34 +1748,34 @@ static void DoConnectWifiSta()
     NET_WifiStaConnect_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    strncpy(stCfg.szSsid, "DemoWifi", sizeof(stCfg.szSsid) - 1);
+    strncpy(stCfg.strSsid, "DemoWifi", sizeof(stCfg.strSsid) - 1);
     stCfg.nSecurityMode = NET_WIFI_SECURITY_WPA_PERSONAL;
-    strncpy(stCfg.szIpAddress, "192.168.1.120", sizeof(stCfg.szIpAddress) - 1);
-    strncpy(stCfg.szPassword, "12345678", sizeof(stCfg.szPassword) - 1);
-    strncpy(stCfg.szPairwise, "CCMP", sizeof(stCfg.szPairwise) - 1);
+    strncpy(stCfg.strIpAddress, "192.168.1.120", sizeof(stCfg.strIpAddress) - 1);
+    strncpy(stCfg.strPassword, "12345678", sizeof(stCfg.strPassword) - 1);
+    strncpy(stCfg.strPairwise, "CCMP", sizeof(stCfg.strPairwise) - 1);
     stCfg.nWepKeyLen = 128;
     stCfg.bWepIsHex = FALSE;
-    strncpy(stCfg.szAuthAlg, "OPEN", sizeof(stCfg.szAuthAlg) - 1);
+    strncpy(stCfg.strAuthAlg, "OPEN", sizeof(stCfg.strAuthAlg) - 1);
     stCfg.nWepKeyCount = 1;
     stCfg.astWepKeys[0].nIndex = 1;
-    strncpy(stCfg.astWepKeys[0].szValue, "1234567890", sizeof(stCfg.astWepKeys[0].szValue) - 1);
-    strncpy(stCfg.szCtrlInterface, "/var/run/wpa_supplicant", sizeof(stCfg.szCtrlInterface) - 1);
-    strncpy(stCfg.szInterfaceName, "wlan0", sizeof(stCfg.szInterfaceName) - 1);
+    strncpy(stCfg.astWepKeys[0].strValue, "1234567890", sizeof(stCfg.astWepKeys[0].strValue) - 1);
+    strncpy(stCfg.strCtrlInterface, "/var/run/wpa_supplicant", sizeof(stCfg.strCtrlInterface) - 1);
+    strncpy(stCfg.strInterfaceName, "wlan0", sizeof(stCfg.strInterfaceName) - 1);
 
     printf("[Client] 调用 NET_clientSetDevConfig 连接WIFI STA...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_CONNECT_WIFI_STA,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 连接WIFI STA成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 连接WIFI STA成功! BytesReturned=%d\n", nBytesReturnedSet);
         PrintWifiStaConnect(&stCfg);
     }
     else
@@ -1790,23 +1790,23 @@ static void DoDisconnectWifiSta()
     NET_WifiStaConnect_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    strncpy(stCfg.szSsid, "DemoWifi", sizeof(stCfg.szSsid) - 1);
-    strncpy(stCfg.szInterfaceName, "wlan0", sizeof(stCfg.szInterfaceName) - 1);
+    strncpy(stCfg.strSsid, "DemoWifi", sizeof(stCfg.strSsid) - 1);
+    strncpy(stCfg.strInterfaceName, "wlan0", sizeof(stCfg.strInterfaceName) - 1);
 
     printf("[Client] 调用 NET_clientSetDevConfig 断开WIFI STA...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_DISCONNECT_WIFI_STA,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 断开WIFI STA成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 断开WIFI STA成功! BytesReturned=%d\n", nBytesReturnedSet);
     }
     else
     {
@@ -1820,7 +1820,7 @@ static void DoGet4GInfo()
     NET_4GInfo_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取4G配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1829,12 +1829,12 @@ static void DoGet4GInfo()
         NET_GET_4G_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取4G配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取4G配置成功! BytesReturned=%d\n", nBytesReturned);
         Print4GInfo(&stCfg);
     }
     else
@@ -1849,29 +1849,29 @@ static void DoSet4GInfo()
     NET_4GInfo_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    strncpy(stCfg.szApn, "ctnet", sizeof(stCfg.szApn) - 1);
-    strncpy(stCfg.szUserName, "user", sizeof(stCfg.szUserName) - 1);
-    strncpy(stCfg.szPassword, "pwd", sizeof(stCfg.szPassword) - 1);
-    strncpy(stCfg.szCallNumber, "*99#", sizeof(stCfg.szCallNumber) - 1);
+    strncpy(stCfg.strApn, "ctnet", sizeof(stCfg.strApn) - 1);
+    strncpy(stCfg.strUserName, "user", sizeof(stCfg.strUserName) - 1);
+    strncpy(stCfg.strPassword, "pwd", sizeof(stCfg.strPassword) - 1);
+    strncpy(stCfg.strCallNumber, "*99#", sizeof(stCfg.strCallNumber) - 1);
     stCfg.nMtu = 1500;
     stCfg.nAuthMode = 0;
     stCfg.nNetworkMode = 0;
     stCfg.nDialMode = 0;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置4G配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_4G_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置4G配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置4G配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGet4GInfo();
     }
     else
@@ -1887,26 +1887,26 @@ static void DoSetHotspotInfo()
     memset(&stCfg, 0, sizeof(stCfg));
 
     stCfg.bEnabled = TRUE;
-    strncpy(stCfg.szSsid, "DemoHotspot", sizeof(stCfg.szSsid) - 1);
-    strncpy(stCfg.szSecurityMode, "WPA2-personal", sizeof(stCfg.szSecurityMode) - 1);
-    strncpy(stCfg.szEncryptionType, "TKIP", sizeof(stCfg.szEncryptionType) - 1);
-    strncpy(stCfg.szPassword, "12345678", sizeof(stCfg.szPassword) - 1);
-    strncpy(stCfg.szConfirmPassword, "12345678", sizeof(stCfg.szConfirmPassword) - 1);
+    strncpy(stCfg.strSsid, "DemoHotspot", sizeof(stCfg.strSsid) - 1);
+    strncpy(stCfg.strSecurityMode, "WPA2-personal", sizeof(stCfg.strSecurityMode) - 1);
+    strncpy(stCfg.strEncryptionType, "TKIP", sizeof(stCfg.strEncryptionType) - 1);
+    strncpy(stCfg.strPassword, "12345678", sizeof(stCfg.strPassword) - 1);
+    strncpy(stCfg.strConfirmPassword, "12345678", sizeof(stCfg.strConfirmPassword) - 1);
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置热点配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_HOTSPOT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置热点配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置热点配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         PrintHotspotInfo(&stCfg);
     }
     else
@@ -1921,7 +1921,7 @@ static void DoGetHotspotConn()
     NET_HotspotConnInfo_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取热点连接设备...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -1930,12 +1930,12 @@ static void DoGetHotspotConn()
         NET_GET_HOTSPOT_CONN,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取热点连接设备成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取热点连接设备成功! BytesReturned=%d\n", nBytesReturned);
         PrintHotspotConnInfo(&stCfg);
     }
     else
@@ -1949,7 +1949,7 @@ static void DoGetSecurityServicesInfo()
     NET_SecurityServicesInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取安全服务配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -1957,12 +1957,12 @@ static void DoGetSecurityServicesInfo()
         NET_GET_SECURITY_SERVICES_INFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取安全服务配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取安全服务配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSecurityServicesInfo(&stInfo);
     }
     else
@@ -1984,10 +1984,10 @@ static void DoSetSecurityServicesInfo()
     stInfo.stPwdPolicy.bAllowLowLevelPwdLogin = FALSE;
     stInfo.stSshAdmin.bSshEnable = TRUE;
     stInfo.stSshAdmin.nSshPort = 22;
-    strncpy(stInfo.stSshAdmin.szSshStartTime, "2026-05-06 10:00:00", sizeof(stInfo.stSshAdmin.szSshStartTime) - 1);
-    strncpy(stInfo.stSshAdmin.szSshCountdown, "08:00:00", sizeof(stInfo.stSshAdmin.szSshCountdown) - 1);
+    strncpy(stInfo.stSshAdmin.strSshStartTime, "2026-05-06 10:00:00", sizeof(stInfo.stSshAdmin.strSshStartTime) - 1);
+    strncpy(stInfo.stSshAdmin.strSshCountdown, "08:00:00", sizeof(stInfo.stSshAdmin.strSshCountdown) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置安全服务配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -1995,12 +1995,12 @@ static void DoSetSecurityServicesInfo()
         NET_SET_SECURITY_SERVICES_INFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置安全服务配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置安全服务配置成功! BytesReturned=%d\n", nBytesReturned);
         DoGetSecurityServicesInfo();
     }
     else
@@ -2014,7 +2014,7 @@ static void DoGetSshCountdown()
     NET_SshCountdownInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取SSH倒计时...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2022,12 +2022,12 @@ static void DoGetSshCountdown()
         NET_GET_SSH_COUNTDOWN,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取SSH倒计时成功! BytesReturned=%d Countdown=%s\n", dwBytesReturned, stInfo.szCountdown);
+        printf("[Client] 获取SSH倒计时成功! BytesReturned=%d Countdown=%s\n", nBytesReturned, stInfo.strCountdown);
     }
     else
     {
@@ -2045,31 +2045,31 @@ static void FillDemoLogQuery(NET_LogList_S* pInfo)
     memset(pInfo, 0, sizeof(*pInfo));
     pInfo->stCond.nType = 0;
     pInfo->stCond.nAction = 0;
-    strncpy(pInfo->stCond.szStartTime, "2026-05-06 00:00:00", sizeof(pInfo->stCond.szStartTime) - 1);
-    strncpy(pInfo->stCond.szEndTime, "2026-05-06 23:59:59", sizeof(pInfo->stCond.szEndTime) - 1);
+    strncpy(pInfo->stCond.strStartTime, "2026-05-06 00:00:00", sizeof(pInfo->stCond.strStartTime) - 1);
+    strncpy(pInfo->stCond.strEndTime, "2026-05-06 23:59:59", sizeof(pInfo->stCond.strEndTime) - 1);
     pInfo->stPage.nCurPage = 1;
     pInfo->stPage.nPageSize = 20;
 }
 
-static void DoQueryLog(INT32 dwCommand, const char* pszName)
+static void DoQueryLog(INT32 nCommand, const char* pszName)
 {
     NET_LogList_S stInfo;
     FillDemoLogQuery(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig %s...\n", pszName);
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
-        dwCommand,
+        nCommand,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] %s成功! BytesReturned=%d\n", pszName, dwBytesReturned);
+        printf("[Client] %s成功! BytesReturned=%d\n", pszName, nBytesReturned);
         PrintLogListInfo(&stInfo);
     }
     else
@@ -2093,7 +2093,7 @@ static void DoGetLogServer()
     NET_LogServerInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取日志服务器配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2101,12 +2101,12 @@ static void DoGetLogServer()
         NET_GET_LOG_SERVER,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取日志服务器配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取日志服务器配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintLogServerInfo(&stInfo);
     }
     else
@@ -2125,7 +2125,7 @@ static void FillDemoLogServer(NET_LogServerInfo_S* pInfo)
     memset(pInfo, 0, sizeof(*pInfo));
     pInfo->bEnable = TRUE;
     pInfo->bEnSsl = FALSE;
-    strncpy(pInfo->szServerAddr, "oam.itc-pa.cn", sizeof(pInfo->szServerAddr) - 1);
+    strncpy(pInfo->strServerAddr, "oam.itc-pa.cn", sizeof(pInfo->strServerAddr) - 1);
     pInfo->nPort = 1883;
 }
 
@@ -2134,7 +2134,7 @@ static void DoSetLogServer()
     NET_LogServerInfo_S stInfo;
     FillDemoLogServer(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置日志服务器配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2142,12 +2142,12 @@ static void DoSetLogServer()
         NET_SET_LOG_SERVER,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置日志服务器配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置日志服务器配置成功! BytesReturned=%d\n", nBytesReturned);
         DoGetLogServer();
     }
     else
@@ -2170,10 +2170,10 @@ static void FillDemoRecordInfo(NET_RecordInfo_S* pInfo, INT32 nRecordStatus)
     pInfo->nRecordStatus = nRecordStatus;
     pInfo->nRecordFormat = 0;
     pInfo->nEventType = 0;
-    strncpy(pInfo->szPath, "/tmp/", sizeof(pInfo->szPath) - 1);
-    strncpy(pInfo->szRedunPath, "/tmp/", sizeof(pInfo->szRedunPath) - 1);
-    strncpy(pInfo->szRecordName, "manual_record_demo.ts", sizeof(pInfo->szRecordName) - 1);
-    strncpy(pInfo->szRecordTime, "2026-05-06 10:00:00", sizeof(pInfo->szRecordTime) - 1);
+    strncpy(pInfo->strPath, "/tmp/", sizeof(pInfo->strPath) - 1);
+    strncpy(pInfo->strRedunPath, "/tmp/", sizeof(pInfo->strRedunPath) - 1);
+    strncpy(pInfo->strRecordName, "manual_record_demo.ts", sizeof(pInfo->strRecordName) - 1);
+    strncpy(pInfo->strRecordTime, "2026-05-06 10:00:00", sizeof(pInfo->strRecordTime) - 1);
     pInfo->nStreamType = 0;
 }
 
@@ -2182,7 +2182,7 @@ static void DoControlRecordInfo(INT32 nRecordStatus)
     NET_RecordInfo_S stInfo;
     FillDemoRecordInfo(&stInfo, nRecordStatus);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 控制手动录像...\n");
     PrintRecordInfo(&stInfo);
     BOOL bRet = NET_clientSetDevConfig(
@@ -2191,12 +2191,12 @@ static void DoControlRecordInfo(INT32 nRecordStatus)
         NET_CONTROL_RECORD_INFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 控制手动录像成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 控制手动录像成功! BytesReturned=%d\n", nBytesReturned);
     }
     else
     {
@@ -2209,7 +2209,7 @@ static void DoGetRecordStatus()
     NET_RecordStatusInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取录像状态...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2217,12 +2217,12 @@ static void DoGetRecordStatus()
         NET_GET_RECORD_STATUS,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取录像状态成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取录像状态成功! BytesReturned=%d\n", nBytesReturned);
         PrintRecordStatusInfo(&stInfo);
     }
     else
@@ -2256,7 +2256,7 @@ static void DoGetRecordSchedule()
     NET_RecordSchedule_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取录像计划...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2264,12 +2264,12 @@ static void DoGetRecordSchedule()
         NET_GET_RECORD_SCHEDULE,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取录像计划成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取录像计划成功! BytesReturned=%d\n", nBytesReturned);
         PrintRecordSchedule(&stInfo);
     }
     else
@@ -2283,7 +2283,7 @@ static void DoSetRecordSchedule()
     NET_RecordSchedule_S stInfo;
     FillDemoRecordSchedule(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置录像计划...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2291,12 +2291,12 @@ static void DoSetRecordSchedule()
         NET_SET_RECORD_SCHEDULE,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置录像计划成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置录像计划成功! BytesReturned=%d\n", nBytesReturned);
         DoGetRecordSchedule();
     }
     else
@@ -2324,7 +2324,7 @@ static void DoGetRecordAdvancedParam()
     NET_RecordAdvancedParam_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取录像高级参数...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2332,12 +2332,12 @@ static void DoGetRecordAdvancedParam()
         NET_GET_RECORD_ADVANCED_PARAM,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取录像高级参数成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取录像高级参数成功! BytesReturned=%d\n", nBytesReturned);
         PrintRecordAdvancedParam(&stInfo);
     }
     else
@@ -2351,7 +2351,7 @@ static void DoSetRecordAdvancedParam()
     NET_RecordAdvancedParam_S stInfo;
     FillDemoRecordAdvancedParam(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置录像高级参数...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2359,12 +2359,12 @@ static void DoSetRecordAdvancedParam()
         NET_SET_RECORD_ADVANCED_PARAM,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置录像高级参数成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置录像高级参数成功! BytesReturned=%d\n", nBytesReturned);
         DoGetRecordAdvancedParam();
     }
     else
@@ -2394,12 +2394,12 @@ static void FillDemoRecordFindCond(NET_RecordFileList_S* pInfo)
 
     memset(pInfo, 0, sizeof(*pInfo));
 
-    char szToday[32] = {0};
-    char szTodayDate[16] = {0};
-    FormatLocalDateTime(szToday, sizeof(szToday));
-    if (strlen(szToday) >= 10)
+    char strToday[32] = {0};
+    char strTodayDate[16] = {0};
+    FormatLocalDateTime(strToday, sizeof(strToday));
+    if (strlen(strToday) >= 10)
     {
-        snprintf(szTodayDate, sizeof(szTodayDate), "%.10s", szToday);
+        snprintf(strTodayDate, sizeof(strTodayDate), "%.10s", strToday);
     }
 
     /* 通道号可自定义：直接回车 = 0（走接口默认通道）。NVR 若点位从 1 起，这里
@@ -2412,41 +2412,41 @@ static void FillDemoRecordFindCond(NET_RecordFileList_S* pInfo)
 
     if (nMode == 1)
     {
-        char szStartText[32] = {0};
-        char szEndText[32] = {0};
-        snprintf(szStartText, sizeof(szStartText), "%s 00:00:00", szTodayDate);
-        snprintf(szEndText, sizeof(szEndText), "%s 23:59:59", szTodayDate);
+        char strStartText[32] = {0};
+        char strEndText[32] = {0};
+        snprintf(strStartText, sizeof(strStartText), "%s 00:00:00", strTodayDate);
+        snprintf(strEndText, sizeof(strEndText), "%s 23:59:59", strTodayDate);
         ReadTextWithDefault("[Client] 开始时间(YYYY-MM-DD HH:MM:SS)",
-                            szStartText, sizeof(szStartText), szStartText);
+                            strStartText, sizeof(strStartText), strStartText);
         ReadTextWithDefault("[Client] 结束时间(YYYY-MM-DD HH:MM:SS)",
-                            szEndText, sizeof(szEndText), szEndText);
-        strncpy(pInfo->stFind.szStartTime, szStartText, sizeof(pInfo->stFind.szStartTime) - 1);
-        strncpy(pInfo->stFind.szEndTime, szEndText, sizeof(pInfo->stFind.szEndTime) - 1);
+                            strEndText, sizeof(strEndText), strEndText);
+        strncpy(pInfo->stFind.strStartTime, strStartText, sizeof(pInfo->stFind.strStartTime) - 1);
+        strncpy(pInfo->stFind.strEndTime, strEndText, sizeof(pInfo->stFind.strEndTime) - 1);
     }
     else if (nMode == 3)
     {
-        char szYear[8] = {0};
-        char szMonth[8] = {0};
-        snprintf(szYear, sizeof(szYear), "%.4s", szTodayDate);
-        snprintf(szMonth, sizeof(szMonth), "%.2s", szTodayDate + 5);
-        ReadTextWithDefault("[Client] 年份(YYYY)", szYear, sizeof(szYear), szYear);
-        ReadTextWithDefault("[Client] 月份(M 或 MM)", szMonth, sizeof(szMonth), szMonth);
-        strncpy(pInfo->stFind.szYear, szYear, sizeof(pInfo->stFind.szYear) - 1);
-        strncpy(pInfo->stFind.szMonth, szMonth, sizeof(pInfo->stFind.szMonth) - 1);
+        char strYear[8] = {0};
+        char strMonth[8] = {0};
+        snprintf(strYear, sizeof(strYear), "%.4s", strTodayDate);
+        snprintf(strMonth, sizeof(strMonth), "%.2s", strTodayDate + 5);
+        ReadTextWithDefault("[Client] 年份(YYYY)", strYear, sizeof(strYear), strYear);
+        ReadTextWithDefault("[Client] 月份(M 或 MM)", strMonth, sizeof(strMonth), strMonth);
+        strncpy(pInfo->stFind.strYear, strYear, sizeof(pInfo->stFind.strYear) - 1);
+        strncpy(pInfo->stFind.strMonth, strMonth, sizeof(pInfo->stFind.strMonth) - 1);
     }
     else if (nMode == 4)
     {
-        char szYear[8] = {0};
-        snprintf(szYear, sizeof(szYear), "%.4s", szTodayDate);
-        ReadTextWithDefault("[Client] 年份(YYYY)", szYear, sizeof(szYear), szYear);
-        strncpy(pInfo->stFind.szYear, szYear, sizeof(pInfo->stFind.szYear) - 1);
+        char strYear[8] = {0};
+        snprintf(strYear, sizeof(strYear), "%.4s", strTodayDate);
+        ReadTextWithDefault("[Client] 年份(YYYY)", strYear, sizeof(strYear), strYear);
+        strncpy(pInfo->stFind.strYear, strYear, sizeof(pInfo->stFind.strYear) - 1);
     }
     else
     {
-        char szDate[16] = {0};
-        strncpy(szDate, szTodayDate, sizeof(szDate) - 1);
-        ReadTextWithDefault("[Client] 日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
-        strncpy(pInfo->stFind.szDate, szDate, sizeof(pInfo->stFind.szDate) - 1);
+        char strDate[16] = {0};
+        strncpy(strDate, strTodayDate, sizeof(strDate) - 1);
+        ReadTextWithDefault("[Client] 日期(YYYY-MM-DD)", strDate, sizeof(strDate), strDate);
+        strncpy(pInfo->stFind.strDate, strDate, sizeof(pInfo->stFind.strDate) - 1);
     }
 }
 
@@ -2455,7 +2455,7 @@ static void DoFindRecordFileInfo()
     NET_RecordFileList_S stInfo;
     FillDemoRecordFindCond(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 查找录像文件...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2463,12 +2463,12 @@ static void DoFindRecordFileInfo()
         NET_FIND_RECORD_FILE_INFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 查找录像文件成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 查找录像文件成功! BytesReturned=%d\n", nBytesReturned);
         PrintRecordFileList(&stInfo);
     }
     else
@@ -2503,12 +2503,12 @@ static void DoQueryRecordFiles()
 
     printf("[Client] 调用 NET_clientQueryRecordFiles, channel=%d, year=%s month=%s date=%s start=%s end=%s, page=%d, size=%d\n",
            stQuery.stFind.nChnId,
-           stQuery.stFind.szYear, stQuery.stFind.szMonth, stQuery.stFind.szDate,
-           stQuery.stFind.szStartTime, stQuery.stFind.szEndTime,
+           stQuery.stFind.strYear, stQuery.stFind.strMonth, stQuery.stFind.strDate,
+           stQuery.stFind.strStartTime, stQuery.stFind.strEndTime,
            stQuery.stPage.nCurPage, stQuery.stPage.nPageSize);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientQueryRecordFiles(g_lpUserID, &stQuery, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientQueryRecordFiles(g_lpUserID, &stQuery, &nBytesReturned);
     if (!bRet)
     {
         printf("[Client] 分页查询失败! Error=%d\n", NET_clientGetLastError());
@@ -2523,7 +2523,7 @@ static void DoQueryRecordFiles()
     {
         NET_RecordFindResult_S* pItem = &stQuery.pResults[i];
         printf("  [%d] ChnId=%d, FileName=%s, VideoTimeCount=%d",
-               i, pItem->nChnId, pItem->szFilename, pItem->nVideoTimeCount);
+               i, pItem->nChnId, pItem->strFilename, pItem->nVideoTimeCount);
         if (pItem->nVideoTimeCount > 0)
         {
             printf(", firstSeg: start=%d end=%d",
@@ -2545,9 +2545,9 @@ static void DoGetCapturePicture()
     stInfo.nStreamType = NET_CUSTOM_STREAM_MAIN;
     stInfo.nPicFormat = NET_CAPTURE_PICTURE_FORMAT_JPEG;
     stInfo.nOutputType = NET_CAPTURE_OUTPUT_MEMORY;
-    strncpy(stInfo.szFilePath, "/tmp/sdk_capture.jpg", sizeof(stInfo.szFilePath) - 1);
+    strncpy(stInfo.strFilePath, "/tmp/sdk_capture.jpg", sizeof(stInfo.strFilePath) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 抓图, channel=1, JPEG, 内存返回...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2555,7 +2555,7 @@ static void DoGetCapturePicture()
         NET_GET_CAPTURE_PICTURE,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRet)
@@ -2565,24 +2565,24 @@ static void DoGetCapturePicture()
     }
 
     printf("[Client] 抓图成功! PicLen=%u, FilePath=%s\n",
-           stInfo.uPicLen, stInfo.szFilePath);
+           stInfo.uPicLen, stInfo.strFilePath);
     if (stInfo.uPicLen > 0 && stInfo.abyPicData[0] != 0)
     {
         printf("[Client] 图片数据首字节: 0x%02X (JPEG应为 0xFF)\n",
                stInfo.abyPicData[0]);
         /* 落盘便于查看 */
-        FILE* fp = fopen(stInfo.szFilePath, "wb");
+        FILE* fp = fopen(stInfo.strFilePath, "wb");
         if (fp)
         {
             fwrite(stInfo.abyPicData, 1, stInfo.uPicLen, fp);
             fclose(fp);
-            printf("[Client] 图片已落盘: %s\n", stInfo.szFilePath);
+            printf("[Client] 图片已落盘: %s\n", stInfo.strFilePath);
         }
     }
 }
 
 /* 强制I帧并返回流地址（584，走 NET_clientGetDevConfig command=NET_FORCE_KEY_FRAME）。
- * nResult: 0=已触发 1=设备不支持 -1=失败；szStreamUrl 回填该通道流地址。 */
+ * nResult: 0=已触发 1=设备不支持 -1=失败；strStreamUrl 回填该通道流地址。 */
 static void DoForceKeyFrame()
 {
     NET_ForceKeyFrameInfo_S stInfo;
@@ -2590,7 +2590,7 @@ static void DoForceKeyFrame()
     stInfo.nChannel = 1;
     stInfo.nStreamType = NET_CUSTOM_STREAM_MAIN;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 强制I帧, channel=1, 主码流...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2598,7 +2598,7 @@ static void DoForceKeyFrame()
         NET_FORCE_KEY_FRAME,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRet)
@@ -2610,9 +2610,9 @@ static void DoForceKeyFrame()
     const char* pszResult = (stInfo.nResult == 0) ? "已触发" :
                             (stInfo.nResult == 1) ? "设备不支持" : "失败";
     printf("[Client] 强制I帧结果: %s (nResult=%d)\n", pszResult, stInfo.nResult);
-    if (stInfo.szStreamUrl[0] != '\0')
+    if (stInfo.strStreamUrl[0] != '\0')
     {
-        printf("[Client] 流地址: %s\n", stInfo.szStreamUrl);
+        printf("[Client] 流地址: %s\n", stInfo.strStreamUrl);
     }
 }
 
@@ -2622,7 +2622,7 @@ static void DoGetFaceCaptureOverlayInfo()
     NET_FaceCaptureOverlayInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取人脸抓拍叠加配置, channel=1...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2630,7 +2630,7 @@ static void DoGetFaceCaptureOverlayInfo()
         NET_GET_FACECAPTUREOVERLAYINFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRet)
@@ -2661,7 +2661,7 @@ static void DoSetFaceCaptureOverlayInfo()
     stInfo.bOverlayMonitoryPointInfo = 1;
     stInfo.enFontColor = NET_OSD_COLOR_WHITE;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置人脸抓拍叠加配置, channel=1...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2669,7 +2669,7 @@ static void DoSetFaceCaptureOverlayInfo()
         NET_SET_FACECAPTUREOVERLAYINFO,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
@@ -2694,7 +2694,7 @@ static void DoTriggerSoundLightAlarm()
     stInfo.stLinkageList.uRecordChannelCount = 1;
     stInfo.stLinkageList.auRecordChannel[0] = 1;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 触发声光报警, channel=1...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2702,7 +2702,7 @@ static void DoTriggerSoundLightAlarm()
         NET_TRIGGER_SOUND_LIGHT_ALARM,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
@@ -2725,9 +2725,9 @@ static void FillDemoRecordDownloadList(NET_RecordDownloadList_S* pInfo)
     memset(pInfo, 0, sizeof(*pInfo));
     pInfo->nDownloadCount = 1;
     pInfo->astDownloads[0].nChnId = 0;
-    strncpy(pInfo->astDownloads[0].szPath, "/tmp/manual_record_demo.ts", sizeof(pInfo->astDownloads[0].szPath) - 1);
-    strncpy(pInfo->astDownloads[0].szStartTime, "2026-05-06 10:00:00", sizeof(pInfo->astDownloads[0].szStartTime) - 1);
-    strncpy(pInfo->astDownloads[0].szEndTime, "2026-05-06 10:30:00", sizeof(pInfo->astDownloads[0].szEndTime) - 1);
+    strncpy(pInfo->astDownloads[0].strPath, "/tmp/manual_record_demo.ts", sizeof(pInfo->astDownloads[0].strPath) - 1);
+    strncpy(pInfo->astDownloads[0].strStartTime, "2026-05-06 10:00:00", sizeof(pInfo->astDownloads[0].strStartTime) - 1);
+    strncpy(pInfo->astDownloads[0].strEndTime, "2026-05-06 10:30:00", sizeof(pInfo->astDownloads[0].strEndTime) - 1);
 }
 
 static void DoDownloadRecordFile()
@@ -2735,7 +2735,7 @@ static void DoDownloadRecordFile()
     NET_RecordDownloadList_S stInfo;
     FillDemoRecordDownloadList(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 下载录像文件...\n");
     PrintRecordDownloadList(&stInfo);
     BOOL bRet = NET_clientSetDevConfig(
@@ -2744,12 +2744,12 @@ static void DoDownloadRecordFile()
         NET_DOWNLOAD_RECORD_FILE,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 下载录像文件请求成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 下载录像文件请求成功! BytesReturned=%d\n", nBytesReturned);
     }
     else
     {
@@ -2762,7 +2762,7 @@ static void DoTestLogServer()
     NET_LogServerInfo_S stInfo;
     FillDemoLogServer(&stInfo);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 测试日志服务器配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
@@ -2770,12 +2770,12 @@ static void DoTestLogServer()
         NET_TEST_LOG_SERVER,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 测试日志服务器配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 测试日志服务器配置成功! BytesReturned=%d\n", nBytesReturned);
     }
     else
     {
@@ -2789,7 +2789,7 @@ static void DoGetOSDCapCfg()
     NET_VideoOsdCfg_S stCfg;
     memset(&stCfg, 0, sizeof(stCfg));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取OSD能力集配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -2798,12 +2798,12 @@ static void DoGetOSDCapCfg()
         NET_GET_OSDCAPCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取OSD能力集配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取OSD能力集配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintOSDCfg(&stCfg);
     }
     else
@@ -2818,14 +2818,14 @@ static void DoSetOSDCapCfg()
     memset(&stCfg, 0, sizeof(stCfg));
 
     /* 同样先获取一次当前配置 */
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID,
         1,
         NET_GET_OSDCAPCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (!bRetGet)
@@ -2840,19 +2840,19 @@ static void DoSetOSDCapCfg()
     printf("[Client] 调用 NET_clientSetDevConfig 设置OSD能力集配置(示例值)...\n");
     PrintOSDCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_OSDCAPCFG,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置OSD能力集配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置OSD能力集配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         /* 再获取一次，验证设置结果 */
         DoGetOSDCapCfg();
     }
@@ -2879,7 +2879,7 @@ static void DoGetRtspUrl()
     NET_RtspUrlInfo_S stRtsp;
     memset(&stRtsp, 0, sizeof(stRtsp));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取RTSP流地址...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID,
@@ -2887,15 +2887,15 @@ static void DoGetRtspUrl()
         NET_GET_RTSPURLCFG,
         &stRtsp,
         (INT32)sizeof(stRtsp),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取RTSP流地址成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取RTSP流地址成功! BytesReturned=%d\n", nBytesReturned);
         printf("  Channel     : %d\n", stRtsp.uChannel);
         printf("  StreamIndex : %d\n", stRtsp.uStreamIndex);
-        printf("  RtspUrl     : %s\n", stRtsp.szRtspUrl);
+        printf("  RtspUrl     : %s\n", stRtsp.strRtspUrl);
     }
     else
     {
@@ -3097,7 +3097,7 @@ static void DoGetMotionAlarm()
     NET_MotionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取移动侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -3106,12 +3106,12 @@ static void DoGetMotionAlarm()
         NET_GET_MOTIONALARM,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取移动侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取移动侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintMotionAlarmInfo(&stInfo);
     }
     else
@@ -3126,10 +3126,10 @@ static void DoSetMotionAlarm()
     NET_MotionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_MOTIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3150,15 +3150,15 @@ static void DoSetMotionAlarm()
     stInfo.stNormalMode.nRectBottom = 550;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置移动侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_MOTIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置移动侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置移动侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetMotionAlarm();
     }
     else
@@ -3173,17 +3173,17 @@ static void DoGetTamperAlarm()
     NET_TamperAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取遮挡报警配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_TAMPERALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取遮挡报警配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取遮挡报警配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintTamperAlarmInfo(&stInfo);
     }
     else
@@ -3198,10 +3198,10 @@ static void DoSetTamperAlarm()
     NET_TamperAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_TAMPERALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3219,15 +3219,15 @@ static void DoSetTamperAlarm()
     stInfo.nRectBottom = 500;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置遮挡报警配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_TAMPERALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置遮挡报警配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置遮挡报警配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetTamperAlarm();
     }
     else
@@ -3242,17 +3242,17 @@ static void DoGetPrivacyMaskCfg()
     NET_PrivacyMaskCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取隐私遮盖配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PRIVACYMASKCFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取隐私遮盖配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取隐私遮盖配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPrivacyMaskCfg(&stInfo);
     }
     else
@@ -3267,10 +3267,10 @@ static void DoSetPrivacyMaskCfg()
     NET_PrivacyMaskCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PRIVACYMASKCFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3289,15 +3289,15 @@ static void DoSetPrivacyMaskCfg()
     stInfo.astArea[0].nRectBottom = 320;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置隐私遮盖配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PRIVACYMASKCFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置隐私遮盖配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置隐私遮盖配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPrivacyMaskCfg();
     }
     else
@@ -3312,7 +3312,7 @@ static void DoGetCrossLineAlarm()
     NET_CrossLineAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取越界检测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
@@ -3321,12 +3321,12 @@ static void DoGetCrossLineAlarm()
         NET_GET_CROSSLINEALARM,
         &stInfo,
         (INT32)sizeof(stInfo),
-        &dwBytesReturned
+        &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取越界检测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取越界检测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintCrossLineAlarmInfo(&stInfo);
     }
     else
@@ -3341,10 +3341,10 @@ static void DoSetCrossLineAlarm()
     NET_CrossLineAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CROSSLINEALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3367,15 +3367,15 @@ static void DoSetCrossLineAlarm()
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置越界检测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_CROSSLINEALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置越界检测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置越界检测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetCrossLineAlarm();
     }
     else
@@ -3390,17 +3390,17 @@ static void DoGetIntrusionAlarm()
     NET_IntrusionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取入侵检测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_INTRUSIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取入侵检测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取入侵检测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintIntrusionAlarmInfo(&stInfo);
     }
     else
@@ -3415,10 +3415,10 @@ static void DoSetIntrusionAlarm()
     NET_IntrusionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_INTRUSIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3442,15 +3442,15 @@ static void DoSetIntrusionAlarm()
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置入侵检测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_INTRUSIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置入侵检测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置入侵检测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetIntrusionAlarm();
     }
     else
@@ -3465,15 +3465,15 @@ static void DoGetEnterRegionAlarm()
     NET_EnterRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_ENTERREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取进入区域侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取进入区域侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintEnterRegionAlarmInfo(&stInfo);
     }
     else
@@ -3488,10 +3488,10 @@ static void DoSetEnterRegionAlarm()
     NET_EnterRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_ENTERREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3509,15 +3509,15 @@ static void DoSetEnterRegionAlarm()
     stInfo.stRule[0].uDetectionTargetCount = 1;
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_ENTERREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置进入区域侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置进入区域侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetEnterRegionAlarm();
     }
     else
@@ -3532,15 +3532,15 @@ static void DoGetLeaveRegionAlarm()
     NET_LeaveRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_LEAVEREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取离开区域侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取离开区域侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintLeaveRegionAlarmInfo(&stInfo);
     }
     else
@@ -3555,10 +3555,10 @@ static void DoSetLeaveRegionAlarm()
     NET_LeaveRegionAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_LEAVEREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3576,15 +3576,15 @@ static void DoSetLeaveRegionAlarm()
     stInfo.stRule[0].uDetectionTargetCount = 1;
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_LEAVEREGIONALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置离开区域侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置离开区域侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetLeaveRegionAlarm();
     }
     else
@@ -3599,17 +3599,17 @@ static void DoGetLoiteringAlarm()
     NET_LoiteringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取徘徊侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_LOITERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取徘徊侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取徘徊侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintLoiteringAlarmInfo(&stInfo);
     }
     else
@@ -3624,10 +3624,10 @@ static void DoSetLoiteringAlarm()
     NET_LoiteringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_SET_LOITERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3651,15 +3651,15 @@ static void DoSetLoiteringAlarm()
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_HUMAN;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置徘徊侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_LOITERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置徘徊侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置徘徊侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetLoiteringAlarm();
     }
     else
@@ -3679,6 +3679,7 @@ static void PrintSceneChangeAlarmInfo(const NET_SceneChangeAlarmInfo_S* pInfo)
     printf("\n[Client] ===== 打印场景变更侦测配置 =====\n");
     printf("  Enable      : %s\n", pInfo->bEnable ? "ON" : "OFF");
     printf("  Sensitivity : %d\n", pInfo->nSensitivity);
+    printf("  Mode        : %d (%s)\n", pInfo->nMode, pInfo->nMode == 0 ? "前智能IPC" : "后智能NVR");
     printf("=================================\n");
 }
 
@@ -3687,17 +3688,17 @@ static void DoGetSceneChangeAlarm()
     NET_SceneChangeAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取场景变更侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SCENECHANGEALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取场景变更侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取场景变更侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSceneChangeAlarmInfo(&stInfo);
     }
     else
@@ -3711,10 +3712,10 @@ static void DoSetSceneChangeAlarm()
     NET_SceneChangeAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SCENECHANGEALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3725,17 +3726,18 @@ static void DoSetSceneChangeAlarm()
 
     stInfo.bEnable = TRUE;
     stInfo.nSensitivity = 60;
+    stInfo.nMode = 0; /* 0-前智能(IPC) 1-后智能(NVR) */
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置场景变更侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_SCENECHANGEALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置场景变更侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置场景变更侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetSceneChangeAlarm();
     }
     else
@@ -3769,17 +3771,17 @@ static void DoGetCrowdGatheringAlarm()
     NET_CrowdGatheringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取人员聚集配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CROWDGATHERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取人员聚集配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取人员聚集配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintCrowdGatheringAlarmInfo(&stInfo);
     }
     else
@@ -3793,10 +3795,10 @@ static void DoSetCrowdGatheringAlarm()
     NET_CrowdGatheringAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CROWDGATHERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3812,15 +3814,15 @@ static void DoSetCrowdGatheringAlarm()
     stInfo.astRule[0].nObjectOccup = 55;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置人员聚集配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_CROWDGATHERINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置人员聚集配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置人员聚集配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetCrowdGatheringAlarm();
     }
     else
@@ -3848,17 +3850,17 @@ static void DoGetGarbageExposureCfg()
     NET_GarbageExposureCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取垃圾暴露配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_GARBAGE_EXPOSURE_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取垃圾暴露配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取垃圾暴露配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintGarbageExposureCfgInfo(&stInfo);
     }
     else
@@ -3872,10 +3874,10 @@ static void DoSetGarbageExposureCfg()
     NET_GarbageExposureCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_GARBAGE_EXPOSURE_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3890,15 +3892,15 @@ static void DoSetGarbageExposureCfg()
     FillDemoPolygon4(stInfo.stRule.afPointX, stInfo.stRule.afPointY);
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置垃圾暴露配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_GARBAGE_EXPOSURE_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置垃圾暴露配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置垃圾暴露配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetGarbageExposureCfg();
     }
     else
@@ -3927,17 +3929,17 @@ static void DoGetGarbageOverflowCfg()
     NET_GarbageOverflowCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取垃圾满溢配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_GARBAGE_OVERFLOW_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取垃圾满溢配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取垃圾满溢配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintGarbageOverflowCfgInfo(&stInfo);
     }
     else
@@ -3951,10 +3953,10 @@ static void DoSetGarbageOverflowCfg()
     NET_GarbageOverflowCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_GARBAGE_OVERFLOW_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -3970,15 +3972,15 @@ static void DoSetGarbageOverflowCfg()
     stInfo.nTimeThreshold = 60;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置垃圾满溢配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_GARBAGE_OVERFLOW_CFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置垃圾满溢配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置垃圾满溢配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetGarbageOverflowCfg();
     }
     else
@@ -4011,16 +4013,16 @@ static void DoGetPeopleFlowStatisticsCfg()
     NET_PeopleFlowStatisticsCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取人流统计配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PEOPLE_FLOW_STATISTICS_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取人流统计配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取人流统计配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPeopleFlowStatisticsCfgInfo(&stInfo);
     }
     else
@@ -4039,16 +4041,16 @@ static void DoSetPeopleFlowStatisticsCfg()
     stInfo.nReportInterval = 120;
     stInfo.enStatisticsType = NET_PEOPLE_FLOW_STAT_TOTAL;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置人流统计配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PEOPLE_FLOW_STATISTICS_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置人流统计配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置人流统计配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPeopleFlowStatisticsCfg();
     }
     else
@@ -4062,16 +4064,16 @@ static void DoResetPeopleFlowStatistics()
     NET_PeopleFlowStatisticsCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
 
     printf("[Client] 调用 NET_clientSetDevConfig 清零人流统计...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_RESET_PEOPLE_FLOW_STATISTICS,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 清零人流统计成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 清零人流统计成功! BytesReturned=%d\n", nBytesReturnedSet);
     }
     else
     {
@@ -4098,16 +4100,16 @@ static void DoGetPeopleDensityDetectionCfg()
     NET_PeopleDensityDetectionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取人员密度检测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PEOPLE_DENSITY_DETECTION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取人员密度检测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取人员密度检测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPeopleDensityDetectionCfgInfo(&stInfo);
     }
     else
@@ -4125,16 +4127,16 @@ static void DoSetPeopleDensityDetectionCfg()
     stInfo.nSensitivity = 50;
     stInfo.nReportInterval = 60;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置人员密度检测配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PEOPLE_DENSITY_DETECTION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置人员密度检测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置人员密度检测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPeopleDensityDetectionCfg();
     }
     else
@@ -4227,15 +4229,15 @@ static void DoGetManholeCoverAbnormalCfg()
     NET_ManholeCoverAbnormalCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取井盖异常检测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_MANHOLE_COVER_ABNORMAL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取井盖异常检测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取井盖异常检测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintManholeCoverAbnormalCfgInfo(&stInfo);
     }
     else
@@ -4253,15 +4255,15 @@ static void DoSetManholeCoverAbnormalCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置井盖异常检测配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_MANHOLE_COVER_ABNORMAL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置井盖异常检测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置井盖异常检测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetManholeCoverAbnormalCfg();
     }
     else
@@ -4288,15 +4290,15 @@ static void DoGetSleepOnDutyCfg()
     NET_SleepOnDutyCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取睡岗识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SLEEP_ON_DUTY_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取睡岗识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取睡岗识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSleepOnDutyCfgInfo(&stInfo);
     }
     else
@@ -4314,15 +4316,15 @@ static void DoSetSleepOnDutyCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置睡岗识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_SLEEP_ON_DUTY_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置睡岗识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置睡岗识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetSleepOnDutyCfg();
     }
     else
@@ -4349,15 +4351,15 @@ static void DoGetElectricVehicleInElevatorCfg()
     NET_ElectricVehicleInElevatorCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取电瓶车进电梯识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取电瓶车进电梯识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取电瓶车进电梯识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintElectricVehicleInElevatorCfgInfo(&stInfo);
     }
     else
@@ -4375,15 +4377,15 @@ static void DoSetElectricVehicleInElevatorCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置电瓶车进电梯识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置电瓶车进电梯识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置电瓶车进电梯识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetElectricVehicleInElevatorCfg();
     }
     else
@@ -4410,15 +4412,15 @@ static void DoGetPersonFallDownCfg()
     NET_PersonFallDownCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取人员倒地识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PERSON_FALL_DOWN_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取人员倒地识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取人员倒地识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPersonFallDownCfgInfo(&stInfo);
     }
     else
@@ -4436,15 +4438,15 @@ static void DoSetPersonFallDownCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置人员倒地识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PERSON_FALL_DOWN_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置人员倒地识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置人员倒地识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPersonFallDownCfg();
     }
     else
@@ -4471,15 +4473,15 @@ static void DoGetConstructionOccupyRoadCfg()
     NET_ConstructionOccupyRoadCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取施工占道识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取施工占道识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取施工占道识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintConstructionOccupyRoadCfgInfo(&stInfo);
     }
     else
@@ -4497,15 +4499,15 @@ static void DoSetConstructionOccupyRoadCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置施工占道识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置施工占道识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置施工占道识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetConstructionOccupyRoadCfg();
     }
     else
@@ -4532,15 +4534,15 @@ static void DoGetCongestionCfg()
     NET_CongestionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取拥堵识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CONGESTION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取拥堵识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取拥堵识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintCongestionCfgInfo(&stInfo);
     }
     else
@@ -4558,15 +4560,15 @@ static void DoSetCongestionCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置拥堵识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_CONGESTION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置拥堵识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置拥堵识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetCongestionCfg();
     }
     else
@@ -4593,15 +4595,15 @@ static void DoGetLicensePlateRecognitionCfg()
     NET_LicensePlateRecognitionCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取车牌识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_LICENSE_PLATE_RECOGNITION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取车牌识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取车牌识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintLicensePlateRecognitionCfgInfo(&stInfo);
     }
     else
@@ -4619,15 +4621,15 @@ static void DoSetLicensePlateRecognitionCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置车牌识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_LICENSE_PLATE_RECOGNITION_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置车牌识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置车牌识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetLicensePlateRecognitionCfg();
     }
     else
@@ -4654,15 +4656,15 @@ static void DoGetHighAltitudeSeatbeltCfg()
     NET_HighAltitudeSeatbeltCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取高空安全带识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_HIGH_ALTITUDE_SEATBELT_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取高空安全带识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取高空安全带识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintHighAltitudeSeatbeltCfgInfo(&stInfo);
     }
     else
@@ -4680,15 +4682,15 @@ static void DoSetHighAltitudeSeatbeltCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置高空安全带识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_HIGH_ALTITUDE_SEATBELT_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置高空安全带识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置高空安全带识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetHighAltitudeSeatbeltCfg();
     }
     else
@@ -4715,15 +4717,15 @@ static void DoGetSafetyHelmetCfg()
     NET_SafetyHelmetCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取安全帽识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SAFETY_HELMET_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取安全帽识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取安全帽识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSafetyHelmetCfgInfo(&stInfo);
     }
     else
@@ -4741,15 +4743,15 @@ static void DoSetSafetyHelmetCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置安全帽识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_SAFETY_HELMET_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置安全帽识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置安全帽识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetSafetyHelmetCfg();
     }
     else
@@ -4776,15 +4778,15 @@ static void DoGetPersonFallCfg()
     NET_PersonFallCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取摔倒识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PERSON_FALL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取摔倒识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取摔倒识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPersonFallCfgInfo(&stInfo);
     }
     else
@@ -4802,15 +4804,15 @@ static void DoSetPersonFallCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置摔倒识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PERSON_FALL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置摔倒识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置摔倒识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPersonFallCfg();
     }
     else
@@ -4837,15 +4839,15 @@ static void DoGetPhoneUsageCfg()
     NET_PhoneUsageCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取玩手机识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PHONE_USAGE_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取玩手机识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取玩手机识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPhoneUsageCfgInfo(&stInfo);
     }
     else
@@ -4863,15 +4865,15 @@ static void DoSetPhoneUsageCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置玩手机识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PHONE_USAGE_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置玩手机识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置玩手机识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPhoneUsageCfg();
     }
     else
@@ -4898,15 +4900,15 @@ static void DoGetSmokingCfg()
     NET_SmokingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取抽烟识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SMOKING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取抽烟识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取抽烟识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSmokingCfgInfo(&stInfo);
     }
     else
@@ -4924,15 +4926,15 @@ static void DoSetSmokingCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置抽烟识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_SMOKING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置抽烟识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置抽烟识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetSmokingCfg();
     }
     else
@@ -4959,15 +4961,15 @@ static void DoGetOpenFlameCfg()
     NET_OpenFlameCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取明火识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_OPEN_FLAME_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取明火识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取明火识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintOpenFlameCfgInfo(&stInfo);
     }
     else
@@ -4985,15 +4987,15 @@ static void DoSetOpenFlameCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置明火识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_OPEN_FLAME_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置明火识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置明火识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetOpenFlameCfg();
     }
     else
@@ -5020,15 +5022,15 @@ static void DoGetBareSoilCfg()
     NET_BareSoilCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取黄土裸露识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_BARE_SOIL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取黄土裸露识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取黄土裸露识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintBareSoilCfgInfo(&stInfo);
     }
     else
@@ -5046,15 +5048,15 @@ static void DoSetBareSoilCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置黄土裸露识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_BARE_SOIL_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置黄土裸露识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置黄土裸露识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetBareSoilCfg();
     }
     else
@@ -5081,15 +5083,15 @@ static void DoGetHoleProtectionBarCfg()
     NET_HoleProtectionBarCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取洞口防护栏识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_HOLE_PROTECTION_BAR_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取洞口防护栏识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取洞口防护栏识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintHoleProtectionBarCfgInfo(&stInfo);
     }
     else
@@ -5107,15 +5109,15 @@ static void DoSetHoleProtectionBarCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置洞口防护栏识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_HOLE_PROTECTION_BAR_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置洞口防护栏识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置洞口防护栏识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetHoleProtectionBarCfg();
     }
     else
@@ -5142,15 +5144,15 @@ static void DoGetReflectiveClothingCfg()
     NET_ReflectiveClothingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取反光衣识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_REFLECTIVE_CLOTHING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取反光衣识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取反光衣识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintReflectiveClothingCfgInfo(&stInfo);
     }
     else
@@ -5168,15 +5170,15 @@ static void DoSetReflectiveClothingCfg()
     stInfo.stRule.nSensitivity = 50;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置反光衣识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_REFLECTIVE_CLOTHING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置反光衣识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置反光衣识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetReflectiveClothingCfg();
     }
     else
@@ -5212,15 +5214,15 @@ static void DoGetPetRecognitionInfo()
     NET_PetRecognitionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取宠物识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PET_RECOGNITION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取宠物识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取宠物识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPetRecognitionInfo(&stInfo);
     }
     else
@@ -5240,15 +5242,15 @@ static void DoSetPetRecognitionInfo()
     FillSmartRegionDemo(&stInfo.stRegion);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置宠物识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PET_RECOGNITION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置宠物识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置宠物识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPetRecognitionInfo();
     }
     else
@@ -5284,15 +5286,15 @@ static void DoGetClimbFenceInfo()
     NET_ClimbFenceInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取翻越围栏配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_CLIMB_FENCE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取翻越围栏配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取翻越围栏配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintClimbFenceInfo(&stInfo);
     }
     else
@@ -5311,15 +5313,15 @@ static void DoSetClimbFenceInfo()
     FillSmartRegionRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置翻越围栏配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_CLIMB_FENCE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置翻越围栏配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置翻越围栏配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetClimbFenceInfo();
     }
     else
@@ -5355,15 +5357,15 @@ static void DoGetDimissionInfo()
     NET_DimissionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取离岗配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_DIMISSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取离岗配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取离岗配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintDimissionInfo(&stInfo);
     }
     else
@@ -5382,15 +5384,15 @@ static void DoSetDimissionInfo()
     FillSmartRegionRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置离岗配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_DIMISSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置离岗配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置离岗配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetDimissionInfo();
     }
     else
@@ -5429,15 +5431,15 @@ static void DoGetIllegalLaneInfo()
     NET_IllegalLaneInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取违规变道配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_ILLEGAL_LANE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取违规变道配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取违规变道配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintIllegalLaneInfo(&stInfo);
     }
     else
@@ -5456,15 +5458,15 @@ static void DoSetIllegalLaneInfo()
     FillSmartLineRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置违规变道配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_ILLEGAL_LANE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置违规变道配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置违规变道配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetIllegalLaneInfo();
     }
     else
@@ -5503,15 +5505,15 @@ static void DoGetRetrogradeInfo()
     NET_RetrogradeInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取逆行配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_RETROGRADE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取逆行配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取逆行配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintRetrogradeInfo(&stInfo);
     }
     else
@@ -5530,15 +5532,15 @@ static void DoSetRetrogradeInfo()
     FillSmartLineRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置逆行配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_RETROGRADE_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置逆行配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置逆行配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetRetrogradeInfo();
     }
     else
@@ -5574,15 +5576,15 @@ static void DoGetNonmotorVehicleIntrusionInfo()
     NET_NonmotorVehicleIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取非机动车闯入配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取非机动车闯入配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取非机动车闯入配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintNonmotorVehicleIntrusionInfo(&stInfo);
     }
     else
@@ -5602,15 +5604,15 @@ static void DoSetNonmotorVehicleIntrusionInfo()
     stInfo.stRule[0].auDetectionTarget[0] = NET_TARGET_VEHICLE;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置非机动车闯入配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置非机动车闯入配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置非机动车闯入配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetNonmotorVehicleIntrusionInfo();
     }
     else
@@ -5646,15 +5648,15 @@ static void DoGetOccupationEmergencyInfo()
     NET_OccupationEmergencyInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取应急车道占用识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_OCCUPATION_EMERGENCY_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取应急车道占用识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取应急车道占用识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintOccupationEmergencyInfo(&stInfo);
     }
     else
@@ -5673,15 +5675,15 @@ static void DoSetOccupationEmergencyInfo()
     FillSmartRegionRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置应急车道占用识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_OCCUPATION_EMERGENCY_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置应急车道占用识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置应急车道占用识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetOccupationEmergencyInfo();
     }
     else
@@ -5717,15 +5719,15 @@ static void DoGetPedestrianIntrusionInfo()
     NET_PedestrianIntrusionInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取行人闯入配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PEDESTRIAN_INTRUSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取行人闯入配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取行人闯入配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintPedestrianIntrusionInfo(&stInfo);
     }
     else
@@ -5744,15 +5746,15 @@ static void DoSetPedestrianIntrusionInfo()
     FillSmartRegionRuleDemo(&stInfo.stRule[0]);
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置行人闯入配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PEDESTRIAN_INTRUSION_INFO,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置行人闯入配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置行人闯入配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPedestrianIntrusionInfo();
     }
     else
@@ -5779,15 +5781,15 @@ static void DoGetSmokeFireCfg()
     NET_SmokeFireCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取烟火识别配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_SMOKE_FIRE_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取烟火识别配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取烟火识别配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintSmokeFireCfgInfo(&stInfo);
     }
     else
@@ -5805,15 +5807,15 @@ static void DoSetSmokeFireCfg()
     stInfo.stRule.nSensitivity = 55;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置烟火识别配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_SMOKE_FIRE_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置烟火识别配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置烟火识别配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetSmokeFireCfg();
     }
     else
@@ -5840,15 +5842,15 @@ static void DoGetRoadPondingCfg()
     NET_RoadPondingCfg_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取道路积水检测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_ROAD_PONDING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturned);
+        &stInfo, sizeof(stInfo), &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取道路积水检测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取道路积水检测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintRoadPondingCfgInfo(&stInfo);
     }
     else
@@ -5866,15 +5868,15 @@ static void DoSetRoadPondingCfg()
     stInfo.stRule.nSensitivity = 55;
     FillSimpleAiDemoSchedule(&stInfo.stAlarmSchedule);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 设置道路积水检测配置...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_ROAD_PONDING_CFG,
-        &stInfo, sizeof(stInfo), &dwBytesReturnedSet);
+        &stInfo, sizeof(stInfo), &nBytesReturnedSet);
 
     if (bRet)
     {
-        printf("[Client] 设置道路积水检测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置道路积水检测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetRoadPondingCfg();
     }
     else
@@ -5909,17 +5911,17 @@ static void DoGetParkingAlarm()
     NET_ParkingAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取停车侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PARKINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取停车侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取停车侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintParkingAlarmInfo(&stInfo);
     }
     else
@@ -5933,10 +5935,10 @@ static void DoSetParkingAlarm()
     NET_ParkingAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PARKINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -5953,15 +5955,15 @@ static void DoSetParkingAlarm()
     stInfo.astRule[0].nTimeThreshold = 15;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置停车侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PARKINGALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置停车侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置停车侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetParkingAlarm();
     }
     else
@@ -5996,17 +5998,17 @@ static void DoGetUnattendedObjectAlarm()
     NET_UnattendedObjectAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取物品遗留侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_UNATTENDEDOBJECTALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取物品遗留侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取物品遗留侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintUnattendedObjectAlarmInfo(&stInfo);
     }
     else
@@ -6020,10 +6022,10 @@ static void DoSetUnattendedObjectAlarm()
     NET_UnattendedObjectAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_UNATTENDEDOBJECTALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -6040,15 +6042,15 @@ static void DoSetUnattendedObjectAlarm()
     stInfo.stRule[0].nTimeThreshold = 30;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置物品遗留侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_UNATTENDEDOBJECTALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置物品遗留侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置物品遗留侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetUnattendedObjectAlarm();
     }
     else
@@ -6083,18 +6085,18 @@ static void DoGetObjectRemovalAlarm()
     NET_ObjectRemovalAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取物品拿去侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_OBJECTREMOVALALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取物品拿取侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取物品拿取侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintObjectRemovalAlarmInfo(&stInfo);
     }
     else
@@ -6108,10 +6110,10 @@ static void DoSetObjectRemovalAlarm()
     NET_ObjectRemovalAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_OBJECTREMOVALALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -6127,15 +6129,15 @@ static void DoSetObjectRemovalAlarm()
     stInfo.stRule[0].nSensitivity = 60;
     stInfo.stRule[0].nTimeThreshold = 30;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_OBJECTREMOVALALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置物品拿取侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置物品拿取侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetObjectRemovalAlarm();
     }
     else
@@ -6169,17 +6171,17 @@ static void DoGetAudioAnomalyAlarm()
     NET_AudioAnomalyAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
 
     printf("[Client] 调用 NET_clientGetDevConfig 获取音频异常侦测配置...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_AUDIOANOMALYALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取音频异常侦测配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取音频异常侦测配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintAudioAnomalyAlarmInfo(&stInfo);
     }
     else
@@ -6232,10 +6234,10 @@ static void DoSetAudioAnomalyAlarm()
     NET_AudioAnomalyAlarmInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_AUDIOANOMALYALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -6254,15 +6256,15 @@ static void DoSetAudioAnomalyAlarm()
     stInfo.nDownSensitivity = 60;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置音频异常侦测配置...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_AUDIOANOMALYALARM,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置音频异常侦测配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置音频异常侦测配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetAudioAnomalyAlarm();
     }
     else
@@ -6841,8 +6843,8 @@ static void PrintPreviewInfo(const NET_PreviewInfo_S* pInfo)
     }
 
     printf("\n[Client] ===== Preview Info =====\n");
-    printf("  MainUrl     : %s\n", pInfo->stRtspUrl.szRtspMainUrl);
-    printf("  SubUrl      : %s\n", pInfo->stRtspUrl.szRtspSubUrl);
+    printf("  MainUrl     : %s\n", pInfo->stRtspUrl.strRtspMainUrl);
+    printf("  SubUrl      : %s\n", pInfo->stRtspUrl.strRtspSubUrl);
     printf("  Brightness  : %d\n", pInfo->stImageParam.nBrightness);
     printf("  Contrast    : %d\n", pInfo->stImageParam.nContrast);
     printf("  Saturation  : %d\n", pInfo->stImageParam.nSaturation);
@@ -6878,34 +6880,34 @@ static void PrintChannelList(const NET_ChannelList_S* pInfo)
     {
         const NET_ChannelInfo_S* pChannel = &pInfo->stChannels[i];
         printf("  [%u] Channel=%u, Enable=%u, Online=%u, Name=%s\n",
-               i, pChannel->uChannel, pChannel->byEnable, pChannel->byOnline, pChannel->szChannelName);
+               i, pChannel->uChannel, pChannel->byEnable, pChannel->byOnline, pChannel->strChannelName);
         printf("      HasRecord=%u, RecordStatus=%d\n", pChannel->byHasRecord, pChannel->nRecordStatus);
-        printf("      DevType=%s, SerialNum=%s\n", pChannel->szDevType, pChannel->szSerialNum);
-        printf("      DeviceIP=%s, CtrlPort=%d\n", pChannel->szDeviceIP, pChannel->nCtrlPort);
-        printf("      PreviewMainUrl=%s\n", pChannel->szPreviewMainUrl);
-        printf("      PreviewSubUrl =%s\n", pChannel->szPreviewSubUrl);
-        printf("      RtspMainUrl=%s\n", pChannel->szRtspMainUrl);
-        printf("      RtspSubUrl =%s\n", pChannel->szRtspSubUrl);
+        printf("      DevType=%s, SerialNum=%s\n", pChannel->strDevType, pChannel->strSerialNum);
+        printf("      DeviceIP=%s, CtrlPort=%d\n", pChannel->strDeviceIP, pChannel->nCtrlPort);
+        printf("      PreviewMainUrl=%s\n", pChannel->strPreviewMainUrl);
+        printf("      PreviewSubUrl =%s\n", pChannel->strPreviewSubUrl);
+        printf("      RtspMainUrl=%s\n", pChannel->strRtspMainUrl);
+        printf("      RtspSubUrl =%s\n", pChannel->strRtspSubUrl);
     }
     printf("=================================\n");
 }
 
-static void DoGetChannelInfo(INT32 dwChannelID)
+static void DoGetChannelInfo(INT32 nChannelID)
 {
     NET_ChannelList_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
-    printf("[Client] Calling NET_clientGetDevConfig to get channel info, channel=%d...\n", dwChannelID);
+    INT32 nBytesReturned = 0;
+    printf("[Client] Calling NET_clientGetDevConfig to get channel info, channel=%d...\n", nChannelID);
     BOOL bRet = NET_clientGetDevConfig(
-        g_lpUserID, dwChannelID, NET_GET_CHANNEL_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        g_lpUserID, nChannelID, NET_GET_CHANNEL_INFO,
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
         printf("[Client] Get channel info success! BytesReturned=%d, ChannelCount=%u\n",
-               dwBytesReturned, stInfo.uChannelCount);
+               nBytesReturned, stInfo.uChannelCount);
         PrintChannelList(&stInfo);
     }
     else
@@ -6920,16 +6922,16 @@ static void DoGetImageCfg()
     NET_ImageSetting_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] Calling NET_clientGetDevConfig to get image config...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_IMAGECFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Get image config success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Get image config success! BytesReturned=%d\n", nBytesReturned);
         PrintImageCfg(&stInfo);
     }
     else
@@ -6944,10 +6946,10 @@ static void DoSetImageCfg()
     NET_ImageSetting_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_IMAGECFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -6966,15 +6968,15 @@ static void DoSetImageCfg()
     stInfo.nSharpness = 62;
 
     printf("[Client] Calling NET_clientSetDevConfig to set image config...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_IMAGECFG,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] Set image config success! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] Set image config success! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetImageCfg();
     }
     else
@@ -6989,16 +6991,16 @@ static void DoGetPreviewInfo()
     NET_PreviewInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] Calling NET_clientGetDevConfig to get preview info...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PREVIEW_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Get preview info success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Get preview info success! BytesReturned=%d\n", nBytesReturned);
         PrintPreviewInfo(&stInfo);
     }
     else
@@ -7013,10 +7015,10 @@ static void DoSetPreviewInfo()
     NET_PreviewInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_PREVIEW_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -7025,25 +7027,25 @@ static void DoSetPreviewInfo()
         memset(&stInfo, 0, sizeof(stInfo));
     }
 
-    strncpy(stInfo.stRtspUrl.szRtspMainUrl, "rtsp://127.0.0.1:554/live/main", sizeof(stInfo.stRtspUrl.szRtspMainUrl) - 1);
-    stInfo.stRtspUrl.szRtspMainUrl[sizeof(stInfo.stRtspUrl.szRtspMainUrl) - 1] = '\0';
-    strncpy(stInfo.stRtspUrl.szRtspSubUrl, "rtsp://127.0.0.1:554/live/sub", sizeof(stInfo.stRtspUrl.szRtspSubUrl) - 1);
-    stInfo.stRtspUrl.szRtspSubUrl[sizeof(stInfo.stRtspUrl.szRtspSubUrl) - 1] = '\0';
+    strncpy(stInfo.stRtspUrl.strRtspMainUrl, "rtsp://127.0.0.1:554/live/main", sizeof(stInfo.stRtspUrl.strRtspMainUrl) - 1);
+    stInfo.stRtspUrl.strRtspMainUrl[sizeof(stInfo.stRtspUrl.strRtspMainUrl) - 1] = '\0';
+    strncpy(stInfo.stRtspUrl.strRtspSubUrl, "rtsp://127.0.0.1:554/live/sub", sizeof(stInfo.stRtspUrl.strRtspSubUrl) - 1);
+    stInfo.stRtspUrl.strRtspSubUrl[sizeof(stInfo.stRtspUrl.strRtspSubUrl) - 1] = '\0';
     stInfo.stImageParam.nBrightness = 55;
     stInfo.stImageParam.nContrast = 60;
     stInfo.stImageParam.nSaturation = 58;
     stInfo.stImageParam.nSharpness = 62;
 
     printf("[Client] Calling NET_clientSetDevConfig to set preview info...\n");
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_PREVIEW_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] Set preview info success! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] Set preview info success! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetPreviewInfo();
     }
     else
@@ -7065,7 +7067,7 @@ static void PrintUpgradeVersionCfg(const NET_UpgradeVersion_S *pstCfg)
 {
     if (!pstCfg)
         return;
-    printf("    szVersion=%s\n", pstCfg->szVersion);
+    printf("    szVersion=%s\n", pstCfg->strVersion);
 }
 
 /* 设置升级文件路径 */
@@ -7074,7 +7076,7 @@ static void DoSetUpgradeCfg()
     NET_UpgradeInfo_S stCfg;
     BOOL bRet = FALSE;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     memset(&stCfg, 0, sizeof(stCfg));
 
     bRet = NET_clientGetDevConfig(
@@ -7083,7 +7085,7 @@ static void DoSetUpgradeCfg()
         NET_SET_UPGRADE,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned
+        &nBytesReturned
     );
     if (!bRet)
     {
@@ -7091,21 +7093,21 @@ static void DoSetUpgradeCfg()
         memset(&stCfg, 0, sizeof(stCfg));
     }
 
-    strncpy(stCfg.szUpgradePath, "/opt/course/UpgradePacket.bin", sizeof(stCfg.szUpgradePath) - 1);
-    stCfg.szUpgradePath[sizeof(stCfg.szUpgradePath) - 1] = '\0';
-    INT32 dwBytesReturnedSet = 0;
+    strncpy(stCfg.strUpgradePath, "/opt/course/UpgradePacket.bin", sizeof(stCfg.strUpgradePath) - 1);
+    stCfg.strUpgradePath[sizeof(stCfg.strUpgradePath) - 1] = '\0';
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_UPGRADE,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置升级参数成功，升级文件路径为 %s!\n", stCfg.szUpgradePath);
+        printf("[Client] 设置升级参数成功，升级文件路径为 %s!\n", stCfg.strUpgradePath);
     }
     else
     {
@@ -7117,7 +7119,7 @@ static void DoSetUpgradeCfg()
 static void DoGetUpgradeStatusCfg()
 {
     NET_UpgradeStatus_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7129,11 +7131,11 @@ static void DoGetUpgradeStatusCfg()
         NET_GET_UPGRADESTATUS,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取升级状态成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取升级状态成功! BytesReturned=%d\n", nBytesReturned);
         PrintUpgradeStatusCfg(&stCfg);
     }
     else
@@ -7146,7 +7148,7 @@ static void DoGetUpgradeStatusCfg()
 static void DoGetUpgradeVersionCfg(void)
 {
     NET_UpgradeVersion_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7158,11 +7160,11 @@ static void DoGetUpgradeVersionCfg(void)
         NET_GET_UPGRADEVERSION,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取可升级版本成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取可升级版本成功! BytesReturned=%d\n", nBytesReturned);
         PrintUpgradeVersionCfg(&stCfg);
     }
     else
@@ -7232,7 +7234,7 @@ static void PrintCaptureParamCfg(const NET_CaptureParamInfo_S *pstCfg)
 static void DoGetCapturePlanCfg(void)
 {
     NET_CapturePlanInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7244,11 +7246,11 @@ static void DoGetCapturePlanCfg(void)
         NET_GET_CAPTURE_PLAN_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取告警抓图计划成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取告警抓图计划成功! BytesReturned=%d\n", nBytesReturned);
         PrintCapturePlanCfg(&stCfg);
     }
     else
@@ -7261,7 +7263,7 @@ static void DoGetCapturePlanCfg(void)
 static void DoSetCapturePlanCfg(void)
 {
     NET_CapturePlanInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
     UINT32 i = 0;
@@ -7273,7 +7275,7 @@ static void DoSetCapturePlanCfg(void)
         NET_GET_CAPTURE_PLAN_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7282,7 +7284,7 @@ static void DoSetCapturePlanCfg(void)
     }
     else
     {
-        printf("[Client] 预获取告警抓图计划成功. BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 预获取告警抓图计划成功. BytesReturned=%d\n", nBytesReturned);
     }
 
     /* 设置默认值并给出示例修改 */
@@ -7302,14 +7304,14 @@ static void DoSetCapturePlanCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置告警抓图计划...\n");
     PrintCapturePlanCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_CAPTURE_PLAN_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7327,7 +7329,7 @@ static void DoSetCapturePlanCfg(void)
 static void DoGetCaptureParamCfg(void)
 {
     NET_CaptureParamInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7339,11 +7341,11 @@ static void DoGetCaptureParamCfg(void)
         NET_GET_CAPTURE_PARAM_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取告警抓图参数成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取告警抓图参数成功! BytesReturned=%d\n", nBytesReturned);
         PrintCaptureParamCfg(&stCfg);
     }
     else
@@ -7356,7 +7358,7 @@ static void DoGetCaptureParamCfg(void)
 static void DoSetCaptureParamCfg(void)
 {
     NET_CaptureParamInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7367,7 +7369,7 @@ static void DoSetCaptureParamCfg(void)
         NET_GET_CAPTURE_PARAM_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7376,7 +7378,7 @@ static void DoSetCaptureParamCfg(void)
     }
     else
     {
-        printf("[Client] 预获取告警抓图参数成功. BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 预获取告警抓图参数成功. BytesReturned=%d\n", nBytesReturned);
     }
 
     /* 设置默认值并给出示例修改 */
@@ -7401,14 +7403,14 @@ static void DoSetCaptureParamCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置告警抓图参数...\n");
     PrintCaptureParamCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_CAPTURE_PARAM_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7515,7 +7517,7 @@ static void PrintWhiteBalanceCfg(const NET_WhiteBalanceInfo_S *pstCfg)
 static void DoGetExposureCfg(void)
 {
     NET_ExposureInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7527,11 +7529,11 @@ static void DoGetExposureCfg(void)
         NET_GET_EXPOSURE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取曝光信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 获取曝光信息成功, bytes=%d\n", nBytesReturned);
         PrintExposureCfg(&stCfg);
     }
     else
@@ -7546,7 +7548,7 @@ static void DoGetExposureCfg(void)
 static void DoSetExposureCfg(void)
 {
     NET_ExposureInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7557,7 +7559,7 @@ static void DoSetExposureCfg(void)
         NET_GET_EXPOSURE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7566,7 +7568,7 @@ static void DoSetExposureCfg(void)
     }
     else
     {
-        printf("[Client] 预获取曝光信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 预获取曝光信息成功, bytes=%d\n", nBytesReturned);
     }
 
     stCfg.enExpTime = 0;
@@ -7575,14 +7577,14 @@ static void DoSetExposureCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置曝光信息\n");
     PrintExposureCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_EXPOSURE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7602,7 +7604,7 @@ static void DoSetExposureCfg(void)
 static void DoGetDayNightCfg(void)
 {
     NET_DayNightInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7614,11 +7616,11 @@ static void DoGetDayNightCfg(void)
         NET_GET_DAYNIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取日夜转换信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 获取日夜转换信息成功, bytes=%d\n", nBytesReturned);
         PrintDayNightCfg(&stCfg);
     }
     else
@@ -7633,7 +7635,7 @@ static void DoGetDayNightCfg(void)
 static void DoSetDayNightCfg(void)
 {
     NET_DayNightInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7644,7 +7646,7 @@ static void DoSetDayNightCfg(void)
         NET_GET_DAYNIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7653,7 +7655,7 @@ static void DoSetDayNightCfg(void)
     }
     else
     {
-        printf("[Client] 预获取日夜转换信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 预获取日夜转换信息成功, bytes=%d\n", nBytesReturned);
     }
 
     stCfg.enDayNightMode = 0;
@@ -7678,14 +7680,14 @@ static void DoSetDayNightCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置日夜转换信息\n");
     PrintDayNightCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_DAYNIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7705,7 +7707,7 @@ static void DoSetDayNightCfg(void)
 static void DoGetBackLightCfg(void)
 {
     NET_BackLightInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7717,11 +7719,11 @@ static void DoGetBackLightCfg(void)
         NET_GET_BACKLIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取背光信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 获取背光信息成功, bytes=%d\n", nBytesReturned);
         PrintBackLightCfg(&stCfg);
     }
     else
@@ -7736,7 +7738,7 @@ static void DoGetBackLightCfg(void)
 static void DoSetBackLightCfg(void)
 {
     NET_BackLightInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7747,7 +7749,7 @@ static void DoSetBackLightCfg(void)
         NET_GET_BACKLIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7756,7 +7758,7 @@ static void DoSetBackLightCfg(void)
     }
     else
     {
-        printf("[Client] 预获取背光信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 预获取背光信息成功, bytes=%d\n", nBytesReturned);
     }
 
     stCfg.enBackLightArea = 0;
@@ -7768,14 +7770,14 @@ static void DoSetBackLightCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置背光信息\n");
     PrintBackLightCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_BACKLIGHT_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7795,7 +7797,7 @@ static void DoSetBackLightCfg(void)
 static void DoGetDenoiseCfg(void)
 {
     NET_DenoiseInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7807,11 +7809,11 @@ static void DoGetDenoiseCfg(void)
         NET_GET_DENOISE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取降噪信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 获取降噪信息成功, bytes=%d\n", nBytesReturned);
         PrintDenoiseCfg(&stCfg);
     }
     else
@@ -7826,7 +7828,7 @@ static void DoGetDenoiseCfg(void)
 static void DoSetDenoiseCfg(void)
 {
     NET_DenoiseInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7837,7 +7839,7 @@ static void DoSetDenoiseCfg(void)
         NET_GET_DENOISE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7846,7 +7848,7 @@ static void DoSetDenoiseCfg(void)
     }
     else
     {
-        printf("[Client] 预获取降噪信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 预获取降噪信息成功, bytes=%d\n", nBytesReturned);
     }
 
     stCfg.enDnrMode = 0;
@@ -7857,14 +7859,14 @@ static void DoSetDenoiseCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置降噪信息\n");
     PrintDenoiseCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_DENOISE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7884,7 +7886,7 @@ static void DoSetDenoiseCfg(void)
 static void DoGetWhiteBalanceCfg(void)
 {
     NET_WhiteBalanceInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = FALSE;
 
     memset(&stCfg, 0, sizeof(stCfg));
@@ -7896,11 +7898,11 @@ static void DoGetWhiteBalanceCfg(void)
         NET_GET_WHITEBALANCE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] 获取白平衡信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 获取白平衡信息成功, bytes=%d\n", nBytesReturned);
         PrintWhiteBalanceCfg(&stCfg);
     }
     else
@@ -7915,7 +7917,7 @@ static void DoGetWhiteBalanceCfg(void)
 static void DoSetWhiteBalanceCfg(void)
 {
     NET_WhiteBalanceInfo_S stCfg;
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = FALSE;
     BOOL bRet = FALSE;
 
@@ -7926,7 +7928,7 @@ static void DoSetWhiteBalanceCfg(void)
         NET_GET_WHITEBALANCE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturned);
+        &nBytesReturned);
 
     if (!bRetGet)
     {
@@ -7935,7 +7937,7 @@ static void DoSetWhiteBalanceCfg(void)
     }
     else
     {
-        printf("[Client] 预获取白平衡信息成功, bytes=%d\n", dwBytesReturned);
+        printf("[Client] 预获取白平衡信息成功, bytes=%d\n", nBytesReturned);
     }
 
     stCfg.enAwbMode = 0;
@@ -7945,14 +7947,14 @@ static void DoSetWhiteBalanceCfg(void)
     printf("[Client] 调用 NET_clientSetDevConfig 设置白平衡信息\n");
     PrintWhiteBalanceCfg(&stCfg);
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     bRet = NET_clientSetDevConfig(
         g_lpUserID,
         1,
         NET_SET_WHITEBALANCE_INFO,
         &stCfg,
         (INT32)sizeof(stCfg),
-        &dwBytesReturnedSet
+        &nBytesReturnedSet
     );
 
     if (bRet)
@@ -7974,15 +7976,15 @@ static void PrintTalkbackStreamInfo(const NET_TalkbackStreamInfo_S* pInfo)
     }
 
     printf("\n[Client] ===== Talkback Stream Info =====\n");
-    printf("  Host         : %s\n", pInfo->szHost);
+    printf("  Host         : %s\n", pInfo->strHost);
     printf("  Port         : %d\n", pInfo->nPort);
     printf("  ChnId        : %d\n", pInfo->nChnId);
     printf("  UserId       : %d\n", pInfo->nUserID);
     printf("  MainStream   : %s\n", pInfo->bMainStream ? "ON" : "OFF");
-    printf("  Protocol     : %s\n", pInfo->szProtocol);
-    printf("  StartTime    : %s\n", pInfo->szStartTime);
-    printf("  EndTime      : %s\n", pInfo->szEndTime);
-    printf("  Filename     : %s\n", pInfo->szFileName);
+    printf("  Protocol     : %s\n", pInfo->strProtocol);
+    printf("  StartTime    : %s\n", pInfo->strStartTime);
+    printf("  EndTime      : %s\n", pInfo->strEndTime);
+    printf("  Filename     : %s\n", pInfo->strFileName);
     printf("========================================\n");
 }
 
@@ -7991,15 +7993,15 @@ static void DoGetTalkbackFromStream()
     NET_TalkbackStreamInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_FROM_STREAM_TALKBACK,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Get talkback from stream success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Get talkback from stream success! BytesReturned=%d\n", nBytesReturned);
         PrintTalkbackStreamInfo(&stInfo);
     }
     else
@@ -8014,19 +8016,19 @@ static void DoSetTalkbackState()
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = TRUE;
-    strncpy(stInfo.szSdp, "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n", sizeof(stInfo.szSdp) - 1);
-    strncpy(stInfo.szUrl, "rtsp://127.0.0.1:554/talkback", sizeof(stInfo.szUrl) - 1);
-    strncpy(stInfo.szLocalIP, "127.0.0.1", sizeof(stInfo.szLocalIP) - 1);
+    strncpy(stInfo.strSdp, "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n", sizeof(stInfo.strSdp) - 1);
+    strncpy(stInfo.strUrl, "rtsp://127.0.0.1:554/talkback", sizeof(stInfo.strUrl) - 1);
+    strncpy(stInfo.strLocalIP, "127.0.0.1", sizeof(stInfo.strLocalIP) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_STATE_TALKBACK,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Set talkback state success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Set talkback state success! BytesReturned=%d\n", nBytesReturned);
     }
     else
     {
@@ -8106,18 +8108,18 @@ static BOOL SetVoiceComTalkbackState(BOOL bEnable, const char* localIp)
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.bEnable = bEnable;
-    CopyString(stInfo.szLocalIP, sizeof(stInfo.szLocalIP),
+    CopyString(stInfo.strLocalIP, sizeof(stInfo.strLocalIP),
                (localIp && localIp[0] != '\0') ? localIp : DEMO_VOICECOM_DEFAULT_LOCAL_IP);
     if (bEnable)
     {
-        CopyString(stInfo.szSdp, sizeof(stInfo.szSdp), "tvsdk_voicecom");
-        stInfo.szUrl[0] = '\0';
+        CopyString(stInfo.strSdp, sizeof(stInfo.strSdp), "tvsdk_voicecom");
+        stInfo.strUrl[0] = '\0';
     }
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_STATE_TALKBACK,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRet)
@@ -8128,7 +8130,7 @@ static BOOL SetVoiceComTalkbackState(BOOL bEnable, const char* localIp)
     else
     {
         printf("[Client][VoiceCom] Set talkback %s success, BytesReturned=%d\n",
-               bEnable ? "ON" : "OFF", dwBytesReturned);
+               bEnable ? "ON" : "OFF", nBytesReturned);
     }
 
     return bRet;
@@ -8280,25 +8282,25 @@ static void DoSetTalkbackToStream()
     NET_TalkbackStreamInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    strncpy(stInfo.szHost, "239.0.0.1", sizeof(stInfo.szHost) - 1);
+    strncpy(stInfo.strHost, "239.0.0.1", sizeof(stInfo.strHost) - 1);
     stInfo.nPort = 5004;
     stInfo.nChnId = 1;
     stInfo.nUserID = 1001;
     stInfo.bMainStream = TRUE;
-    strncpy(stInfo.szProtocol, "rtp", sizeof(stInfo.szProtocol) - 1);
-    strncpy(stInfo.szStartTime, "2026-01-01 08:00:00", sizeof(stInfo.szStartTime) - 1);
-    strncpy(stInfo.szEndTime, "2026-01-01 08:30:00", sizeof(stInfo.szEndTime) - 1);
-    strncpy(stInfo.szFileName, "talkback_live.aac", sizeof(stInfo.szFileName) - 1);
+    strncpy(stInfo.strProtocol, "rtp", sizeof(stInfo.strProtocol) - 1);
+    strncpy(stInfo.strStartTime, "2026-01-01 08:00:00", sizeof(stInfo.strStartTime) - 1);
+    strncpy(stInfo.strEndTime, "2026-01-01 08:30:00", sizeof(stInfo.strEndTime) - 1);
+    strncpy(stInfo.strFileName, "talkback_live.aac", sizeof(stInfo.strFileName) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_TO_STREAM_TALKBACK,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Set talkback to stream success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Set talkback to stream success! BytesReturned=%d\n", nBytesReturned);
         DoGetTalkbackFromStream();
     }
     else
@@ -8312,27 +8314,27 @@ static void DoSetReplayTalkback()
     NET_ReplayTalkbackInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    strncpy(stInfo.szNvrIp, "192.168.1.200", sizeof(stInfo.szNvrIp) - 1);
-    strncpy(stInfo.szRemoteIp, "192.168.1.10", sizeof(stInfo.szRemoteIp) - 1);
-    strncpy(stInfo.stIPCInfo.szHost, "239.0.0.1", sizeof(stInfo.stIPCInfo.szHost) - 1);
+    strncpy(stInfo.strNvrIp, "192.168.1.200", sizeof(stInfo.strNvrIp) - 1);
+    strncpy(stInfo.strRemoteIp, "192.168.1.10", sizeof(stInfo.strRemoteIp) - 1);
+    strncpy(stInfo.stIPCInfo.strHost, "239.0.0.1", sizeof(stInfo.stIPCInfo.strHost) - 1);
     stInfo.stIPCInfo.nPort = 5004;
     stInfo.stIPCInfo.nChnId = 1;
     stInfo.stIPCInfo.nUserID = 1001;
     stInfo.stIPCInfo.bMainStream = TRUE;
-    strncpy(stInfo.stIPCInfo.szProtocol, "rtp", sizeof(stInfo.stIPCInfo.szProtocol) - 1);
-    strncpy(stInfo.stIPCInfo.szStartTime, "2026-01-01 08:00:00", sizeof(stInfo.stIPCInfo.szStartTime) - 1);
-    strncpy(stInfo.stIPCInfo.szEndTime, "2026-01-01 08:30:00", sizeof(stInfo.stIPCInfo.szEndTime) - 1);
-    strncpy(stInfo.stIPCInfo.szFileName, "talkback_replay.aac", sizeof(stInfo.stIPCInfo.szFileName) - 1);
+    strncpy(stInfo.stIPCInfo.strProtocol, "rtp", sizeof(stInfo.stIPCInfo.strProtocol) - 1);
+    strncpy(stInfo.stIPCInfo.strStartTime, "2026-01-01 08:00:00", sizeof(stInfo.stIPCInfo.strStartTime) - 1);
+    strncpy(stInfo.stIPCInfo.strEndTime, "2026-01-01 08:30:00", sizeof(stInfo.stIPCInfo.strEndTime) - 1);
+    strncpy(stInfo.stIPCInfo.strFileName, "talkback_replay.aac", sizeof(stInfo.stIPCInfo.strFileName) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_REPLAY_TALKBACK,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] Set replay talkback success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Set replay talkback success! BytesReturned=%d\n", nBytesReturned);
     }
     else
     {
@@ -8349,9 +8351,9 @@ static void PrintReplayUrlInfo(const NET_ReplayUrlInfo_S* pInfo)
 
     printf("\n[Client] ===== 回放播放地址 =====\n");
     printf("  Channel    : %d\n", pInfo->uChannel);
-    printf("  StartTime  : %s\n", pInfo->szStartTime);
-    printf("  EndTime    : %s\n", pInfo->szEndTime);
-    printf("  Url        : %s\n", pInfo->szUrl);
+    printf("  StartTime  : %s\n", pInfo->strStartTime);
+    printf("  EndTime    : %s\n", pInfo->strEndTime);
+    printf("  Url        : %s\n", pInfo->strUrl);
     printf("================================\n");
 }
 
@@ -8361,16 +8363,16 @@ static void DoGetReplayUrl()
     memset(&stInfo, 0, sizeof(stInfo));
 
     stInfo.uChannel = 1;
-    strncpy(stInfo.szStartTime, "2026-01-01 08:00:00", sizeof(stInfo.szStartTime) - 1);
-    strncpy(stInfo.szEndTime, "2026-01-01 08:30:00", sizeof(stInfo.szEndTime) - 1);
+    strncpy(stInfo.strStartTime, "2026-01-01 08:00:00", sizeof(stInfo.strStartTime) - 1);
+    strncpy(stInfo.strEndTime, "2026-01-01 08:30:00", sizeof(stInfo.strEndTime) - 1);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = false;
-    NET_clientGetReplayUrl(g_lpUserID, &stInfo, &dwBytesReturned);
+    NET_clientGetReplayUrl(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Get replay url success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Get replay url success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayUrlInfo(&stInfo);
     }
     else
@@ -8389,13 +8391,13 @@ static void PrintReplayCtrlInfo(const NET_ReplayCtrlInfo_S* pInfo)
     printf("\n[Client] ===== 回放控制结果 =====\n");
     printf("  Channel    : %d\n", pInfo->uChannel);
     printf("  CtrlType   : %d\n", pInfo->uCtrlType);
-    printf("  SessionId  : %s\n", pInfo->szSessionId);
+    printf("  SessionId  : %s\n", pInfo->strSessionId);
     printf("  Speed      : %.2f\n", pInfo->fSpeed);
     printf("  SeekTime   : %d\n", pInfo->nSeekTime);
     printf("  ReplayType : %d\n", pInfo->nReplayType);
-    printf("  StartTime  : %s\n", pInfo->szStartTime);
-    printf("  EndTime    : %s\n", pInfo->szEndTime);
-    printf("  Url        : %s\n", pInfo->szUrl);
+    printf("  StartTime  : %s\n", pInfo->strStartTime);
+    printf("  EndTime    : %s\n", pInfo->strEndTime);
+    printf("  Url        : %s\n", pInfo->strUrl);
     printf("================================\n");
 }
 
@@ -8891,9 +8893,9 @@ static void DoControlReplayStart()
     memset(&stInfo, 0, sizeof(stInfo));
 
     int nChannel = 1;
-    char szDate[32] = "2026-05-11";
-    char szStartClock[32] = "00:00:00";
-    char szEndClock[32] = "23:59:59";
+    char strDate[32] = "2026-05-11";
+    char strStartClock[32] = "00:00:00";
+    char strEndClock[32] = "23:59:59";
     float fSpeed = 1.0f;
 
     FlushInputLine();
@@ -8901,29 +8903,29 @@ static void DoControlReplayStart()
     /* 通道号语义与 sdk_old/6860 一致：0 合法（<0 才判非法参数）。NVR 实际点位通常从 1 起，
      * 想点播某路录像请填该路通道号；填 0 时设备端按接口通道处理。 */
     nChannel = ReadIntWithDefault("[Client] 请输入点播通道号(>=0，NVR 点位一般从1起)", nChannel);
-    ReadTextWithDefault("[Client] 请输入点播日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
-    ReadTextWithDefault("[Client] 请输入开始时间(HH:MM:SS)", szStartClock, sizeof(szStartClock), szStartClock);
-    ReadTextWithDefault("[Client] 请输入结束时间(HH:MM:SS)", szEndClock, sizeof(szEndClock), szEndClock);
+    ReadTextWithDefault("[Client] 请输入点播日期(YYYY-MM-DD)", strDate, sizeof(strDate), strDate);
+    ReadTextWithDefault("[Client] 请输入开始时间(HH:MM:SS)", strStartClock, sizeof(strStartClock), strStartClock);
+    ReadTextWithDefault("[Client] 请输入结束时间(HH:MM:SS)", strEndClock, sizeof(strEndClock), strEndClock);
     fSpeed = ReadFloatWithDefault("[Client] 请输入播放倍速", fSpeed);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_START;
     stInfo.fSpeed = fSpeed > 0.0f ? fSpeed : 1.0f;
-    snprintf(stInfo.szStartTime, sizeof(stInfo.szStartTime), "%s %s", szDate, szStartClock);
-    snprintf(stInfo.szEndTime, sizeof(stInfo.szEndTime), "%s %s", szDate, szEndClock);
+    snprintf(stInfo.strStartTime, sizeof(stInfo.strStartTime), "%s %s", strDate, strStartClock);
+    snprintf(stInfo.strEndTime, sizeof(stInfo.strEndTime), "%s %s", strDate, strEndClock);
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     /* 实际链路：客户端 POST /TVAPI/V1.0/Replay/Control →
      * 设备侧 NvrSdkServer::ControlReplay → 转发 AC_SET_REPLAY_LAYOUT_INFO 给录像模块。
      * （旧 demo 里写的 AC_PLATFORM_PLAY(3213) 是 6860 时代叫法，3588 已不使用。） */
     printf("[Client] Calling NET_clientControlReplay START (uCtrlType=%d), 设备侧将转发 AC_SET_REPLAY_LAYOUT_INFO...\n",
            stInfo.uCtrlType);
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        strncpy(g_szReplaySessionId, stInfo.szSessionId, sizeof(g_szReplaySessionId) - 1);
-        printf("[Client] Control replay start success! BytesReturned=%d\n", dwBytesReturned);
+        strncpy(g_szReplaySessionId, stInfo.strSessionId, sizeof(g_szReplaySessionId) - 1);
+        printf("[Client] Control replay start success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -8939,25 +8941,25 @@ static void DoControlReplayStop()
     memset(&stInfo, 0, sizeof(stInfo));
 
     int nChannel = 1;
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     FlushInputLine();
     nChannel = ReadIntWithDefault("[Client] 请输入停止播放通道号", nChannel);
-    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_STOP;
-    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+    strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Control replay stop success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Control replay stop success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -8972,25 +8974,25 @@ static void DoControlReplayPause()
     memset(&stInfo, 0, sizeof(stInfo));
 
     int nChannel = 1;
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     FlushInputLine();
     nChannel = ReadIntWithDefault("[Client] 请输入暂停播放通道号", nChannel);
-    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_PAUSE;
-    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+    strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Control replay pause success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Control replay pause success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -9005,25 +9007,25 @@ static void DoControlReplayResume()
     memset(&stInfo, 0, sizeof(stInfo));
 
     int nChannel = 1;
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     FlushInputLine();
     nChannel = ReadIntWithDefault("[Client] 请输入恢复播放通道号", nChannel);
-    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_RESUME;
-    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+    strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Control replay resume success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Control replay resume success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -9039,27 +9041,27 @@ static void DoControlReplaySpeed()
 
     int nChannel = 1;
     float fSpeed = 2.0f;
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     FlushInputLine();
     nChannel = ReadIntWithDefault("[Client] 请输入倍速播放通道号", nChannel);
     fSpeed = ReadFloatWithDefault("[Client] 请输入播放倍速", fSpeed);
-    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_SET_SPEED;
     stInfo.fSpeed = fSpeed > 0.0f ? fSpeed : 1.0f;
-    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+    strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Control replay speed success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Control replay speed success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -9075,27 +9077,27 @@ static void DoControlReplaySeek()
 
     int nChannel = 1;
     int nSeekTime = 60;
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     FlushInputLine();
     nChannel = ReadIntWithDefault("[Client] 请输入跳转播放通道号", nChannel);
     nSeekTime = ReadIntWithDefault("[Client] 请输入跳转秒数(相对回放时间轴)", nSeekTime);
-    ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+    ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
 
     stInfo.uChannel = nChannel;
     stInfo.uCtrlType = NET_REPLAY_CTRL_SET_SEEK;
     stInfo.nSeekTime = nSeekTime;
-    strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+    strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Control replay seek success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Control replay seek success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -9112,13 +9114,13 @@ static void DoPlatformReplayControlByType(int nReplayType)
     int nChannel = 1;
     int nSeekTime = 60;
     float fSpeed = 2.0f;
-    char szDate[32] = "2026-05-07";
-    char szStartClock[32] = "00:00:00";
-    char szEndClock[32] = "23:59:59";
-    char szSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
-    strncpy(szSessionId,
+    char strDate[32] = "2026-05-07";
+    char strStartClock[32] = "00:00:00";
+    char strEndClock[32] = "23:59:59";
+    char strSessionId[NET_REPLAY_SESSION_ID_LEN] = {0};
+    strncpy(strSessionId,
             g_szReplaySessionId[0] ? g_szReplaySessionId : "demo_replay_1",
-            sizeof(szSessionId) - 1);
+            sizeof(strSessionId) - 1);
 
     nChannel = ReadIntWithDefault("[Client] 请输入平台点播通道号", nChannel);
 
@@ -9128,14 +9130,14 @@ static void DoPlatformReplayControlByType(int nReplayType)
     switch (nReplayType)
     {
         case NET_REPLAY_PLATFORM_CTRL_JUMP_TIME:
-            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
-            ReadTextWithDefault("[Client] 请输入跳转日期(YYYY-MM-DD)", szDate, sizeof(szDate), szDate);
-            ReadTextWithDefault("[Client] 请输入跳转开始时间(HH:MM:SS)", szStartClock, sizeof(szStartClock), szStartClock);
-            ReadTextWithDefault("[Client] 请输入跳转结束时间(HH:MM:SS)", szEndClock, sizeof(szEndClock), szEndClock);
+            ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
+            ReadTextWithDefault("[Client] 请输入跳转日期(YYYY-MM-DD)", strDate, sizeof(strDate), strDate);
+            ReadTextWithDefault("[Client] 请输入跳转开始时间(HH:MM:SS)", strStartClock, sizeof(strStartClock), strStartClock);
+            ReadTextWithDefault("[Client] 请输入跳转结束时间(HH:MM:SS)", strEndClock, sizeof(strEndClock), strEndClock);
             stInfo.uCtrlType = NET_REPLAY_CTRL_SET_SEEK;
-            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
-            snprintf(stInfo.szStartTime, sizeof(stInfo.szStartTime), "%s %s", szDate, szStartClock);
-            snprintf(stInfo.szEndTime, sizeof(stInfo.szEndTime), "%s %s", szDate, szEndClock);
+            strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
+            snprintf(stInfo.strStartTime, sizeof(stInfo.strStartTime), "%s %s", strDate, strStartClock);
+            snprintf(stInfo.strEndTime, sizeof(stInfo.strEndTime), "%s %s", strDate, strEndClock);
             break;
         case NET_REPLAY_PLATFORM_CTRL_BACKWARD_30S:
         case NET_REPLAY_PLATFORM_CTRL_FORWARD_30S:
@@ -9143,16 +9145,16 @@ static void DoPlatformReplayControlByType(int nReplayType)
         case NET_REPLAY_PLATFORM_CTRL_VEHICLE_EVENT:
         case NET_REPLAY_PLATFORM_CTRL_PERSON_VEHICLE_EVENT:
         case NET_REPLAY_PLATFORM_CTRL_CANCEL_EVENT:
-            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+            ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
             stInfo.uCtrlType = NET_REPLAY_CTRL_SET_SEEK;
-            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+            strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
             break;
         case NET_REPLAY_PLATFORM_CTRL_SPEED:
-            ReadTextWithDefault("[Client] 请输入回放会话ID", szSessionId, sizeof(szSessionId), szSessionId);
+            ReadTextWithDefault("[Client] 请输入回放会话ID", strSessionId, sizeof(strSessionId), strSessionId);
             fSpeed = ReadFloatWithDefault("[Client] 请输入播放倍速", fSpeed);
             stInfo.uCtrlType = NET_REPLAY_CTRL_SET_SPEED;
             stInfo.fSpeed = fSpeed > 0.0f ? fSpeed : 1.0f;
-            strncpy(stInfo.szSessionId, szSessionId, sizeof(stInfo.szSessionId) - 1);
+            strncpy(stInfo.strSessionId, strSessionId, sizeof(stInfo.strSessionId) - 1);
             break;
         case NET_REPLAY_PLATFORM_CTRL_NONE:
         default:
@@ -9168,12 +9170,12 @@ static void DoPlatformReplayControlByType(int nReplayType)
         stInfo.nSeekTime = 1777341741;
     }
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientControlReplay(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Platform replay control success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Platform replay control success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayCtrlInfo(&stInfo);
     }
     else
@@ -9222,9 +9224,9 @@ static void PrintReplayRecordList(const NET_ReplayRecordList_S* pInfo)
     printf("  Channel    : %d\n", pInfo->uChannel);
     printf("  FilterType : %d\n", pInfo->bFilterByEventType);
     printf("  EventType  : %d\n", pInfo->uEventType);
-    printf("  Date       : %s\n", pInfo->szDate);
-    printf("  StartTime  : %s\n", pInfo->szStartTime);
-    printf("  EndTime    : %s\n", pInfo->szEndTime);
+    printf("  Date       : %s\n", pInfo->strDate);
+    printf("  StartTime  : %s\n", pInfo->strStartTime);
+    printf("  EndTime    : %s\n", pInfo->strEndTime);
     PrintReplayRecordSegments("Video", pInfo->astVideoTimes, pInfo->nVideoCount);
     PrintReplayRecordSegments("PersonEvent", pInfo->astPersonEventTimes, pInfo->nPersonEventCount);
     PrintReplayRecordSegments("VehicleEvent", pInfo->astVehicleEventTimes, pInfo->nVehicleEventCount);
@@ -9240,9 +9242,9 @@ static void DoGetReplayRecordList()
     int nChannel = 1;
     int nFilterByEventType = 0;
     int nEventType = 100;
-    char szDate[32] = "2026-05-06";
-    char szStartClock[32] = "00:00:00";
-    char szEndClock[32] = "23:59:59";
+    char strDate[32] = "2026-05-06";
+    char strStartClock[32] = "00:00:00";
+    char strEndClock[32] = "23:59:59";
 
     printf("[Client] 请输入通道号: ");
     if (scanf("%d", &nChannel) != 1)
@@ -9269,21 +9271,21 @@ static void DoGetReplayRecordList()
     }
 
     printf("[Client] 请输入日期(YYYY-MM-DD): ");
-    if (scanf("%31s", szDate) != 1)
+    if (scanf("%31s", strDate) != 1)
     {
         printf("[Client] 日期输入无效!\n");
         return;
     }
 
     printf("[Client] 请输入开始时间(HH:MM:SS): ");
-    if (scanf("%31s", szStartClock) != 1)
+    if (scanf("%31s", strStartClock) != 1)
     {
         printf("[Client] 开始时间输入无效!\n");
         return;
     }
 
     printf("[Client] 请输入结束时间(HH:MM:SS): ");
-    if (scanf("%31s", szEndClock) != 1)
+    if (scanf("%31s", strEndClock) != 1)
     {
         printf("[Client] 结束时间输入无效!\n");
         return;
@@ -9292,16 +9294,16 @@ static void DoGetReplayRecordList()
     stInfo.uChannel = nChannel;
     stInfo.bFilterByEventType = (nFilterByEventType != 0) ? TRUE : FALSE;
     stInfo.uEventType = stInfo.bFilterByEventType ? nEventType : 100;
-    strncpy(stInfo.szDate, szDate, sizeof(stInfo.szDate) - 1);
-    snprintf(stInfo.szStartTime, sizeof(stInfo.szStartTime), "%s %s", szDate, szStartClock);
-    snprintf(stInfo.szEndTime, sizeof(stInfo.szEndTime), "%s %s", szDate, szEndClock);
+    strncpy(stInfo.strDate, strDate, sizeof(stInfo.strDate) - 1);
+    snprintf(stInfo.strStartTime, sizeof(stInfo.strStartTime), "%s %s", strDate, strStartClock);
+    snprintf(stInfo.strEndTime, sizeof(stInfo.strEndTime), "%s %s", strDate, strEndClock);
 
-    INT32 dwBytesReturned = 0;
-    BOOL bRet = NET_clientGetReplayRecordList(g_lpUserID, &stInfo, &dwBytesReturned);
+    INT32 nBytesReturned = 0;
+    BOOL bRet = NET_clientGetReplayRecordList(g_lpUserID, &stInfo, &nBytesReturned);
 
     if (bRet)
     {
-        printf("[Client] Get replay record list success! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] Get replay record list success! BytesReturned=%d\n", nBytesReturned);
         PrintReplayRecordList(&stInfo);
     }
     else
@@ -9316,15 +9318,15 @@ static void DoGetFaceCaptureInfo()
     NET_FaceCaptureInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_FACECAPTUREINFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取人脸抓拍配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 获取人脸抓拍配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintFaceCaptureInfo(&stInfo);
     }
     else
@@ -9339,10 +9341,10 @@ static void DoSetFaceCaptureInfo()
     NET_FaceCaptureInfo_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRetGet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_FACECAPTUREINFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (!bRetGet)
@@ -9372,15 +9374,15 @@ static void DoSetFaceCaptureInfo()
     stInfo.stRule.nMaxHeight = 300;
     stInfo.stRule.nInterval = 2;
 
-    INT32 dwBytesReturnedSet = 0;
+    INT32 nBytesReturnedSet = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_FACECAPTUREINFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturnedSet
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturnedSet
     );
 
     if (bRet)
     {
-        printf("[Client] 设置人脸抓拍配置成功! BytesReturned=%d\n", dwBytesReturnedSet);
+        printf("[Client] 设置人脸抓拍配置成功! BytesReturned=%d\n", nBytesReturnedSet);
         DoGetFaceCaptureInfo();
     }
     else
@@ -9416,15 +9418,15 @@ static void DoSetFaceCompareInfo()
     stInfo.stLinkageListFail.auSnapshotChannel[0] = 1;
 
     printf("[Client] 调用 NET_clientSetDevConfig 设置人脸比对配置...\n");
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_FACE_COMPARE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 设置人脸比对配置成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 设置人脸比对配置成功! BytesReturned=%d\n", nBytesReturned);
         PrintFaceCompareInfo(&stInfo);
     }
     else
@@ -9433,7 +9435,7 @@ static void DoSetFaceCompareInfo()
     }
 }
 
-static void FillDemoFaceLib(NET_FaceLibInfo_S* pInfo, const char* szName)
+static void FillDemoFaceLib(NET_FaceLibInfo_S* pInfo, const char* pstrName)
 {
     if (!pInfo)
     {
@@ -9441,7 +9443,7 @@ static void FillDemoFaceLib(NET_FaceLibInfo_S* pInfo, const char* szName)
     }
 
     memset(pInfo, 0, sizeof(*pInfo));
-    strncpy(pInfo->szFaceLibName, szName, sizeof(pInfo->szFaceLibName) - 1);
+    strncpy(pInfo->strFaceLibName, pstrName, sizeof(pInfo->strFaceLibName) - 1);
     pInfo->nTotalFace = 1;
     pInfo->nNormalNum = 1;
     pInfo->nAbnormalNum = 0;
@@ -9456,7 +9458,7 @@ static void PrintFaceLibInfo(const NET_FaceLibInfo_S* pInfo, INT32 nIndex)
 
     printf("  Lib[%d] LibId=%s, TotalFace=%d, NormalNum=%d, AbnormalNum=%d\n",
            nIndex,
-           pInfo->szFaceLibName,
+           pInfo->strFaceLibName,
            pInfo->nTotalFace,
            pInfo->nNormalNum,
            pInfo->nAbnormalNum);
@@ -9467,16 +9469,16 @@ static void DoGetTargetLib()
     NET_FaceLibList_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取目标库...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_TARGET_LIB,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取目标库成功! BytesReturned=%d, Count=%d\n", dwBytesReturned, stInfo.nTargetLibCount);
+        printf("[Client] 获取目标库成功! BytesReturned=%d, Count=%d\n", nBytesReturned, stInfo.nTargetLibCount);
         for (INT32 i = 0; i < stInfo.nTargetLibCount && i < NET_FACE_LIB_MAX_NUM; ++i)
         {
             PrintFaceLibInfo(&stInfo.astTargetLibInfos[i], i);
@@ -9493,16 +9495,16 @@ static void DoAddTargetLib()
     NET_FaceLibInfo_S stInfo;
     FillDemoFaceLib(&stInfo, "demo_library");
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 添加目标库...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_ADD_TARGET_LIB,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 添加目标库成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 添加目标库成功! BytesReturned=%d\n", nBytesReturned);
         DoGetTargetLib();
     }
     else
@@ -9516,16 +9518,16 @@ static void DoDelTargetLib()
     NET_FaceLibInfo_S stInfo;
     FillDemoFaceLib(&stInfo, "demo_library");
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 删除目标库...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_DEL_TARGET_LIB,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 删除目标库成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 删除目标库成功! BytesReturned=%d\n", nBytesReturned);
         DoGetTargetLib();
     }
     else
@@ -9541,16 +9543,16 @@ static void DoSetTargetLib()
     stInfo.nTotalFace = 2;
     stInfo.nNormalNum = 2;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 修改目标库...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_TARGET_LIB,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 修改目标库成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 修改目标库成功! BytesReturned=%d\n", nBytesReturned);
         DoGetTargetLib();
     }
     else
@@ -9559,7 +9561,7 @@ static void DoSetTargetLib()
     }
 }
 
-static void FillDemoFaceInfo(NET_FaceInfo_S* pInfo, INT32 nId, const char* szName)
+static void FillDemoFaceInfo(NET_FaceInfo_S* pInfo, INT32 nId, const char* pstrName)
 {
     if (!pInfo)
     {
@@ -9568,13 +9570,13 @@ static void FillDemoFaceInfo(NET_FaceInfo_S* pInfo, INT32 nId, const char* szNam
 
     memset(pInfo, 0, sizeof(*pInfo));
     pInfo->nId = nId;
-    strncpy(pInfo->szFaceLibName, "demo_library", sizeof(pInfo->szFaceLibName) - 1);
-    strncpy(pInfo->szName, szName, sizeof(pInfo->szName) - 1);
-    strncpy(pInfo->szPhoneNum, "13800000001", sizeof(pInfo->szPhoneNum) - 1);
-    strncpy(pInfo->szPicPath, "/tmp/demo_face.jpg", sizeof(pInfo->szPicPath) - 1);
-    strncpy(pInfo->szPicType, "jpg", sizeof(pInfo->szPicType) - 1);
+    strncpy(pInfo->strFaceLibName, "demo_library", sizeof(pInfo->strFaceLibName) - 1);
+    strncpy(pInfo->strName, pstrName, sizeof(pInfo->strName) - 1);
+    strncpy(pInfo->strPhoneNum, "13800000001", sizeof(pInfo->strPhoneNum) - 1);
+    strncpy(pInfo->strPicPath, "/tmp/demo_face.jpg", sizeof(pInfo->strPicPath) - 1);
+    strncpy(pInfo->strPicType, "jpg", sizeof(pInfo->strPicType) - 1);
     pInfo->nPicSize = 2048;
-    strncpy(pInfo->szPicDate, "2026-05-07 11:00:00", sizeof(pInfo->szPicDate) - 1);
+    strncpy(pInfo->strPicDate, "2026-05-07 11:00:00", sizeof(pInfo->strPicDate) - 1);
     pInfo->nModelState = 1;
     pInfo->nRatingLevel = 3;
 }
@@ -9589,10 +9591,10 @@ static void PrintFaceInfo(const NET_FaceInfo_S* pInfo, INT32 nIndex)
     printf("  Face[%d] Id=%d, LibId=%s, Name=%s, Phone=%s, PicPath=%s, ModelState=%d, RatingLevel=%d\n",
            nIndex,
            pInfo->nId,
-           pInfo->szFaceLibName,
-           pInfo->szName,
-           pInfo->szPhoneNum,
-           pInfo->szPicPath,
+           pInfo->strFaceLibName,
+           pInfo->strName,
+           pInfo->strPhoneNum,
+           pInfo->strPicPath,
            pInfo->nModelState,
            pInfo->nRatingLevel);
 }
@@ -9602,16 +9604,16 @@ static void DoGetFaceInfo()
     NET_FaceInfoList_S stInfo;
     memset(&stInfo, 0, sizeof(stInfo));
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientGetDevConfig 获取人脸...\n");
     BOOL bRet = NET_clientGetDevConfig(
         g_lpUserID, 1, NET_GET_FACE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 获取人脸成功! BytesReturned=%d, Count=%d\n", dwBytesReturned, stInfo.nFaceInfoCount);
+        printf("[Client] 获取人脸成功! BytesReturned=%d, Count=%d\n", nBytesReturned, stInfo.nFaceInfoCount);
         for (INT32 i = 0; i < stInfo.nFaceInfoCount && i < NET_FACE_INFO_MAX_NUM; ++i)
         {
             PrintFaceInfo(&stInfo.astFaceInfos[i], i);
@@ -9628,16 +9630,16 @@ static void DoAddFaceInfo()
     NET_FaceInfo_S stInfo;
     FillDemoFaceInfo(&stInfo, 2, "demo_face");
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 添加人脸...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_ADD_FACE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 添加人脸成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 添加人脸成功! BytesReturned=%d\n", nBytesReturned);
         DoGetFaceInfo();
     }
     else
@@ -9653,16 +9655,16 @@ static void DoDelFaceInfo()
     stInfo.nIdCount = 1;
     stInfo.anIds[0] = 2;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 删除人脸...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_DEL_FACE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 删除人脸成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 删除人脸成功! BytesReturned=%d\n", nBytesReturned);
         DoGetFaceInfo();
     }
     else
@@ -9677,16 +9679,16 @@ static void DoSetFaceInfo()
     FillDemoFaceInfo(&stInfo, 2, "demo_face_updated");
     stInfo.nPicSize = 4096;
 
-    INT32 dwBytesReturned = 0;
+    INT32 nBytesReturned = 0;
     printf("[Client] 调用 NET_clientSetDevConfig 修改人脸...\n");
     BOOL bRet = NET_clientSetDevConfig(
         g_lpUserID, 1, NET_SET_FACE_INFO,
-        &stInfo, (INT32)sizeof(stInfo), &dwBytesReturned
+        &stInfo, (INT32)sizeof(stInfo), &nBytesReturned
     );
 
     if (bRet)
     {
-        printf("[Client] 修改人脸成功! BytesReturned=%d\n", dwBytesReturned);
+        printf("[Client] 修改人脸成功! BytesReturned=%d\n", nBytesReturned);
         DoGetFaceInfo();
     }
     else
@@ -10224,9 +10226,9 @@ static void ProcessCommand(int cmd)
             NET_SystemTime_S stTime;
             memset(&stTime, 0, sizeof(stTime));
             strncpy(stTime.strDateTime, "2026-09-03 10:40:30", sizeof(stTime.strDateTime) - 1);
-            INT32 dwBytesReturned = 0;
+            INT32 nBytesReturned = 0;
             BOOL bRet = NET_clientSetDevConfig(g_lpUserID, 1, NET_SET_SYSTEM_TIME,
-                                               &stTime, (INT32)sizeof(stTime), &dwBytesReturned);
+                                               &stTime, (INT32)sizeof(stTime), &nBytesReturned);
             printf("[Client] 设置系统时间 %s: %s, Error=%d\n",
                    stTime.strDateTime, bRet ? "成功" : "失败", NET_clientGetLastError());
             break;
@@ -10335,9 +10337,9 @@ int main(int argc, char* argv[])
     memset(&struDeviceInfo, 0, sizeof(struDeviceInfo));
 
     struLoginInfo.uPort = g_serverPort;
-    strncpy(struLoginInfo.szIPAddr,  g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);
-    strncpy(struLoginInfo.szUserName,g_username, sizeof(struLoginInfo.szUserName) - 1);
-    strncpy(struLoginInfo.szPassword,g_password, sizeof(struLoginInfo.szPassword) - 1);
+    strncpy(struLoginInfo.strIPAddr,  g_serverIp, sizeof(struLoginInfo.strIPAddr) - 1);
+    strncpy(struLoginInfo.strUserName,g_username, sizeof(struLoginInfo.strUserName) - 1);
+    strncpy(struLoginInfo.strPassword,g_password, sizeof(struLoginInfo.strPassword) - 1);
 
     printf("[Client] Logging in to %s:%d, username=%s...\n",
            g_serverIp,

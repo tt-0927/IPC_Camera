@@ -9,6 +9,7 @@ set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition/processors
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition/sub_detectors
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
     ${CMAKE_CURRENT_LIST_DIR}/channel_occupation_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition
@@ -53,6 +54,7 @@ set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/face_detect
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition
     ${CMAKE_CURRENT_LIST_DIR}/face_recognition/processors
+    ${CMAKE_CURRENT_LIST_DIR}/face_recognition/sub_detectors
     ${CMAKE_CURRENT_LIST_DIR}/scene_change_detect
     ${CMAKE_CURRENT_LIST_DIR}/channel_occupation_detect
     ${CMAKE_CURRENT_LIST_DIR}/pet_recognition

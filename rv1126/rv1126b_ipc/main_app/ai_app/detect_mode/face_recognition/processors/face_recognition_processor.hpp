@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "alarm_define.h"              /* Alarm::FaceRecognition_S */
-#include "face_recognition_define.hpp" /* FaceTargetResult_S */
+#include "face_recognition_define.hpp" /* FaceBaseTarget_S */
 
 /**
- * @brief 人脸识别事件处理器：人脸管线目标按事件规则产出候选目标
+ * @brief 人脸识别事件处理器：基础管线目标按事件规则产出候选下标
  * @note 纯规则判定，不碰模型与图像；规则可来自配置线程，算法线程串行 process
  */
 class CFaceRecognitionProcessor
@@ -22,11 +22,11 @@ public:
     void setRules(const Alarm::FaceRecognition_S &stConfig);
 
     /**
-     * @brief  一帧检测上下文 → 候选目标
+     * @brief  基础目标 → 候选下标（对齐输入向量）
      * @return 候选数量，无候选时为 0
      */
-    int process(const DetectContext_S &stDetectContext,
-                std::vector<FaceTargetResult_S> &vstCandidates);
+    int process(const std::vector<FaceBaseTarget_S> &vstTargets,
+                std::vector<int> &vstCandidateIndices);
 
 private:
     static bool isInRegion(const Alarm::Region_S &stRegion,

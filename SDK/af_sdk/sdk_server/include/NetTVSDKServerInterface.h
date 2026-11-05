@@ -21,14 +21,14 @@ extern "C" {
 /************************************************************************/
 /**
  * @brief SDK服务端初始化
- * @param [IN] dwPort 服务器端口号
- * @param [IN] szUserName 用户名
- * @param [IN] szPassword 密码
- * @param [IN] szDeviceName 设备名称（响应JSON中device_name字段值）
+ * @param [IN] uPort 服务器端口号
+ * @param [IN] strUserName 用户名
+ * @param [IN] strPassword 密码
+ * @param [IN] strDeviceName 设备名称（响应JSON中device_name字段值）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  * @note
  */
-NET_API BOOL STDCALL NET_serverInit(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132],IN CHAR szDeviceName[NET_LEN_132]);
+NET_API BOOL STDCALL NET_serverInit(IN UINT32 uPort,IN CHAR strUserName[NET_LEN_132],IN CHAR strPassword[NET_LEN_132],IN CHAR strDeviceName[NET_LEN_132]);
 
 /**
 * SDK 清理  SDK cleaning
@@ -39,13 +39,13 @@ NET_API BOOL STDCALL NET_serverCleanup(void);
 
 /**
  * @brief 设置日志
- * @param [IN] dwLogLevel   日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无“关闭日志”档，0 不是关闭而是最详细的全量输出
- * @param [IN] strLogDir    日志路径
+ * @param [IN] nLogLevel   日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无“关闭日志”档，0 不是关闭而是最详细的全量输出
+ * @param [IN] pstrLogDir   日志路径
  * @param [IN] nLogFileSize 日志文件大小(单位：字节)
- * @param [IN] dwLogFileNum 日志文件个数
+ * @param [IN] nLogFileNum 日志文件个数
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_API BOOL STDCALL NET_serverSetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 nLogFileSize,IN INT32 dwLogFileNum);
+NET_API BOOL STDCALL NET_serverSetLogToFile(IN INT32 nLogLevel,IN CHAR  *pstrLogDir,IN INT32 nLogFileSize,IN INT32 nLogFileNum);
 
 /**
 * 获取SDK的版本信息 Get SDK version information
@@ -64,24 +64,24 @@ NET_API INT32 STDCALL NET_serverGetClientCount(void);
 
 /**
  * @brief 设置用户名密码
- * @param [IN] szUserName 用户名
- * @param [IN] szPassword 密码
+ * @param [IN] strUserName 用户名
+ * @param [IN] strPassword 密码
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
-NET_API BOOL STDCALL NET_serverSetUserPassword(IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132]);
+NET_API BOOL STDCALL NET_serverSetUserPassword(IN CHAR strUserName[NET_LEN_132],IN CHAR strPassword[NET_LEN_132]);
 
 /**
  * @brief 推送告警信息
  * @param [IN] pAlarmer    告警设备信息
- * @param [IN] lCommand    命令码(报警类型)，用于客户端按命令码反序列化结构体
- * @param [IN] pAlarmInfo  具体告警结构体指针（类型由 lCommand 决定）
- * @param [IN] dwBufLen    pAlarmInfo 长度（一般为 sizeof(对应结构体)）
+ * @param [IN] nCommand    命令码(报警类型)，用于客户端按命令码反序列化结构体
+ * @param [IN] pAlarmInfo  具体告警结构体指针（类型由 nCommand 决定）
+ * @param [IN] nBufLen    pAlarmInfo 长度（一般为 sizeof(对应结构体)）
  * @return TRUE表示成功,其他表示失败 TRUE means success, and any other value means failure.
  */
 NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
-                                                    IN INT32 lCommand,
+                                                    IN INT32 nCommand,
                                                     IN LPVOID pAlarmInfo,
-                                                    IN INT32 dwBufLen);
+                                                    IN INT32 nBufLen);
 
 /**
  * @brief 推送通道上下线状态
@@ -209,11 +209,11 @@ NET_API BOOL STDCALL NET_serverRegisterSetUserPasswordCb(NET_CB_SetUserPassword 
 
 /**
  * @brief 视频编码能力集回调类型 (NET_CAP_VIDEO_ENCODE)
- * @param [IN]  dwChannelID  通道号
+ * @param [IN]  nChannelID  通道号
  * @param [OUT] pCap         视频编码能力集结构体指针(多码流)
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetVideoEncodeCap)(INT32 dwChannelID,
+typedef NET_COMMON_ECODE_E (*NET_CB_GetVideoEncodeCap)(INT32 nChannelID,
                                                              pNET_VideoEncodeCap_S pCap);
 
 /**
@@ -225,11 +225,11 @@ NET_API BOOL STDCALL NET_serverRegisterGetVideoEncodeCapCb(NET_CB_GetVideoEncode
 
 /**
  * @brief 音频编码能力集回调类型 (NET_CAP_AUDIO)
- * @param [IN]  dwChannelID  通道号
+ * @param [IN]  nChannelID  通道号
  * @param [OUT] pCap         音频编码能力集结构体指针
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetAudioEncodeCap)(INT32 dwChannelID,
+typedef NET_COMMON_ECODE_E (*NET_CB_GetAudioEncodeCap)(INT32 nChannelID,
                                                              pNET_AudioCap_S pCap);
 
 /**
@@ -241,11 +241,11 @@ NET_API BOOL STDCALL NET_serverRegisterGetAudioEncodeCapCb(NET_CB_GetAudioEncode
 
 /**
  * @brief OSD能力集回调类型 (NET_CAP_OSD)
- * @param [IN]  dwChannelID  通道号
+ * @param [IN]  nChannelID  通道号
  * @param [OUT] pCap         OSD能力集结构体指针
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetOsdCap)(INT32 dwChannelID, pNET_OsdCap_S pCap);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetOsdCap)(INT32 nChannelID, pNET_OsdCap_S pCap);
 
 /**
  * @brief 注册OSD能力集回调
@@ -256,11 +256,11 @@ NET_API BOOL STDCALL NET_serverRegisterGetOsdCapCb(NET_CB_GetOsdCap pCb);
 
 /**
  * @brief 系统能力总表回调类型 (NET_CAP_SYS)
- * @param [IN]  dwChannelID  通道号
+ * @param [IN]  nChannelID  通道号
  * @param [OUT] pCap         系统能力总表结构体指针
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetSysCap)(INT32 dwChannelID, pNET_SysCapability_S pCap);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetSysCap)(INT32 nChannelID, pNET_SysCapability_S pCap);
 
 /**
  * @brief 注册系统能力总表回调
@@ -271,36 +271,36 @@ NET_API BOOL STDCALL NET_serverRegisterGetSysCapCb(NET_CB_GetSysCap pCb);
 
 /**
  * @brief 通用配置回调类型（按命令码分发）
- * @param [IN] dwChannelID 通道号
- * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] nChannelID 通道号
+ * @param [IN] nCommand 命令码（标识配置类型）
  * @param [OUT] lpOutBuffer 输出缓冲区，存放配置数据
  * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfig)(INT32 dwChannelID,
-                                                         INT32 dwCommand,
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfig)(INT32 nChannelID,
+                                                         INT32 nCommand,
                                                          LPVOID lpOutBuffer);
 
 /**
  * @brief 通用配置设置回调类型（按命令码分发）
- * @param [IN] dwChannelID 通道号
- * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] nChannelID 通道号
+ * @param [IN] nCommand 命令码（标识配置类型）
  * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
  * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfig)(INT32 dwChannelID,
-                                                         INT32 dwCommand,
+typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfig)(INT32 nChannelID,
+                                                         INT32 nCommand,
                                                          LPVOID lpInBuffer);
 
 /**
  * @brief 按命令码注册的配置回调类型（专用回调）
  * @note 回调参数由命令码对应结构体决定，比通用回调更具体
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpOutBuffer);
-typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 dwChannelID, LPVOID lpInBuffer);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetDevConfigByCommand)(INT32 nChannelID, LPVOID lpOutBuffer);
+typedef NET_COMMON_ECODE_E (*NET_CB_SetDevConfigByCommand)(INT32 nChannelID, LPVOID lpInBuffer);
 
 /**
  * @brief 获取RTSP流地址回调类型 (NET_GET_RTSPURLCFG)
- * @param [INOUT] pInfo  RTSP URL 信息结构体指针，调用方填充 uChannel/uStreamIndex，回调填充 szRtspUrl
+ * @param [INOUT] pInfo  RTSP URL 信息结构体指针，调用方填充 uChannel/uStreamIndex，回调填充 strRtspUrl
  * @return NET_E_SUCCEED 成功, 其他值失败
  */
 typedef NET_COMMON_ECODE_E (*NET_CB_GetRtspUrl)(pNET_RtspUrlInfo_S pInfo);
@@ -335,33 +335,33 @@ typedef NET_COMMON_ECODE_E (*NET_CB_QueryRecordFiles)(LPNET_RECORD_FILE_QUERY_S 
 
 /**
  * @brief JPEG 抓图回调类型
- * @note 宿主将 JPEG 数据写入 pOutBuffer，并通过 pdwOutSize 返回实际长度。
- *       若 dwOutBufferSize 不够，回调应返回 NET_E_NOT_ENOUGH_BUFFER
+ * @note 宿主将 JPEG 数据写入 pOutBuffer，并通过 pnOutSize 返回实际长度。
+ *       若 nOutBufferSize 不够，回调应返回 NET_E_NOT_ENOUGH_BUFFER
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_CaptureJPEG)(INT32 dwChannelID,
-                                                  INT32 dwWidth,
-                                                  INT32 dwHeight,
-                                                  INT32 dwImageQuality,
+typedef NET_COMMON_ECODE_E (*NET_CB_CaptureJPEG)(INT32 nChannelID,
+                                                  INT32 nWidth,
+                                                  INT32 nHeight,
+                                                  INT32 nImageQuality,
                                                   LPVOID pOutBuffer,
-                                                  INT32 dwOutBufferSize,
-                                                  LPINT32 pdwOutSize);
+                                                  INT32 nOutBufferSize,
+                                                  LPINT32 pnOutSize);
 
 /**
  * @brief 获取录像文件完整路径回调类型
- * @param [IN]  dwChannelID  通道 ID
- * @param [IN]  szDate       录像日期（如 "2026-08-24"）
- * @param [IN]  dwStartTime  开始时间（秒数，当天 0 点起）
- * @param [IN]  dwEndTime    结束时间（秒数，当天 0 点起）
- * @param [OUT] szFilePath   输出完整文件路径
- * @param [IN]  dwPathSize   szFilePath 缓冲区大小
+ * @param [IN]  nChannelID  通道 ID
+ * @param [IN]  pstrDate      录像日期（如 "2026-08-24"）
+ * @param [IN]  nStartTime  开始时间（秒数，当天 0 点起）
+ * @param [IN]  nEndTime    结束时间（秒数，当天 0 点起）
+ * @param [OUT] pstrFilePath  输出完整文件路径
+ * @param [IN]  nPathSize   pstrFilePath 缓冲区大小
  * @return NET_E_SUCCEED 成功，其他值失败
  */
-typedef NET_COMMON_ECODE_E (*NET_CB_GetRecordFilePath)(INT32 dwChannelID,
-                                                        const char* szDate,
-                                                        INT32 dwStartTime,
-                                                        INT32 dwEndTime,
-                                                        char* szFilePath,
-                                                        INT32 dwPathSize);
+typedef NET_COMMON_ECODE_E (*NET_CB_GetRecordFilePath)(INT32 nChannelID,
+                                                        const char* pstrDate,
+                                                        INT32 nStartTime,
+                                                        INT32 nEndTime,
+                                                        char* pstrFilePath,
+                                                        INT32 nPathSize);
 
 /**
  * @brief 注册通用配置获取回调（所有命令码统一处理）
@@ -385,6 +385,7 @@ NET_API BOOL STDCALL NET_serverRegisterSetDevConfigCb(NET_CB_SetDevConfig pCb);
  * @return TRUE表示成功,其他表示失败
  */
 NET_API BOOL STDCALL NET_serverRegisterSetDeviceConfigCb(NET_CB_SetDevConfigByCommand pCb);
+
 /************************************************************************/
 /*                          录播的配置回调接口                     */
 /************************************************************************/
@@ -435,7 +436,6 @@ NET_API BOOL STDCALL NET_serverRegisterSetNtpConfigCb(NET_CB_SetDevConfigByComma
  * @return TRUE表示成功，其他表示失败
  */
 NET_API BOOL STDCALL NET_serverRegisterSetSystemTimeCb(NET_CB_SetDevConfigByCommand pCb);
-NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetStreamConfigCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetStreamConfigCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetRtspUrlCb(NET_CB_GetRtspUrl pCb);
@@ -769,8 +769,6 @@ NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConf
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetRooftopStayInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
-
-/* ---- 平安校园扩展事件（614~629） ---- */
 NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb);
@@ -787,6 +785,7 @@ NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConf
 NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetDimissionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetIllegalLaneInfoCb(NET_CB_GetDevConfigByCommand pCb);
@@ -841,12 +840,12 @@ NET_serverRegisterSetNetworkCb(IN NET_CB_SetNetwork cbFunc);
 
 /**
  * @brief 启动设备发现响应服务（阻塞线程中运行 AF_PACKET 接收循环）
- * @param [IN] szInterfaceName 网卡名称 (如 "eth0")
+ * @param [IN] pstrInterfaceName 网卡名称 (如 "eth0")
  * @return TRUE 成功，FALSE 失败
  * @note 需先调用 NET_serverRegisterGetDiscoveryDeviceInfoCb 注册回调
  */
 NET_API BOOL STDCALL
-NET_serverStartDiscovery(IN const CHAR* szInterfaceName);
+NET_serverStartDiscovery(IN const CHAR* pstrInterfaceName);
 
 /**
  * @brief 停止设备发现响应服务
@@ -859,29 +858,29 @@ NET_serverStopDiscovery(void);
 /*                       语音对讲 VoiceCom (服务端)                       */
 /************************************************************************/
 /** @brief 语音对讲播放回调: 收到NVR端音频时调用, 推送到扬声器 */
-typedef void (STDCALL *NET_serverVoiceComPlayCallBack)(const char* data, unsigned int size);
+typedef void (STDCALL *NET_serverVoiceComPlayCallBack)(const char* pstrData, unsigned int uSize);
 /**
  * @brief 语音对讲采集回调: SDK按协商参数主动拉取设备侧采集帧并发送到NVR
  * @param [IN]  pstAudioParam 当前 VoiceCom 会话协商的音频参数
- * @param [OUT] pBuffer       输出音频帧缓存
- * @param [IN]  dwBufferSize  输出缓存长度
+ * @param [OUT] pstrBuffer    输出音频帧缓存
+ * @param [IN]  uBufferSize  输出缓存长度
  * @param [IN]  lpUserData    用户数据
  * @return 实际写入的音频字节数，返回 <=0 表示当前无可用音频帧
- * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 dwFrameBytes 字节。
+ * @note 回调内应写入与 pstAudioParam 匹配的裸音频帧；建议每次返回 uFrameBytes 字节。
  */
 typedef INT32 (STDCALL *NET_serverVoiceComCaptureCallBack)(
     IN const NET_VoiceComAudioParam_S* pstAudioParam,
-    OUT CHAR* pBuffer,
-    IN UINT32 dwBufferSize,
+    OUT CHAR* pstrBuffer,
+    IN UINT32 uBufferSize,
     IN LPVOID lpUserData);
 
 /**
  * @brief 启动语音对讲TCP监听
- * @param [IN]  dwPort  监听端口, 默认9006
+ * @param [IN]  uPort  监听端口, 默认9006
  * @return TRUE 成功，FALSE 失败
  */
 NET_API BOOL STDCALL
-NET_serverStartVoiceComServer(IN UINT32 dwPort);
+NET_serverStartVoiceComServer(IN UINT32 uPort);
 
 /**
  * @brief 停止语音对讲TCP监听
@@ -911,12 +910,12 @@ NET_serverRegisterVoiceComCaptureCb(IN NET_serverVoiceComCaptureCallBack cb,
 
 /**
  * @brief 发送麦克风采集的音频到NVR
- * @param [IN]  pData  音频帧数据，格式需与当前 VoiceCom 会话协商参数一致
- * @param [IN]  dwSize 数据长度(字节)
+ * @param [IN]  pstrData  音频帧数据，格式需与当前 VoiceCom 会话协商参数一致
+ * @param [IN]  uSize 数据长度(字节)
  * @return TRUE 成功，FALSE 失败
  */
 NET_API BOOL STDCALL
-NET_serverSendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize);
+NET_serverSendVoiceComData(IN const CHAR* pstrData, IN UINT32 uSize);
 
 /**
  * @brief 获取当前 VoiceCom 会话协商的音频参数
@@ -939,22 +938,22 @@ typedef NET_COMMON_ECODE_E (STDCALL *NET_serverRecordFrameStartCallBack)(
 
 /**
  * @brief 录像帧读取回调: SDK在TCP连接建立后循环拉取帧并发送给客户端
- * @return 实际写入 pBuffer 的负载字节数；0 表示暂时无帧；<0 表示结束/失败
+ * @return 实际写入 pstrBuffer 的负载字节数；0 表示暂时无帧；<0 表示结束/失败
  */
 typedef INT32 (STDCALL *NET_serverRecordFrameReadCallBack)(
-    IN const CHAR* szStreamId,
+    IN const CHAR* pstrStreamId,
     OUT pNET_RecordFrameInfo_S pstFrameInfo,
-    OUT CHAR* pBuffer,
-    IN UINT32 dwBufferSize,
+    OUT CHAR* pstrBuffer,
+    IN UINT32 uBufferSize,
     IN LPVOID lpUserData);
 
 /** @brief 录像帧流停止回调: 客户端停止或流结束时调用 */
 typedef NET_COMMON_ECODE_E (STDCALL *NET_serverRecordFrameStopCallBack)(
-    IN const CHAR* szStreamId,
+    IN const CHAR* pstrStreamId,
     IN LPVOID lpUserData);
 
 NET_API BOOL STDCALL
-NET_serverStartRecordFrameServer(IN UINT32 dwPort);
+NET_serverStartRecordFrameServer(IN UINT32 uPort);
 
 NET_API BOOL STDCALL
 NET_serverStopRecordFrameServer(void);

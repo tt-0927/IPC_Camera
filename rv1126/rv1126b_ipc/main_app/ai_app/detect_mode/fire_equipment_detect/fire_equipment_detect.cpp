@@ -333,12 +333,9 @@ void CFireEquipmentDetect::run()
                                             stCtx.nChnId = m_nChannelId;
                                             stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                                 std::chrono::system_clock::now().time_since_epoch()).count();
+                                            /* 区域变化类无目标框 仅带整帧大图 */
                                             if (!m_lastRgbFrame.empty()) {
-                                                auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-                                                pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-                                                if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
-                                                    stCtx.pTvSdkPayload = pPayload;
-                                                }
+                                                encode_mat_to_tvsdk_image(m_lastRgbFrame, stCtx.stPanoramaImage, JPEG_QUALITY_PANORAMA, false);
                                             }
                                             stCtx.bEventEnded = false;
                                             CEventLinkage::instance()->handleEvent(stCtx);
@@ -369,12 +366,9 @@ void CFireEquipmentDetect::run()
                                                 stCtx.nChnId = m_nChannelId;
                                                 stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                                     std::chrono::system_clock::now().time_since_epoch()).count();
+                                                /* 区域变化类无目标框 仅带整帧大图 */
                                                 if (!m_lastRgbFrame.empty()) {
-                                                    auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-                                                    pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-                                                    if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
-                                                        stCtx.pTvSdkPayload = pPayload;
-                                                    }
+                                                    encode_mat_to_tvsdk_image(m_lastRgbFrame, stCtx.stPanoramaImage, JPEG_QUALITY_PANORAMA, false);
                                                 }
                                                 stCtx.bEventEnded = true;
                                                 CEventLinkage::instance()->handleEvent(stCtx);
@@ -405,12 +399,9 @@ void CFireEquipmentDetect::run()
                                             stCtx.nChnId = m_nChannelId;
                                             stCtx.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
                                                 std::chrono::system_clock::now().time_since_epoch()).count();
+                                            /* 区域变化类无目标框 仅带整帧大图 */
                                             if (!m_lastRgbFrame.empty()) {
-                                                auto pPayload = std::make_shared<EventTvSdkPayload_S>();
-                                                pPayload->enType = get_tvsdk_payload_type(stCtx.enEventType);
-                                                if (encode_mat_to_tvsdk_image(m_lastRgbFrame, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA, false)) {
-                                                    stCtx.pTvSdkPayload = pPayload;
-                                                }
+                                                encode_mat_to_tvsdk_image(m_lastRgbFrame, stCtx.stPanoramaImage, JPEG_QUALITY_PANORAMA, false);
                                             }
                                             stCtx.bEventEnded = true;
                                             CEventLinkage::instance()->handleEvent(stCtx);

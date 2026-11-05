@@ -19,7 +19,7 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
                                        LPVOID lpUserData)
 {
     if (!lpUserID || !pstCond || !pstStreamInfo || pstCond->uChannel <= 0 ||
-        pstCond->szStartTime[0] == '\0' || pstCond->szEndTime[0] == '\0')
+        pstCond->strStartTime[0] == '\0' || pstCond->strEndTime[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
@@ -42,9 +42,9 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
         return FALSE;
     }
 
-    const int respCode = SDKConvert::get_respCode(respBody);
-    CErrorManage::instance()->SetLastError(respCode);
-    if (respCode != NET_E_SUCCEED)
+    const int nRespCode = SDKConvert::get_respCode(respBody);
+    CErrorManage::instance()->SetLastError(nRespCode);
+    if (nRespCode != NET_E_SUCCEED)
     {
         return FALSE;
     }
@@ -57,7 +57,7 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
         pstStreamInfo->uSize = sizeof(NET_RecordFrameStreamInfo_S);
     }
 
-    if (pstStreamInfo->uTcpPort == 0 || pstStreamInfo->szStreamId[0] == '\0')
+    if (pstStreamInfo->uTcpPort == 0 || pstStreamInfo->strStreamId[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
@@ -81,16 +81,16 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
     /* 4. 建立 TCP 连接 */
     auto client = std::make_shared<tvsdk::CRecordFrameStream>();
     tvsdk::RecordFrameCallback cb = [cbRecordFrame, lpUserData](const NET_RecordFrameInfo_S& frameInfo,
-                                                               const char* data,
-                                                               size_t size) {
+                                                               const char* pstrData,
+                                                               size_t uSize) {
         if (cbRecordFrame) {
-            cbRecordFrame(&frameInfo, data, static_cast<UINT32>(size), lpUserData);
+            cbRecordFrame(&frameInfo, pstrData, static_cast<UINT32>(uSize), lpUserData);
         }
     };
 
     if (!client->start(host,
                        static_cast<int>(pstStreamInfo->uTcpPort),
-                       pstStreamInfo->szStreamId,
+                       pstStreamInfo->strStreamId,
                        std::move(cb)))
     {
         /* TCP 连接失败 → 通知服务端停止帧流（回滚） */
@@ -98,10 +98,10 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
         std::memset(&stStopInfo, 0, sizeof(stStopInfo));
         stStopInfo.uSize = sizeof(stStopInfo);
 #ifdef _WIN32
-        strncpy_s(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+        strncpy_s(stStopInfo.strStreamId, pstStreamInfo->strStreamId, sizeof(stStopInfo.strStreamId) - 1);
 #else
-        std::strncpy(stStopInfo.szStreamId, pstStreamInfo->szStreamId, sizeof(stStopInfo.szStreamId) - 1);
-        stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
+        std::strncpy(stStopInfo.strStreamId, pstStreamInfo->strStreamId, sizeof(stStopInfo.strStreamId) - 1);
+        stStopInfo.strStreamId[sizeof(stStopInfo.strStreamId) - 1] = '\0';
 #endif
         std::string stopResp;
         CCommandExecutor::instance()->ExecuteRaw((LPUSER_HANDLE)lpUserID,
@@ -116,13 +116,13 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
     /* 5. 记录到映射表 */
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        auto old = m_streamMap.find(pstStreamInfo->szStreamId);
+        auto old = m_streamMap.find(pstStreamInfo->strStreamId);
         if (old != m_streamMap.end())
         {
             old->second->stop();
             m_streamMap.erase(old);
         }
-        m_streamMap[pstStreamInfo->szStreamId] = client;
+        m_streamMap[pstStreamInfo->strStreamId] = client;
     }
 
     CErrorManage::instance()->SetLastError(NET_E_SUCCEED);
@@ -133,9 +133,9 @@ BOOL CRecordFrameHub::StartStream(LPVOID lpUserID,
 /*  StopStream                                                                 */
 /* ========================================================================== */
 
-BOOL CRecordFrameHub::StopStream(LPVOID lpUserID, const CHAR* szStreamId)
+BOOL CRecordFrameHub::StopStream(LPVOID lpUserID, const CHAR* pstrStreamId)
 {
-    if (!lpUserID || !szStreamId || szStreamId[0] == '\0')
+    if (!lpUserID || !pstrStreamId || pstrStreamId[0] == '\0')
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
@@ -146,10 +146,10 @@ BOOL CRecordFrameHub::StopStream(LPVOID lpUserID, const CHAR* szStreamId)
     std::memset(&stStopInfo, 0, sizeof(stStopInfo));
     stStopInfo.uSize = sizeof(stStopInfo);
 #ifdef _WIN32
-    strncpy_s(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
+    strncpy_s(stStopInfo.strStreamId, pstrStreamId, sizeof(stStopInfo.strStreamId) - 1);
 #else
-    std::strncpy(stStopInfo.szStreamId, szStreamId, sizeof(stStopInfo.szStreamId) - 1);
-    stStopInfo.szStreamId[sizeof(stStopInfo.szStreamId) - 1] = '\0';
+    std::strncpy(stStopInfo.strStreamId, pstrStreamId, sizeof(stStopInfo.strStreamId) - 1);
+    stStopInfo.strStreamId[sizeof(stStopInfo.strStreamId) - 1] = '\0';
 #endif
 
     std::string respBody;
@@ -162,13 +162,13 @@ BOOL CRecordFrameHub::StopStream(LPVOID lpUserID, const CHAR* szStreamId)
         return FALSE;
     }
 
-    const int respCode = SDKConvert::get_respCode(respBody);
-    CErrorManage::instance()->SetLastError(respCode);
+    const int nRespCode = SDKConvert::get_respCode(respBody);
+    CErrorManage::instance()->SetLastError(nRespCode);
 
     /* 2. 停止本地 TCP 连接 */
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        auto it = m_streamMap.find(szStreamId);
+        auto it = m_streamMap.find(pstrStreamId);
         if (it != m_streamMap.end())
         {
             it->second->stop();
@@ -176,7 +176,7 @@ BOOL CRecordFrameHub::StopStream(LPVOID lpUserID, const CHAR* szStreamId)
         }
     }
 
-    return respCode == NET_E_SUCCEED ? TRUE : FALSE;
+    return nRespCode == NET_E_SUCCEED ? TRUE : FALSE;
 }
 
 /* ========================================================================== */

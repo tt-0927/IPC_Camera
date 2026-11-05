@@ -17,6 +17,7 @@ set (INCLUDE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/kitchen_detect
     ${CMAKE_CURRENT_LIST_DIR}/pmnm_detect
     ${CMAKE_CURRENT_LIST_DIR}/fight_detect
+    ${CMAKE_CURRENT_LIST_DIR}/group4_detect
     ${CMAKE_CURRENT_LIST_DIR}/tracker
 )
 
@@ -33,6 +34,7 @@ set (SOURCE_PATH
     ${CMAKE_CURRENT_LIST_DIR}/kitchen_detect
     ${CMAKE_CURRENT_LIST_DIR}/pmnm_detect
     ${CMAKE_CURRENT_LIST_DIR}/fight_detect
+    ${CMAKE_CURRENT_LIST_DIR}/group4_detect
     ${CMAKE_CURRENT_LIST_DIR}/tracker
 )
 

@@ -79,6 +79,9 @@ namespace Json {
     bool get(const char *pObj, std::string item, std::string key, std::string &value);
     bool get(const char *pObj, std::string item, std::string key, size_t nSize, char* pValue);
 
+    bool has_type_error();
+    void clear_type_error();
+
     /*新增:在 JSON 对象中删除一个字段*/
     void remove(Object *pObj, std::string key);
 

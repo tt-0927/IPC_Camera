@@ -41,10 +41,10 @@ public:
     /**
      * @brief 停止录像帧流
      * @param lpUserID   用户登录句柄
-     * @param szStreamId 需要停止的流 ID
+     * @param pstrStreamId 需要停止的流 ID
      * @return TRUE 成功，FALSE 失败
      */
-    BOOL StopStream(LPVOID lpUserID, const CHAR* szStreamId);
+    BOOL StopStream(LPVOID lpUserID, const CHAR* pstrStreamId);
 
     /**
      * @brief 清理所有活跃流（SDK 退出时调用）

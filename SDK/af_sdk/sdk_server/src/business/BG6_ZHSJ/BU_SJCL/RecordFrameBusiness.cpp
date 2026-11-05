@@ -14,12 +14,12 @@ namespace
 
 /**
  * @brief 判断字符串是否非空
- * @param text 字符串指针
+ * @param pstrText 字符串指针
  * @return true表示字符串非空，false表示字符串为空或指针为空
  */
-bool HasText(const CHAR* text)
+bool HasText(const CHAR* pstrText)
 {
-    return text && text[0] != '\0';
+    return pstrText && pstrText[0] != '\0';
 }
 
 /**
@@ -35,7 +35,7 @@ int ValidateRecordFrameCond(NET_RecordFrameStreamCond_S& stCond)
         stCond.uSize = sizeof(NET_RecordFrameStreamCond_S);
     }
 
-    if (stCond.uChannel <= 0 || !HasText(stCond.szStartTime) || !HasText(stCond.szEndTime))
+    if (stCond.uChannel <= 0 || !HasText(stCond.strStartTime) || !HasText(stCond.strEndTime))
     {
         return NET_E_INVALID_PARAM;
     }
@@ -137,11 +137,11 @@ std::string CRecordFrameBusiness::StopRecordFrameStream(const std::string& req_d
         stInfo.uSize = sizeof(NET_RecordFrameStopInfo_S);
     }
 
-    if (!HasText(stInfo.szStreamId))
+    if (!HasText(stInfo.strStreamId))
     {
         return SDKConvert::to_respString(NET_E_INVALID_PARAM, 0, stInfo);
     }
 
-    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.szStreamId);
+    NET_COMMON_ECODE_E nRespCode = tvsdk::CRecordFrameServer::instance()->close_stream(stInfo.strStreamId);
     return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }

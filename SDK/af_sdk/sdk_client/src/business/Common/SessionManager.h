@@ -41,7 +41,7 @@ public:
      * @brief 登录接口
      * @return 成功返回 User登录句柄
      */
-    LPUSER_HANDLE Login(const std::string& host, int port,
+    LPUSER_HANDLE Login(const std::string& host, int nPort,
               const std::string& user, const std::string& pass);
 
     /**
@@ -84,17 +84,17 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 设置全局接收超时时间
-     * @param [in] timeoutSec 超时时间（秒）
+     * @param [in] nTimeoutSec 超时时间（秒）
      */
-    void SetGlobalRevTimeout(int timeoutSec);
+    void SetGlobalRevTimeout(int nTimeoutSec);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 设置全局连接参数
-     * @param [in] waitTime 等待时间（秒）
-     * @param [in] tryTimes 尝试次数
+     * @param [in] nWaitTime 等待时间（秒）
+     * @param [in] nTryTimes 尝试次数
      */
-    void SetGlobalConnectTime(int waitTime, int tryTimes);
+    void SetGlobalConnectTime(int nWaitTime, int nTryTimes);
 
     /**
      * @brief 设置异常回调函数
@@ -106,10 +106,10 @@ public:
     /**
      * @brief 触发异常回调
      * @param [in] pHandle 用户登录句柄
-     * @param [in] dwType 异常类型
+     * @param [in] nType 异常类型
      * @param [in] lpExpHandle 异常相关句柄
      */
-    void FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 dwType, LPVOID lpExpHandle = nullptr);
+    void FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 nType, LPVOID lpExpHandle = nullptr);
 
 private:
     /**

@@ -34,39 +34,39 @@ std::string build_probe_json();
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 解析探测包，校验是否为合法发现请求
- * @param json_str 原始 JSON 字符串
+ * @param strJson 原始 JSON 字符串
  * @return true 合法探测包，false 非法
  */
-bool parse_probe_json(const std::string& json_str);
+bool parse_probe_json(const std::string& strJson);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 构建响应包 JSON 字符串
- * @param info 设备信息
+ * @param stInfo 设备信息
  * @return 设备发现响应 JSON 字符串
  */
-std::string build_response_json(const NET_DiscoveryDeviceInfo_S& info);
+std::string build_response_json(const NET_DiscoveryDeviceInfo_S& stInfo);
 
 /**
  * @brief 构建未登录网络配置组播 JSON
  */
-std::string build_set_network_json(const NET_PoeNetworkConfig_S& config);
+std::string build_set_network_json(const NET_PoeNetworkConfig_S& stConfig);
 
 /**
  * @brief 解析未登录网络配置组播 JSON
  */
-bool parse_set_network_json(const std::string& json_str,
-                            NET_PoeNetworkConfig_S& config);
+bool parse_set_network_json(const std::string& strJson,
+                            NET_PoeNetworkConfig_S& stConfig);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 解析响应包 JSON 字符串
- * @param json_str 原始 JSON 字符串
- * @param info 输出设备信息
+ * @param strJson 原始 JSON 字符串
+ * @param stInfo 输出设备信息
  * @return true 解析成功，false 失败
  */
-bool parse_response_json(const std::string& json_str,
-                         NET_DiscoveryDeviceInfo_S& info);
+bool parse_response_json(const std::string& strJson,
+                         NET_DiscoveryDeviceInfo_S& stInfo);
 
 }  /* namespace discovery */
 

@@ -327,12 +327,12 @@ std::string CHttpAuthHandler::generate_nonce() {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, 15);
 
-    const char* hex_chars = "0123456789abcdef";
+    const char* pstrHexChars = "0123456789abcdef";
     std::string nonce;
     nonce.reserve(32);
 
     for (int i = 0; i < 32; ++i) {
-        nonce += hex_chars[dis(gen)];
+        nonce += pstrHexChars[dis(gen)];
     }
 
     /* 添加时间戳确保唯一性 */
@@ -442,31 +442,31 @@ bool CHttpAuthHandler::parse_digest_header(const std::string& auth_header, Diges
 std::string CHttpAuthHandler::base64_decode(const std::string& encoded)
 {
     BIO *bio, *b64;
-    char* buffer = static_cast<char*>(malloc(encoded.size()));
-    if (buffer == NULL)
+    char* pstrBuffer = static_cast<char*>(malloc(encoded.size()));
+    if (pstrBuffer == NULL)
     {
         NETSDK_LOG_MESSAGE_WARN("base64_decode: malloc(%zu) failed", encoded.size());
         return "";
     }
-    memset(buffer, 0, encoded.size());
+    memset(pstrBuffer, 0, encoded.size());
 
     bio = BIO_new_mem_buf(encoded.c_str(), -1);
     b64 = BIO_new(BIO_f_base64());
     bio = BIO_push(b64, bio);
 
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); /* 不处理换行 */
-    int length = BIO_read(bio, buffer, encoded.size());
+    int length = BIO_read(bio, pstrBuffer, encoded.size());
     if (length <= 0)
     {
         BIO_free_all(bio);
-        free(buffer);
+        free(pstrBuffer);
         return "";
     }
 
-    std::string result(buffer, length);
+    std::string result(pstrBuffer, length);
 
     BIO_free_all(bio);
-    free(buffer);
+    free(pstrBuffer);
 
     return result;
 }

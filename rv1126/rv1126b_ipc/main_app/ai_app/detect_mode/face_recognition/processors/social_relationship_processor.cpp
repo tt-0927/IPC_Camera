@@ -6,6 +6,7 @@
 #include "social_relationship_processor.hpp"
 
 #include <algorithm>
+#include <cstddef>
 
 void CSocialRelationshipProcessor::setRules(
     const Alarm::SocialRelationshipAnalysis_S &stConfig)
@@ -27,10 +28,10 @@ float CSocialRelationshipProcessor::sensitivityToConfidence(unsigned int nSensit
 }
 
 int CSocialRelationshipProcessor::process(
-    const DetectContext_S &stDetectContext,
-    std::vector<FaceTargetResult_S> &vstCandidates)
+    const std::vector<FaceBaseTarget_S> &vstTargets,
+    std::vector<int> &vstCandidateIndices)
 {
-    vstCandidates.clear();
+    vstCandidateIndices.clear();
 
     /* 规则快照：setRules 可能来自配置线程 */
     Alarm::SocialRelationshipAnalysis_S stRules;
@@ -42,14 +43,13 @@ int CSocialRelationshipProcessor::process(
     const float fConfidenceThreshold = sensitivityToConfidence(
         stRules.stRule.nSensitivity);
 
-    const std::vector<FaceTargetResult_S> &vstTargets = stDetectContext.vstDetectResult;
-    vstCandidates.reserve(vstTargets.size());
-    for (const auto &stTarget : vstTargets)
+    vstCandidateIndices.reserve(vstTargets.size());
+    for (size_t i = 0; i < vstTargets.size(); ++i)
     {
-        if (stTarget.stDetectResult.fConfidence >= fConfidenceThreshold)
+        if (vstTargets[i].stDetectResult.fConfidence >= fConfidenceThreshold)
         {
-            vstCandidates.push_back(stTarget);
+            vstCandidateIndices.push_back(static_cast<int>(i));
         }
     }
-    return static_cast<int>(vstCandidates.size());
+    return static_cast<int>(vstCandidateIndices.size());
 }

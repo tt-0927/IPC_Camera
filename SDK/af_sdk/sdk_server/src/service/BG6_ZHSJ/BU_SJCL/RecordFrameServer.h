@@ -39,36 +39,36 @@ namespace tvsdk {
  * @author tianl (tianl@kfb.cn)
  * @brief 录像帧流启动回调函数类型
  * @details 当客户端请求启动录像帧流时调用，由宿主程序实现实际的流开启逻辑
- * @param cond 流启动条件（通道、时间范围、媒体类型等）
- * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
+ * @param stCond 流启动条件（通道、时间范围、媒体类型等）
+ * @param stInfo 流信息（输出参数，包含流ID、端口、媒体类型等）
  * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-using RecordFrameStartCallback = std::function<NET_COMMON_ECODE_E(const NET_RecordFrameStreamCond_S& cond,
-                                                                     NET_RecordFrameStreamInfo_S& info)>;
+using RecordFrameStartCallback = std::function<NET_COMMON_ECODE_E(const NET_RecordFrameStreamCond_S& stCond,
+                                                                     NET_RecordFrameStreamInfo_S& stInfo)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 录像帧读取回调函数类型
  * @details 持续读取录像帧数据时调用，由宿主程序实现实际的帧读取逻辑
- * @param stream_id 流ID，标识当前播放会话
- * @param frame_info 帧信息（输出参数，包含序号、时间戳、媒体类型等）
- * @param buffer 帧数据缓冲区
- * @param buffer_size 缓冲区大小
+ * @param strStreamId 流ID，标识当前播放会话
+ * @param stFrameInfo 帧信息（输出参数，包含序号、时间戳、媒体类型等）
+ * @param pstrBuffer 帧数据缓冲区
+ * @param uBufferSize 缓冲区大小
  * @return 实际读取的字节数，0表示无数据，负数表示读取失败
  */
-using RecordFrameReadCallback = std::function<int(const std::string& stream_id,
-                                                  NET_RecordFrameInfo_S& frame_info,
-                                                  char* buffer,
-                                                  size_t buffer_size)>;
+using RecordFrameReadCallback = std::function<int(const std::string& strStreamId,
+                                                  NET_RecordFrameInfo_S& stFrameInfo,
+                                                  char* pstrBuffer,
+                                                  size_t uBufferSize)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 录像帧流停止回调函数类型
  * @details 当客户端请求停止录像帧流时调用，由宿主程序实现实际的流停止逻辑
- * @param stream_id 流ID，标识要停止的播放会话
+ * @param strStreamId 流ID，标识要停止的播放会话
  * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
  */
-using RecordFrameStopCallback = std::function<NET_COMMON_ECODE_E(const std::string& stream_id)>;
+using RecordFrameStopCallback = std::function<NET_COMMON_ECODE_E(const std::string& strStreamId)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -88,10 +88,10 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 启动服务端
-     * @param port 监听端口，默认9007
+     * @param nPort 监听端口，默认9007
      * @return true表示成功，false表示失败
      */
-    bool start(int port = 9007);
+    bool start(int nPort = 9007);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -137,20 +137,20 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 开启录像帧流
-     * @param cond 流启动条件（通道、时间范围、媒体类型等）
-     * @param info 流信息（输出参数，包含流ID、端口、媒体类型等）
+     * @param stCond 流启动条件（通道、时间范围、媒体类型等）
+     * @param stInfo 流信息（输出参数，包含流ID、端口、媒体类型等）
      * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
      */
-    NET_COMMON_ECODE_E open_stream(const NET_RecordFrameStreamCond_S& cond,
-                                      NET_RecordFrameStreamInfo_S& info);
+    NET_COMMON_ECODE_E open_stream(const NET_RecordFrameStreamCond_S& stCond,
+                                      NET_RecordFrameStreamInfo_S& stInfo);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 关闭录像帧流
-     * @param stream_id 流ID，标识要关闭的播放会话
+     * @param strStreamId 流ID，标识要关闭的播放会话
      * @return 错误码，NET_E_SUCCEED表示成功，其他值表示失败
      */
-    NET_COMMON_ECODE_E close_stream(const std::string& stream_id);
+    NET_COMMON_ECODE_E close_stream(const std::string& strStreamId);
 
 private:
     /**
@@ -176,20 +176,20 @@ private:
  * @author tianl (tianl@kfb.cn)
      * @brief 客户端数据发送循环
      * @details 持续从回调函数获取录像帧数据，封装为RTP-like协议格式发送给客户端
-     * @param client_fd 客户端socket文件描述符
+     * @param nClientFd 客户端socket文件描述符
      */
-    void client_send_loop(socket_fd_t client_fd);
+    void client_send_loop(socket_fd_t nClientFd);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 发送帧数据包
      * @details 将帧信息和帧数据封装为RTP-like协议格式发送给客户端
-     * @param fd socket文件描述符
-     * @param frame_info 帧信息（序号、时间戳、媒体类型、数据长度等）
-     * @param payload 帧数据指针
+     * @param nFd socket文件描述符
+     * @param stFrameInfo 帧信息（序号、时间戳、媒体类型、数据长度等）
+     * @param pstrPayload 帧数据指针
      * @return true表示成功，false表示失败
      */
-    bool send_packet(socket_fd_t fd, const NET_RecordFrameInfo_S& frame_info, const char* payload);
+    bool send_packet(socket_fd_t nFd, const NET_RecordFrameInfo_S& stFrameInfo, const char* pstrPayload);
 
     /**
  * @author tianl (tianl@kfb.cn)

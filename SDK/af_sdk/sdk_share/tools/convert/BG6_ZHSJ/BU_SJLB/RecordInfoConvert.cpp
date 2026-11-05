@@ -76,11 +76,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordControlInfo_S& stInfo, 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Status", stInfo.nStatus);
     convert.field(pRootJson, "RecordMode", stInfo.nRecordMode);
-    convert.field(pRootJson, "Name", stInfo.szName);
-    convert.field(pRootJson, "FileName", stInfo.szFileName);
-    convert.field(pRootJson, "MainTeacher", stInfo.szMainTeacher);
-    convert.field(pRootJson, "RoomName", stInfo.szRoomName);
-    convert.field(pRootJson, "Notes", stInfo.szNotes);
+    convert.field(pRootJson, "Name", stInfo.strName);
+    convert.field(pRootJson, "FileName", stInfo.strFileName);
+    convert.field(pRootJson, "MainTeacher", stInfo.strMainTeacher);
+    convert.field(pRootJson, "RoomName", stInfo.strRoomName);
+    convert.field(pRootJson, "Notes", stInfo.strNotes);
     convert.field(pRootJson, "RecordTime", stInfo.nRecordTime);
 }
 
@@ -103,7 +103,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LiveStatusInfo_S& stInfo, boo
         Json::add(pRootJson, "Status", stInfo.nStatus);
     }
 
-    convert.field(pRootJson, "RtmpName", stInfo.szRtmpName);
+    convert.field(pRootJson, "RtmpName", stInfo.strRtmpName);
     convert.field(pRootJson, "RtmpTime", stInfo.nRtmpTime);
 }
 
@@ -115,18 +115,18 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileItem_S& stInfo, boo
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "FileName", stInfo.szFileName);
+    convert.field(pRootJson, "FileName", stInfo.strFileName);
     convert.field(pRootJson, "GroupID", stInfo.nGroupId);
-    convert.field(pRootJson, "GroupName", stInfo.szGroupName);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "DurationTime", stInfo.szDurationTime);
+    convert.field(pRootJson, "GroupName", stInfo.strGroupName);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "DurationTime", stInfo.strDurationTime);
     convert.field(pRootJson, "FileSize", stInfo.nFileSize);
     convert.field(pRootJson, "FileFormat", stInfo.nFileFormat);
     convert.field(pRootJson, "Damaged", stInfo.nDamaged);
-    convert.field(pRootJson, "CourseName", stInfo.szCourseName);
-    convert.field(pRootJson, "KeySpeaker", stInfo.szKeySpeaker);
-    convert.field(pRootJson, "Location", stInfo.szLocation);
-    convert.field(pRootJson, "Notes", stInfo.szNotes);
+    convert.field(pRootJson, "CourseName", stInfo.strCourseName);
+    convert.field(pRootJson, "KeySpeaker", stInfo.strKeySpeaker);
+    convert.field(pRootJson, "Location", stInfo.strLocation);
+    convert.field(pRootJson, "Notes", stInfo.strNotes);
     convert.field(pRootJson, "FtpUpload", stInfo.nFtpUpload);
     convert.field(pRootJson, "PlatformUpload", stInfo.nPlatformUpload);
     convert.field(pRootJson, "DownloadCnt", stInfo.nDownloadCnt);
@@ -144,7 +144,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_RecordFileInfo_S& stInfo, boo
     convert.field(pRootJson, "CurPageSize", stInfo.nCurPageSize);
     convert.field(pRootJson, "PageSize", stInfo.nPageSize);
     convert.field(pRootJson, "Total", stInfo.nTotal);
-    convert.field(pRootJson, "CoverPath", stInfo.szCoverPath);
+    convert.field(pRootJson, "CoverPath", stInfo.strCoverPath);
 
     if (bOutStruct)
     {
@@ -211,7 +211,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PresetBitItem_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "CameraId",  stInfo.nCameraId);
     convert.field(pRootJson, "PresetNum", stInfo.nPresetNum);
-    convert.field(pRootJson, "Name",      stInfo.szName);
+    convert.field(pRootJson, "Name",      stInfo.strName);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_PresetBitInfo_S& stInfo, bool bOutStruct)
@@ -259,7 +259,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_PresetBitCtrl_S& stInfo, bool
     convert.field(pRootJson, "Type",      stInfo.nOptType);
     convert.field(pRootJson, "CameraId",  stInfo.nCameraId);
     convert.field(pRootJson, "PresetNum", stInfo.nPresetNum);
-    convert.field(pRootJson, "Name",      stInfo.szName);
+    convert.field(pRootJson, "Name",      stInfo.strName);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_ExternalControlInfo_S& stInfo, bool bOutStruct)
@@ -337,13 +337,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AppointmentItem_S& stInfo, bo
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "ID",          stInfo.nID);
     convert.field(pRootJson, "WeekDay",     stInfo.nWeekDay);
-    convert.field(pRootJson, "Name",        stInfo.szName);
-    convert.field(pRootJson, "StartTime",   stInfo.szStartTime);
-    convert.field(pRootJson, "StopTime",    stInfo.szStopTime);
+    convert.field(pRootJson, "Name",        stInfo.strName);
+    convert.field(pRootJson, "StartTime",   stInfo.strStartTime);
+    convert.field(pRootJson, "StopTime",    stInfo.strStopTime);
     convert.field(pRootJson, "IsCir",       stInfo.nIsCir);
-    convert.field(pRootJson, "TeacherName", stInfo.szTeacherName);
-    convert.field(pRootJson, "RoomName",    stInfo.szRoomName);
-    convert.field(pRootJson, "Notes",       stInfo.szNotes);
+    convert.field(pRootJson, "TeacherName", stInfo.strTeacherName);
+    convert.field(pRootJson, "RoomName",    stInfo.strRoomName);
+    convert.field(pRootJson, "Notes",       stInfo.strNotes);
 }
 
 void SDKConvert::deal(Json::Object* pRootJson, NET_AppointmentInfo_S& stInfo, bool bOutStruct)

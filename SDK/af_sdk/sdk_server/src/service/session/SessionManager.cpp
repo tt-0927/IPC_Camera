@@ -91,12 +91,12 @@ bool CSessionManager::Login(std::string& OutSessionId, const std::string& client
 
 	/* 辅助 lambda：统计指定 IP 的活跃会话数 */
 	auto countByIP = [&](const std::string& ip) -> size_t {
-		size_t count = 0;
+		size_t uCount = 0;
 		for (const auto& pair : m_stSessions)
 		{
-			if (pair.second->GetClientIP() == ip) ++count;
+			if (pair.second->GetClientIP() == ip) ++uCount;
 		}
-		return count;
+		return uCount;
 	};
 
 	/* 辅助 lambda：淘汰指定 IP 最旧的会话 */
@@ -306,11 +306,11 @@ std::shared_ptr<CServerSession> CSessionManager::GetSession(const std::string& S
 size_t CSessionManager::PushToAll(std::string json, const std::vector<CServerSession::Attachment_S>& attachments)
 {
 	std::lock_guard<std::mutex> Lock(m_stMutex);
-    size_t count = 0;
-    size_t totalSessions = m_stSessions.size();
-    size_t notLogined = 0;
-    size_t notConnected = 0;
-    size_t pushDisabled = 0;
+    size_t uCount = 0;
+    size_t uTotalSessions = m_stSessions.size();
+    size_t uNotLogined = 0;
+    size_t uNotConnected = 0;
+    size_t uPushDisabled = 0;
 
     std::shared_ptr<CServerSession::AlarmData_S> spData;
 
@@ -341,7 +341,7 @@ size_t CSessionManager::PushToAll(std::string json, const std::vector<CServerSes
             }
             if (session->EnqueueMessage(spData))
             {
-                count++;
+                uCount++;
                 if (!forwardedClients.empty()) forwardedClients += ", ";
                 forwardedClients += clientIP;
             }
@@ -349,37 +349,37 @@ size_t CSessionManager::PushToAll(std::string json, const std::vector<CServerSes
         else
         {
             if (!session->IsLogined()) {
-                notLogined++;
+                uNotLogined++;
                 NETSDK_LOG_MESSAGE_WARN("[SessionManager] Client skipped (Not Logined): SessionId=%s, ClientIP=%s",
                              sessionId.c_str(), clientIP.c_str());
             }
             else if (!session->IsConnected()) {
-                notConnected++;
+                uNotConnected++;
                 /* DEBUG 级别，断线重连期间属于正常现象，不刷屏 */
                 NETSDK_LOG_MESSAGE_DEBUG("[SessionManager] Client offline (AlarmListen not active): SessionId=%s, ClientIP=%s",
                              sessionId.c_str(), clientIP.c_str());
             }
             else if (!session->IsPushEnabled()) {
-                pushDisabled++;
+                uPushDisabled++;
                 NETSDK_LOG_MESSAGE_WARN("[SessionManager] Client skipped (Push Disabled/Not Subscribed): SessionId=%s, ClientIP=%s",
                              sessionId.c_str(), clientIP.c_str());
             }
         }
     }
 
-    if (count == 0 && totalSessions > 0)
+    if (uCount == 0 && uTotalSessions > 0)
     {
         NETSDK_LOG_MESSAGE_WARN("[SessionManager] Alarm not forwarded: No eligible clients. "
                       "Total=%zu, NotLogined=%zu, NotConnected=%zu, PushDisabled=%zu",
-                      totalSessions, notLogined, notConnected, pushDisabled);
+                      uTotalSessions, uNotLogined, uNotConnected, uPushDisabled);
     }
-    else if (count > 0)
+    else if (uCount > 0)
     {
         NETSDK_LOG_MESSAGE_INFO("[SessionManager] Alarm forwarded: Success=%zu, Total=%zu, Clients=[%s]",
-                      count, totalSessions, forwardedClients.c_str());
+                      uCount, uTotalSessions, forwardedClients.c_str());
     }
 
-    return count;
+    return uCount;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -410,17 +410,17 @@ std::string CSessionManager::GetSessionDiagnosticInfo()
     }
 
     ss << "TotalSessions=" << m_stSessions.size() << ": ";
-    int idx = 0;
+    int nIdx = 0;
     for (const auto& pair : m_stSessions)
     {
         auto& session = pair.second;
-        if (idx > 0) ss << "; ";
-        ss << "[" << idx << "] "
+        if (nIdx > 0) ss << "; ";
+        ss << "[" << nIdx << "] "
            << "IP=" << session->GetClientIP() << ", "
            << "Login=" << (session->IsLogined() ? "Y" : "N") << ", "
            << "Conn=" << (session->IsConnected() ? "Y" : "N") << ", "
            << "Subscribed=" << (session->IsPushEnabled() ? "Y" : "N");
-        idx++;
+        nIdx++;
     }
 
     return ss.str();
@@ -483,10 +483,10 @@ void CSessionManager::HttpCommandLout(const httplib::Request& req, httplib::Resp
 		return;
 	}
 
-	bool LogoutOk = Logout(SessionId);
+	bool bLogoutOk = Logout(SessionId);
 
 	res.status = NET_HTTP_RESP_CODE_SUCCESS;
-	res.set_content(SDKConvert::to_respString(LogoutOk ? NET_E_SUCCEED : NET_E_INVALID_HANDLE, 0), NET_JSON_CONTENT_TYPE);
+	res.set_content(SDKConvert::to_respString(bLogoutOk ? NET_E_SUCCEED : NET_E_INVALID_HANDLE, 0), NET_JSON_CONTENT_TYPE);
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -535,7 +535,7 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
         return;
     }
 
-    const uint64_t listenSeq = session->BeginAlarmListen();
+    const uint64_t ulListenSeq = session->BeginAlarmListen();
      session->SetConnected(true);
     session->SetPushEnabled(true);
 
@@ -546,19 +546,19 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
 
     NETSDK_LOG_MESSAGE_INFO("[SessionManager] Alarm Subscribe Start: SessionId=%s, ClientIP=%s, ListenSeq=%llu, TotalSessions=%zu",
                   SessionId.c_str(), session->GetClientIP().c_str(),
-                  static_cast<unsigned long long>(listenSeq), GetSessionCount());
+                  static_cast<unsigned long long>(ulListenSeq), GetSessionCount());
 
     res.set_chunked_content_provider(
         "multipart/form-data; boundary=" + boundary,
-        [this, SessionId, boundary, listenSeq](size_t, httplib::DataSink& sink) -> bool
+        [this, SessionId, boundary, ulListenSeq](size_t, httplib::DataSink& sink) -> bool
         {
              auto sess = GetSession(SessionId);
              if (!sess || !sess->IsLogined()) return false;
-             if (!sess->IsCurrentAlarmListen(listenSeq))
+             if (!sess->IsCurrentAlarmListen(ulListenSeq))
              {
                  NETSDK_LOG_MESSAGE_INFO("[SessionManager] Alarm Listen superseded: SessionId=%s, ClientIP=%s, ListenSeq=%llu, CurrentSeq=%llu",
                                SessionId.c_str(), sess->GetClientIP().c_str(),
-                               static_cast<unsigned long long>(listenSeq),
+                               static_cast<unsigned long long>(ulListenSeq),
                                static_cast<unsigned long long>(sess->GetAlarmListenSeq()));
                  return false;
              }
@@ -569,19 +569,19 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
              std::shared_ptr<const CServerSession::AlarmData_S> msg;
              if (sess->DequeueMessage(msg))
              {
-                 auto tp_dequeue = std::chrono::steady_clock::now();
-                 long long ts_dequeue = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     tp_dequeue.time_since_epoch()).count();
-                 long long ts_alarm = 0;
+                 auto stTpDequeue = std::chrono::steady_clock::now();
+                 long long lTsDequeue = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     stTpDequeue.time_since_epoch()).count();
+                 long long lTsAlarm = 0;
                  /* 尝试从 JSON 中提取入队时间戳 (enqueue_ts) */
                  auto pos = msg->json.find("\"enqueue_ts\":");
                  if (pos != std::string::npos) {
                      auto end = msg->json.find_first_of(",}\n\r", pos + 14);
-                     ts_alarm = std::stoll(msg->json.substr(pos + 14, end - pos - 14));
+                     lTsAlarm = std::stoll(msg->json.substr(pos + 14, end - pos - 14));
                  }
-                 long long queue_delay = ts_alarm > 0 ? ts_dequeue - ts_alarm : -1;
+                 long long lQueueDelay = lTsAlarm > 0 ? lTsDequeue - lTsAlarm : -1;
                  NETSDK_LOG_MESSAGE_INFO("[DIAG] content_provider dequeued alarm: queue_delay_ms=%lld, dequeue_ts=%lld, enqueue_ts=%lld",
-                               queue_delay, ts_dequeue, ts_alarm);
+                               lQueueDelay, lTsDequeue, lTsAlarm);
 
                  std::string data = BuildMultipartPart(boundary, "alarm", "application/json", msg->json);
 
@@ -605,22 +605,22 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                                                 filename);
                  }
 
-                 auto tp_before_write = std::chrono::steady_clock::now();
+                 auto stTpBeforeWrite = std::chrono::steady_clock::now();
                  if (sink.write(data.data(), data.size())) {
-                     auto tp_after_write = std::chrono::steady_clock::now();
-                     long long write_cost = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         tp_after_write - tp_before_write).count();
+                     auto stTpAfterWrite = std::chrono::steady_clock::now();
+                     long long lWriteCost = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         stTpAfterWrite - stTpBeforeWrite).count();
                      NETSDK_LOG_MESSAGE_INFO("[DIAG] sink.write done: data_size=%zu, write_cost_ms=%lld",
-                                   data.size(), write_cost);
+                                   data.size(), lWriteCost);
                      sess->UpdateLastActive();
                  } else {
                      NETSDK_LOG_MESSAGE_WARN("[SessionManager] sink.write FAILED: SessionId=%s, ClientIP=%s, dataSize=%zu, marking disconnected",
                                    SessionId.c_str(), sess->GetClientIP().c_str(), data.size());
-                     if (sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+                     if (sess->MarkDisconnectedIfCurrentAlarmListen(ulListenSeq))
                      {
                          NETSDK_LOG_MESSAGE_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
                                        SessionId.c_str(), sess->GetClientIP().c_str(),
-                                       static_cast<unsigned long long>(listenSeq));
+                                       static_cast<unsigned long long>(ulListenSeq));
                      }
                      return false;
                  }
@@ -637,11 +637,11 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
                                                          "application/json",
                                                          "{\"type\":\"heartbeat\"}");
                      if (!sink.write(hb.data(), hb.size())) {
-                         if (sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+                         if (sess->MarkDisconnectedIfCurrentAlarmListen(ulListenSeq))
                          {
                              NETSDK_LOG_MESSAGE_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
                                            SessionId.c_str(), sess->GetClientIP().c_str(),
-                                           static_cast<unsigned long long>(listenSeq));
+                                           static_cast<unsigned long long>(ulListenSeq));
                          }
                          return false;
                      }
@@ -651,24 +651,24 @@ void CSessionManager::HttpCommandAlarmListen(const httplib::Request& req, httpli
              }
              /* 等待新数据再发送（或超时 1 秒回来检查心跳包） */
              /* EnqueueMessage 入队时 notify_one() 会立即唤醒此处等待 */
-             sess->WaitForData(1000, listenSeq);
+             sess->WaitForData(1000, ulListenSeq);
              return true;
         },
-        [this, SessionId, listenSeq](bool)
+        [this, SessionId, ulListenSeq](bool)
         {
             auto sess = GetSession(SessionId);
             std::string clientIP = sess ? sess->GetClientIP() : "unknown";
-            const bool currentListen = sess && sess->IsCurrentAlarmListen(listenSeq);
+            const bool bCurrentListen = sess && sess->IsCurrentAlarmListen(ulListenSeq);
             NETSDK_LOG_MESSAGE_INFO("[SessionManager] Alarm Listen Closed: SessionId=%s, ClientIP=%s, ListenSeq=%llu, CurrentSeq=%llu, Current=%d",
                           SessionId.c_str(), clientIP.c_str(),
-                          static_cast<unsigned long long>(listenSeq),
+                          static_cast<unsigned long long>(ulListenSeq),
                           static_cast<unsigned long long>(sess ? sess->GetAlarmListenSeq() : 0),
-                          currentListen ? 1 : 0);
-            if (sess && sess->MarkDisconnectedIfCurrentAlarmListen(listenSeq))
+                          bCurrentListen ? 1 : 0);
+            if (sess && sess->MarkDisconnectedIfCurrentAlarmListen(ulListenSeq))
             {
                 NETSDK_LOG_MESSAGE_INFO("[SessionManager] Client disconnected, queue cleared: SessionId=%s, ClientIP=%s, ListenSeq=%llu",
                               SessionId.c_str(), clientIP.c_str(),
-                              static_cast<unsigned long long>(listenSeq));
+                              static_cast<unsigned long long>(ulListenSeq));
             }
         }
 

@@ -48,40 +48,40 @@ public:
     void SetClientIP(const std::string& ip) { m_strClientIp = ip; }
 
     bool IsLogined() const { return m_bLoggedIn; }
-    void SetLogined(bool val) { m_bLoggedIn = val; }
+    void SetLogined(bool bVal) { m_bLoggedIn = bVal; }
 
     bool IsConnected() const { return m_bConnected; }
-    void SetConnected(bool val);
+    void SetConnected(bool bVal);
 
     bool IsPushEnabled() const { return m_bPushEnabled; }
-    void SetPushEnabled(bool val) { m_bPushEnabled = val; }
+    void SetPushEnabled(bool bVal) { m_bPushEnabled = bVal; }
 
     /* AlarmListen 是长连接，同一 Session 只允许最新的一条连接保持有效。 */
     /* 新连接进来时递增序号，旧 content_provider 检测到序号变化后退出。 */
     uint64_t BeginAlarmListen();
-    bool IsCurrentAlarmListen(uint64_t listenSeq) const;
+    bool IsCurrentAlarmListen(uint64_t ulListenSeq) const;
     uint64_t GetAlarmListenSeq() const { return m_uAlarmListenSequence.load(); }
-    bool MarkDisconnectedIfCurrentAlarmListen(uint64_t listenSeq);
+    bool MarkDisconnectedIfCurrentAlarmListen(uint64_t ulListenSeq);
 
     /* --- 活跃度管理 --- */
     void UpdateLastActive();
     std::chrono::steady_clock::time_point GetLastActive() const;
     /* 检查是否超时（单位：秒） */
-    bool IsTimeout(int timeoutSec) const;
+    bool IsTimeout(int nTimeoutSec) const;
     /* 检查是否长时间无心跳（僵尸连接） */
-    bool IsZombie(int timeoutSec) const;
+    bool IsZombie(int nTimeoutSec) const;
 
     /**
      * @author tianl (tianl@kfb.cn)
      * @brief 判断是否到达发送心跳的时间，并在满足条件时更新时间戳。
-     * @param [in] intervalSec 心跳发送最小间隔，单位为秒。
+     * @param [in] nIntervalSec 心跳发送最小间隔，单位为秒。
      * @return true 表示应发送心跳；false 表示尚未到达发送时间。
      */
-    bool ShouldSendHeartbeat(int intervalSec)
+    bool ShouldSendHeartbeat(int nIntervalSec)
     {
         std::lock_guard<std::mutex> lk(m_stMutex);
         auto now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::seconds>(now - m_stLastHeartbeatSent).count() >= intervalSec)
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - m_stLastHeartbeatSent).count() >= nIntervalSec)
         {
             m_stLastHeartbeatSent = now;
             return true;
@@ -105,15 +105,15 @@ public:
 
         size_t GetPayloadSize() const
         {
-            size_t total = json.size();
+            size_t uTotal = json.size();
             for (const auto& attachment : attachments)
             {
-                total += attachment.contentType.size();
-                total += attachment.data.size();
-                total += attachment.name.size();
-                total += attachment.filename.size();
+                uTotal += attachment.contentType.size();
+                uTotal += attachment.data.size();
+                uTotal += attachment.name.size();
+                uTotal += attachment.filename.size();
             }
-            return total;
+            return uTotal;
         }
     };
 
@@ -130,7 +130,7 @@ public:
 
     /* 条件变量 + 超时等待：有数据或超时后返回 */
     /* timeoutMs: 最大等待毫秒数（用于心跳定时唤醒） */
-    void WaitForData(int timeoutMs, uint64_t listenSeq = 0);
+    void WaitForData(int nTimeoutMs, uint64_t ulListenSeq = 0);
 
 private:
     const std::string m_strSessionId;
@@ -160,5 +160,5 @@ private:
     static constexpr size_t kMaxQueuedAlarmBytes = 8U * 1024U * 1024U;
     static constexpr int kMaxQueuedAlarmAgeSeconds = 5;
 
-    void RemoveFrontMessageLocked(size_t& droppedCount, size_t& droppedBytes);
+    void RemoveFrontMessageLocked(size_t& uDroppedCount, size_t& uDroppedBytes);
 };

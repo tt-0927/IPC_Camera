@@ -18,131 +18,131 @@ struct VoiceComParamFrame {
     NET_VoiceComAudioParam_S audio_param;
 };
 
-bool recv_exact(socket_fd_t fd, char* data, size_t size) {
-    size_t received = 0;
-    while (received < size) {
-        ssize_t n = recv(fd, data + received, static_cast<int>(size - received), 0);
-        if (n <= 0) {
+bool recv_exact(socket_fd_t nFd, char* pstrData, size_t uSize) {
+    size_t uReceived = 0;
+    while (uReceived < uSize) {
+        ssize_t lRet = recv(nFd, pstrData + uReceived, static_cast<int>(uSize - uReceived), 0);
+        if (lRet <= 0) {
             return false;
         }
-        received += static_cast<size_t>(n);
+        uReceived += static_cast<size_t>(lRet);
     }
     return true;
 }
 
-void fill_default_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param) {
-    std::memset(&audio_param, 0, sizeof(audio_param));
-    audio_param.enFormat = NET_AUDIO_FORMAT_PCM;
-    audio_param.uSampleRate = NET_AUDIO_SAMPRATE_16000;
-    audio_param.uBitDepth = 16;
-    audio_param.uChannels = 1;
-    audio_param.uFrameIntervalMs = 20;
-    audio_param.uFrameBytes = 640;
-    audio_param.uBitRate = 256000;
-    audio_param.bLittleEndian = TRUE;
+void fill_default_voicecom_audio_param(NET_VoiceComAudioParam_S& stAudioParam) {
+    std::memset(&stAudioParam, 0, sizeof(stAudioParam));
+    stAudioParam.enFormat = NET_AUDIO_FORMAT_PCM;
+    stAudioParam.uSampleRate = NET_AUDIO_SAMPRATE_16000;
+    stAudioParam.uBitDepth = 16;
+    stAudioParam.uChannels = 1;
+    stAudioParam.uFrameIntervalMs = 20;
+    stAudioParam.uFrameBytes = 640;
+    stAudioParam.uBitRate = 256000;
+    stAudioParam.bLittleEndian = TRUE;
 }
 
-bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& audio_param) {
-    if (audio_param.uChannels != 1) {
+bool normalize_voicecom_audio_param(NET_VoiceComAudioParam_S& stAudioParam) {
+    if (stAudioParam.uChannels != 1) {
         return false;
     }
 
-    int bytes_per_sample = 0;
-    switch (audio_param.enFormat) {
+    int nBytesPerSample = 0;
+    switch (stAudioParam.enFormat) {
         case NET_AUDIO_FORMAT_PCM:
-            if (audio_param.uBitDepth <= 0) {
-                audio_param.uBitDepth = 16;
+            if (stAudioParam.uBitDepth <= 0) {
+                stAudioParam.uBitDepth = 16;
             }
-            if (audio_param.uBitDepth != 16) {
+            if (stAudioParam.uBitDepth != 16) {
                 return false;
             }
-            switch (audio_param.uSampleRate) {
+            switch (stAudioParam.uSampleRate) {
                 case NET_AUDIO_SAMPRATE_8000:
                 case NET_AUDIO_SAMPRATE_16000:
                     break;
                 default:
                     return false;
             }
-            bytes_per_sample = audio_param.uBitDepth / 8;
+            nBytesPerSample = stAudioParam.uBitDepth / 8;
             break;
         case NET_AUDIO_FORMAT_G711A:
         case NET_AUDIO_FORMAT_G711U:
-            if (audio_param.uSampleRate != NET_AUDIO_SAMPRATE_8000) {
+            if (stAudioParam.uSampleRate != NET_AUDIO_SAMPRATE_8000) {
                 return false;
             }
-            if (audio_param.uBitDepth <= 0) {
-                audio_param.uBitDepth = 8;
+            if (stAudioParam.uBitDepth <= 0) {
+                stAudioParam.uBitDepth = 8;
             }
-            if (audio_param.uBitDepth != 8) {
+            if (stAudioParam.uBitDepth != 8) {
                 return false;
             }
-            bytes_per_sample = 1;
+            nBytesPerSample = 1;
             break;
         default:
             return false;
     }
 
-    if (audio_param.uFrameIntervalMs <= 0) {
-        audio_param.uFrameIntervalMs = 20;
+    if (stAudioParam.uFrameIntervalMs <= 0) {
+        stAudioParam.uFrameIntervalMs = 20;
     }
-    if (audio_param.uFrameIntervalMs < 10 || audio_param.uFrameIntervalMs > 1000) {
+    if (stAudioParam.uFrameIntervalMs < 10 || stAudioParam.uFrameIntervalMs > 1000) {
         return false;
     }
 
-    const int frame_bytes = audio_param.uSampleRate * audio_param.uChannels *
-                            bytes_per_sample * audio_param.uFrameIntervalMs / 1000;
-    if (frame_bytes <= 0 || frame_bytes > NET_LEN_4096) {
+    const int nFrameBytes = stAudioParam.uSampleRate * stAudioParam.uChannels *
+                            nBytesPerSample * stAudioParam.uFrameIntervalMs / 1000;
+    if (nFrameBytes <= 0 || nFrameBytes > NET_LEN_4096) {
         return false;
     }
 
-    if (audio_param.uFrameBytes <= 0) {
-        audio_param.uFrameBytes = frame_bytes;
+    if (stAudioParam.uFrameBytes <= 0) {
+        stAudioParam.uFrameBytes = nFrameBytes;
     }
-    if (audio_param.uFrameBytes != frame_bytes) {
+    if (stAudioParam.uFrameBytes != nFrameBytes) {
         return false;
     }
 
-    audio_param.uBitRate = audio_param.uSampleRate * audio_param.uChannels * audio_param.uBitDepth;
-    audio_param.bLittleEndian = TRUE;
+    stAudioParam.uBitRate = stAudioParam.uSampleRate * stAudioParam.uChannels * stAudioParam.uBitDepth;
+    stAudioParam.bLittleEndian = TRUE;
     return true;
 }
 
-int normalize_frame_interval_ms(int frame_interval_ms) {
-    if (frame_interval_ms <= 0) {
+int normalize_frame_interval_ms(int nFrameIntervalMs) {
+    if (nFrameIntervalMs <= 0) {
         return 20;
     }
-    if (frame_interval_ms < 10) {
+    if (nFrameIntervalMs < 10) {
         return 10;
     }
-    if (frame_interval_ms > 1000) {
+    if (nFrameIntervalMs > 1000) {
         return 1000;
     }
-    return frame_interval_ms;
+    return nFrameIntervalMs;
 }
 
-bool is_voicecom_param_frame(const char* data, size_t size, NET_VoiceComAudioParam_S& audio_param) {
-    if (!data || size != sizeof(VoiceComParamFrame)) {
+bool is_voicecom_param_frame(const char* pstrData, size_t uSize, NET_VoiceComAudioParam_S& stAudioParam) {
+    if (!pstrData || uSize != sizeof(VoiceComParamFrame)) {
         return false;
     }
 
-    VoiceComParamFrame frame{};
-    std::memcpy(&frame, data, sizeof(frame));
-    if (ntohl(frame.magic) != kVoiceComParamMagic) {
+    VoiceComParamFrame stFrame{};
+    std::memcpy(&stFrame, pstrData, sizeof(stFrame));
+    if (ntohl(stFrame.magic) != kVoiceComParamMagic) {
         return false;
     }
 
-    audio_param = frame.audio_param;
-    return normalize_voicecom_audio_param(audio_param);
+    stAudioParam = stFrame.audio_param;
+    return normalize_voicecom_audio_param(stAudioParam);
 }
 
-bool has_voicecom_param_magic(const char* data, size_t size) {
-    if (!data || size != sizeof(VoiceComParamFrame)) {
+bool has_voicecom_param_magic(const char* pstrData, size_t uSize) {
+    if (!pstrData || uSize != sizeof(VoiceComParamFrame)) {
         return false;
     }
 
-    uint32_t magic = 0;
-    std::memcpy(&magic, data, sizeof(magic));
-    return ntohl(magic) == kVoiceComParamMagic;
+    uint32_t uMagic = 0;
+    std::memcpy(&uMagic, pstrData, sizeof(uMagic));
+    return ntohl(uMagic) == kVoiceComParamMagic;
 }
 
 } // namespace
@@ -158,7 +158,7 @@ CVoiceComServer::CVoiceComServer() {
 
 CVoiceComServer::~CVoiceComServer() { stop(); }
 
-bool CVoiceComServer::start(int port) {
+bool CVoiceComServer::start(int nPort) {
     if (m_bRunning) return true;
 
     m_nListenFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -167,16 +167,16 @@ bool CVoiceComServer::start(int port) {
         return false;
     }
 
-    int opt = 1;
-    setsockopt(m_nListenFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&opt), sizeof(opt));
+    int nOpt = 1;
+    setsockopt(m_nListenFd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&nOpt), sizeof(nOpt));
 
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
+    sockaddr_in stAddr{};
+    stAddr.sin_family = AF_INET;
+    stAddr.sin_addr.s_addr = INADDR_ANY;
+    stAddr.sin_port = htons(static_cast<uint16_t>(nPort));
 
-    if (bind(m_nListenFd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        NETSDK_LOG_MESSAGE_ERROR("CVoiceComServer: bind port %d failed, errno=%d", port, NETSDK_SOCKET_GET_ERROR());
+    if (bind(m_nListenFd, reinterpret_cast<sockaddr*>(&stAddr), sizeof(stAddr)) != 0) {
+        NETSDK_LOG_MESSAGE_ERROR("CVoiceComServer: bind port %d failed, errno=%d", nPort, NETSDK_SOCKET_GET_ERROR());
         NETSDK_SOCKET_CLOSE(m_nListenFd);
         m_nListenFd = INVALID_SOCKET_FD;
         return false;
@@ -193,7 +193,7 @@ bool CVoiceComServer::start(int port) {
     m_stAcceptThread = std::thread(&CVoiceComServer::accept_loop, this);
     m_stCaptureThread = std::thread(&CVoiceComServer::capture_loop, this);
 
-    NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: listening on port %d", port);
+    NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: listening on port %d", nPort);
     return true;
 }
 
@@ -227,34 +227,34 @@ void CVoiceComServer::stop() {
     NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: stopped");
 }
 
-bool CVoiceComServer::send_to_client(const char* data, size_t size) {
-    if (data == nullptr || size == 0 || size > 0xFFFFu) {
+bool CVoiceComServer::send_to_client(const char* pstrData, size_t uSize) {
+    if (pstrData == nullptr || uSize == 0 || uSize > 0xFFFFu) {
         return false;
     }
 
     // 帧格式: [2B长度 大端][音频帧], 音频格式由首帧参数协商。
-    uint16_t len_be = htons(static_cast<uint16_t>(size));
-    std::vector<char> frame(sizeof(len_be) + size);
-    std::memcpy(frame.data(), &len_be, sizeof(len_be));
-    std::memcpy(frame.data() + sizeof(len_be), data, size);
+    uint16_t uLenBe = htons(static_cast<uint16_t>(uSize));
+    std::vector<char> vecFrame(sizeof(uLenBe) + uSize);
+    std::memcpy(vecFrame.data(), &uLenBe, sizeof(uLenBe));
+    std::memcpy(vecFrame.data() + sizeof(uLenBe), pstrData, uSize);
 
 #ifdef _WIN32
-    int send_flags = 0;
+    int nSendFlags = 0;
 #else
-    int send_flags = MSG_NOSIGNAL;
+    int nSendFlags = MSG_NOSIGNAL;
 #endif
 
     std::lock_guard<std::mutex> lock(m_stSendMutex);
-    const socket_fd_t fd = m_nClientFd;
-    if (fd == INVALID_SOCKET_FD) {
+    const socket_fd_t nFd = m_nClientFd;
+    if (nFd == INVALID_SOCKET_FD) {
         return false;
     }
 
-    size_t sent = 0;
-    while (sent < frame.size()) {
-        ssize_t n = ::send(fd, frame.data() + sent, static_cast<int>(frame.size() - sent), send_flags);
-        if (n <= 0) return false;
-        sent += static_cast<size_t>(n);
+    size_t uSent = 0;
+    while (uSent < vecFrame.size()) {
+        ssize_t lRet = ::send(nFd, vecFrame.data() + uSent, static_cast<int>(vecFrame.size() - uSent), nSendFlags);
+        if (lRet <= 0) return false;
+        uSent += static_cast<size_t>(lRet);
     }
     return true;
 }
@@ -272,17 +272,17 @@ void CVoiceComServer::set_capture_callback(VoiceComCaptureCallback cb) {
     m_stParameterCondition.notify_all();
 }
 
-bool CVoiceComServer::get_audio_param(NET_VoiceComAudioParam_S& audio_param) const {
-    return snapshot_audio_param(audio_param);
+bool CVoiceComServer::get_audio_param(NET_VoiceComAudioParam_S& stAudioParam) const {
+    return snapshot_audio_param(stAudioParam);
 }
 
-bool CVoiceComServer::snapshot_audio_param(NET_VoiceComAudioParam_S& audio_param) const {
+bool CVoiceComServer::snapshot_audio_param(NET_VoiceComAudioParam_S& stAudioParam) const {
     std::lock_guard<std::mutex> lock(m_stParameterMutex);
     if (!m_bHasAudioParameter) {
         return false;
     }
 
-    audio_param = m_stAudioParameter;
+    stAudioParam = m_stAudioParameter;
     return true;
 }
 
@@ -291,16 +291,16 @@ void CVoiceComServer::notify_audio_param_ready() {
 }
 
 void CVoiceComServer::capture_loop() {
-    bool logged_wait_source = false;
-    bool logged_send_failed = false;
-    uint64_t frame_count = 0;
+    bool bLoggedWaitSource = false;
+    bool bLoggedSendFailed = false;
+    uint64_t ulFrameCount = 0;
 
     /*
      * VoiceCom协议层只负责会话参数、拉帧节拍和网络发送。
      * 实际音频采集由业务注册的采集回调提供，避免SDK强依赖具体芯片或音频驱动。
      */
     while (m_bRunning) {
-        NET_VoiceComAudioParam_S audio_param{};
+        NET_VoiceComAudioParam_S stAudioParam{};
         {
             std::unique_lock<std::mutex> lock(m_stParameterMutex);
             m_stParameterCondition.wait_for(lock, std::chrono::milliseconds(100), [this] {
@@ -313,87 +313,87 @@ void CVoiceComServer::capture_loop() {
             if (!m_bHasAudioParameter) {
                 continue;
             }
-            audio_param = m_stAudioParameter;
+            stAudioParam = m_stAudioParameter;
         }
 
-        VoiceComCaptureCallback capture_cb;
+        VoiceComCaptureCallback captureCb;
         {
             std::lock_guard<std::mutex> lock(m_stCallbackMutex);
-            capture_cb = m_fnCaptureCallback;
+            captureCb = m_fnCaptureCallback;
         }
-        if (!capture_cb) {
-            if (!logged_wait_source) {
+        if (!captureCb) {
+            if (!bLoggedWaitSource) {
                 NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: waiting voice capture callback");
-                logged_wait_source = true;
+                bLoggedWaitSource = true;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
-        logged_wait_source = false;
+        bLoggedWaitSource = false;
 
-        const size_t frame_bytes = static_cast<size_t>(audio_param.uFrameBytes);
-        if (frame_bytes == 0 || frame_bytes > NET_LEN_4096) {
+        const size_t uFrameBytes = static_cast<size_t>(stAudioParam.uFrameBytes);
+        if (uFrameBytes == 0 || uFrameBytes > NET_LEN_4096) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
-        std::vector<char> frame(frame_bytes);
-        auto next_send_time = std::chrono::steady_clock::now();
+        std::vector<char> vecFrame(uFrameBytes);
+        auto stNextSendTime = std::chrono::steady_clock::now();
 
         while (m_bRunning) {
             {
                 std::lock_guard<std::mutex> lock(m_stCallbackMutex);
-                capture_cb = m_fnCaptureCallback;
+                captureCb = m_fnCaptureCallback;
             }
-            if (!capture_cb) {
+            if (!captureCb) {
                 break;
             }
 
-            NET_VoiceComAudioParam_S current_param{};
-            if (!snapshot_audio_param(current_param) ||
-                current_param.enFormat != audio_param.enFormat ||
-                current_param.uSampleRate != audio_param.uSampleRate ||
-                current_param.uBitDepth != audio_param.uBitDepth ||
-                current_param.uChannels != audio_param.uChannels ||
-                current_param.uFrameBytes != audio_param.uFrameBytes ||
-                current_param.uFrameIntervalMs != audio_param.uFrameIntervalMs) {
+            NET_VoiceComAudioParam_S stCurrentParam{};
+            if (!snapshot_audio_param(stCurrentParam) ||
+                stCurrentParam.enFormat != stAudioParam.enFormat ||
+                stCurrentParam.uSampleRate != stAudioParam.uSampleRate ||
+                stCurrentParam.uBitDepth != stAudioParam.uBitDepth ||
+                stCurrentParam.uChannels != stAudioParam.uChannels ||
+                stCurrentParam.uFrameBytes != stAudioParam.uFrameBytes ||
+                stCurrentParam.uFrameIntervalMs != stAudioParam.uFrameIntervalMs) {
                 break;
             }
 
-            int read_bytes = capture_cb(current_param, frame.data(), frame.size());
-            if (read_bytes <= 0) {
+            int nReadBytes = captureCb(stCurrentParam, vecFrame.data(), vecFrame.size());
+            if (nReadBytes <= 0) {
                 std::this_thread::sleep_for(
-                    std::chrono::milliseconds(normalize_frame_interval_ms(current_param.uFrameIntervalMs)));
-                next_send_time = std::chrono::steady_clock::now();
+                    std::chrono::milliseconds(normalize_frame_interval_ms(stCurrentParam.uFrameIntervalMs)));
+                stNextSendTime = std::chrono::steady_clock::now();
                 continue;
             }
 
-            if (static_cast<size_t>(read_bytes) > frame.size()) {
+            if (static_cast<size_t>(nReadBytes) > vecFrame.size()) {
                 NETSDK_LOG_MESSAGE_WARN("CVoiceComServer: capture callback returned oversized frame, bytes=%d, max=%zu",
-                              read_bytes, frame.size());
-                read_bytes = static_cast<int>(frame.size());
+                              nReadBytes, vecFrame.size());
+                nReadBytes = static_cast<int>(vecFrame.size());
             }
 
-            std::this_thread::sleep_until(next_send_time);
-            next_send_time += std::chrono::milliseconds(
-                normalize_frame_interval_ms(current_param.uFrameIntervalMs));
+            std::this_thread::sleep_until(stNextSendTime);
+            stNextSendTime += std::chrono::milliseconds(
+                normalize_frame_interval_ms(stCurrentParam.uFrameIntervalMs));
 
-            if (!send_to_client(frame.data(), static_cast<size_t>(read_bytes))) {
-                if (!logged_send_failed) {
+            if (!send_to_client(vecFrame.data(), static_cast<size_t>(nReadBytes))) {
+                if (!bLoggedSendFailed) {
                     NETSDK_LOG_MESSAGE_WARN("CVoiceComServer: send captured voice frame failed");
-                    logged_send_failed = true;
+                    bLoggedSendFailed = true;
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                next_send_time = std::chrono::steady_clock::now();
+                stNextSendTime = std::chrono::steady_clock::now();
                 continue;
             }
 
-            logged_send_failed = false;
-            ++frame_count;
-            if (frame_count <= 5 || (frame_count % 100) == 0) {
+            bLoggedSendFailed = false;
+            ++ulFrameCount;
+            if (ulFrameCount <= 5 || (ulFrameCount % 100) == 0) {
                 NETSDK_LOG_MESSAGE_DEBUG("CVoiceComServer: sent captured voice frame=%llu bytes=%d",
-                               static_cast<unsigned long long>(frame_count),
-                               read_bytes);
+                               static_cast<unsigned long long>(ulFrameCount),
+                               nReadBytes);
             }
         }
     }
@@ -401,19 +401,19 @@ void CVoiceComServer::capture_loop() {
 
 void CVoiceComServer::accept_loop() {
     while (m_bRunning) {
-        sockaddr_in client_addr{};
-        socklen_t addr_len = sizeof(client_addr);
+        sockaddr_in stClientAddr{};
+        socklen_t uAddrLen = sizeof(stClientAddr);
 
-        socket_fd_t fd = accept(m_nListenFd, reinterpret_cast<sockaddr*>(&client_addr), &addr_len);
-        if (fd == INVALID_SOCKET_FD) {
+        socket_fd_t nFd = accept(m_nListenFd, reinterpret_cast<sockaddr*>(&stClientAddr), &uAddrLen);
+        if (nFd == INVALID_SOCKET_FD) {
             if (m_bRunning) {
                 NETSDK_LOG_MESSAGE_WARN("CVoiceComServer: accept failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             continue;
         }
 
-        int tcp_no_delay = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
+        int nTcpNoDelay = 1;
+        if (setsockopt(nFd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&nTcpNoDelay), sizeof(nTcpNoDelay)) != 0) {
             NETSDK_LOG_MESSAGE_WARN("CVoiceComServer: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
         }
 
@@ -436,85 +436,85 @@ void CVoiceComServer::accept_loop() {
         }
         {
             std::lock_guard<std::mutex> lock(m_stSendMutex);
-            m_nClientFd = fd;
+            m_nClientFd = nFd;
         }
-        m_stReceiveThread = std::thread(&CVoiceComServer::client_recv_loop, this, fd);
+        m_stReceiveThread = std::thread(&CVoiceComServer::client_recv_loop, this, nFd);
 
-        char ip_str[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
+        char strIp[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &stClientAddr.sin_addr, strIp, sizeof(strIp));
         NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: client connected from %s:%d",
-                      ip_str, ntohs(client_addr.sin_port));
+                      strIp, ntohs(stClientAddr.sin_port));
     }
 }
 
-void CVoiceComServer::client_recv_loop(socket_fd_t fd) {
-    char header[2];
-    char buffer[4096];
+void CVoiceComServer::client_recv_loop(socket_fd_t nClientFd) {
+    char strHeader[2];
+    char strBuffer[4096];
 
-    while (m_bRunning && fd != INVALID_SOCKET_FD) {
-        if (!recv_exact(fd, header, sizeof(header))) break;
+    while (m_bRunning && nClientFd != INVALID_SOCKET_FD) {
+        if (!recv_exact(nClientFd, strHeader, sizeof(strHeader))) break;
 
-        uint16_t len_be;
-        std::memcpy(&len_be, header, sizeof(len_be));
-        size_t frame_len = ntohs(len_be);
+        uint16_t uLenBe;
+        std::memcpy(&uLenBe, strHeader, sizeof(uLenBe));
+        size_t uFrameLen = ntohs(uLenBe);
 
-        if (frame_len == 0 || frame_len > sizeof(buffer)) continue;
+        if (uFrameLen == 0 || uFrameLen > sizeof(strBuffer)) continue;
 
-        if (!recv_exact(fd, buffer, frame_len)) {
+        if (!recv_exact(nClientFd, strBuffer, uFrameLen)) {
             break;
         }
 
-        NET_VoiceComAudioParam_S audio_param{};
-        if (is_voicecom_param_frame(buffer, frame_len, audio_param)) {
+        NET_VoiceComAudioParam_S stAudioParam{};
+        if (is_voicecom_param_frame(strBuffer, uFrameLen, stAudioParam)) {
             {
                 std::lock_guard<std::mutex> lock(m_stParameterMutex);
-                m_stAudioParameter = audio_param;
+                m_stAudioParameter = stAudioParam;
                 m_bHasAudioParameter = true;
             }
             NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: audio param format=%d sampleRate=%d bitDepth=%d channels=%d frameMs=%d frameBytes=%d",
-                          audio_param.enFormat,
-                          audio_param.uSampleRate,
-                          audio_param.uBitDepth,
-                          audio_param.uChannels,
-                          audio_param.uFrameIntervalMs,
-                          audio_param.uFrameBytes);
+                          stAudioParam.enFormat,
+                          stAudioParam.uSampleRate,
+                          stAudioParam.uBitDepth,
+                          stAudioParam.uChannels,
+                          stAudioParam.uFrameIntervalMs,
+                          stAudioParam.uFrameBytes);
             notify_audio_param_ready();
             continue;
         }
-        if (has_voicecom_param_magic(buffer, frame_len)) {
+        if (has_voicecom_param_magic(strBuffer, uFrameLen)) {
             NETSDK_LOG_MESSAGE_WARN("CVoiceComServer: invalid audio param frame");
             break;
         }
 
-        VoiceComPlayCallback play_cb;
+        VoiceComPlayCallback playCb;
         {
             std::lock_guard<std::mutex> lock(m_stCallbackMutex);
-            play_cb = m_fnPlayCallback;
+            playCb = m_fnPlayCallback;
         }
-        if (play_cb) {
-            play_cb(buffer, frame_len);
+        if (playCb) {
+            playCb(strBuffer, uFrameLen);
         }
     }
 
     NETSDK_LOG_MESSAGE_INFO("CVoiceComServer: client disconnected");
-    if (fd != INVALID_SOCKET_FD) {
-        NETSDK_SOCKET_CLOSE(fd);
+    if (nClientFd != INVALID_SOCKET_FD) {
+        NETSDK_SOCKET_CLOSE(nClientFd);
     }
 
-    bool clear_param = false;
+    bool bClearParam = false;
     {
         std::lock_guard<std::mutex> lock(m_stSendMutex);
-        if (m_nClientFd == fd) {
+        if (m_nClientFd == nClientFd) {
             m_nClientFd = INVALID_SOCKET_FD;
-            clear_param = true;
+            bClearParam = true;
         }
     }
-    if (clear_param) {
+    if (bClearParam) {
         std::lock_guard<std::mutex> lock(m_stParameterMutex);
         fill_default_voicecom_audio_param(m_stAudioParameter);
         m_bHasAudioParameter = false;
     }
-    if (clear_param) {
+    if (bClearParam) {
         notify_audio_param_ready();
     }
 }

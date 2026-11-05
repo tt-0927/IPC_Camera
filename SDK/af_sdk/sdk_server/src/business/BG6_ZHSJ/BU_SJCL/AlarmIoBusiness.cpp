@@ -1,6 +1,6 @@
 /*
  * 文件名：AlarmIoBusiness.cpp
- * 作者：ITC
+ * 作者：qinjt
  * 日期：2026-10-10
  * 功能：报警输入输出列表设置适配。
  * 修改记录：2026-10-10，新增列表 JSON 拆分并逐路调用 IPC TVSDK 设置回调。
@@ -97,6 +97,7 @@ std::string CAlarmIoBusiness::HandleSetAlarmInputInfo(INT32 nChannelId, INT32 nC
     return set_alarm_io<NET_AlarmInputInfo_S>(
         nChannelId, nCommand, strRequest, "AlarmInputs");
 }
+
 /**
  * 功能：设置报警输出配置，兼容单路对象和列表对象。
  * param [in] nChannelId：设备通道标识。
@@ -118,3 +119,4 @@ std::string CAlarmIoBusiness::HandleSetAlarmOutputInfo(INT32 nChannelId, INT32 n
     return set_alarm_io<NET_AlarmOutputInfo_S>(
         nChannelId, nCommand, strRequest, "AlarmOutputs");
 }
+

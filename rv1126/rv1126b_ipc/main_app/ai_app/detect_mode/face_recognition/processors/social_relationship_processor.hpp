@@ -9,10 +9,10 @@
 #include <vector>
 
 #include "alarm_define.h"              /* Alarm::SocialRelationshipAnalysis_S */
-#include "face_recognition_define.hpp" /* FaceTargetResult_S */
+#include "face_recognition_define.hpp" /* FaceBaseTarget_S */
 
 /**
- * @brief 社交关系分析事件处理器：人脸管线目标按灵敏度门槛产出候选目标
+ * @brief 社交关系分析事件处理器：基础管线目标按灵敏度门槛产出候选下标
  * @note 纯规则判定，不碰模型与图像；规则可来自配置线程，算法线程串行 process
  */
 class CSocialRelationshipProcessor
@@ -22,11 +22,11 @@ public:
     void setRules(const Alarm::SocialRelationshipAnalysis_S &stConfig);
 
     /**
-     * @brief  一帧检测上下文 → 候选目标
+     * @brief  基础目标 → 候选下标（对齐输入向量）
      * @return 候选数量，无候选时为 0
      */
-    int process(const DetectContext_S &stDetectContext,
-                std::vector<FaceTargetResult_S> &vstCandidates);
+    int process(const std::vector<FaceBaseTarget_S> &vstTargets,
+                std::vector<int> &vstCandidateIndices);
 
 private:
     static float sensitivityToConfidence(unsigned int nSensitivity);

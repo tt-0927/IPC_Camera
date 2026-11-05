@@ -40,24 +40,24 @@ namespace tvsdk {
  * @author tianl (tianl@kfb.cn)
  * @brief 语音对讲播放回调函数类型
  * @details 当收到客户端发来的音频数据时调用，由宿主程序实现实际的音频播放逻辑
- * @param data 音频数据指针
- * @param size 音频数据大小（字节）
+ * @param pstrData 音频数据指针
+ * @param uSize 音频数据大小（字节）
  * @note 音频帧格式由当前 VoiceCom 音频参数定义
  */
-using VoiceComPlayCallback = std::function<void(const char* data, size_t size)>;
+using VoiceComPlayCallback = std::function<void(const char* pstrData, size_t uSize)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 语音对讲采集回调函数类型
  * @details SDK按协商的音频参数循环调用此回调获取音频数据，由宿主程序实现实际的音频采集逻辑
- * @param audio_param 协商后的音频参数（采样率、编码格式、通道数等）
- * @param buffer 音频数据输出缓冲区
- * @param buffer_size 缓冲区大小
+ * @param stAudioParam 协商后的音频参数（采样率、编码格式、通道数等）
+ * @param pstrBuffer 音频数据输出缓冲区
+ * @param uBufferSize 缓冲区大小
  * @return >0 实际采集的数据长度；=0 无数据可用（继续等待）；<0 采集失败或结束
  */
-using VoiceComCaptureCallback = std::function<int(const NET_VoiceComAudioParam_S& audio_param,
-                                                  char* buffer,
-                                                  size_t buffer_size)>;
+using VoiceComCaptureCallback = std::function<int(const NET_VoiceComAudioParam_S& stAudioParam,
+                                                  char* pstrBuffer,
+                                                  size_t uBufferSize)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -78,10 +78,10 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 启动TCP监听服务
-     * @param port 监听端口，默认9006
+     * @param nPort 监听端口，默认9006
      * @return true表示成功，false表示失败
      */
-    bool start(int port = 9006);
+    bool start(int nPort = 9006);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -94,11 +94,11 @@ public:
  * @author tianl (tianl@kfb.cn)
      * @brief 发送音频数据给已连接的客户端
      * @details 将麦克风采集的音频数据发送给客户端（NVR），线程安全
-     * @param data 音频数据指针
-     * @param size 音频数据大小（字节）
+     * @param pstrData 音频数据指针
+     * @param uSize 音频数据大小（字节）
      * @return true表示成功，false表示失败
      */
-    bool send_to_client(const char* data, size_t size);
+    bool send_to_client(const char* pstrData, size_t uSize);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -119,10 +119,10 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 获取当前协商的音频参数
-     * @param audio_param 音频参数结构体（输出参数）
+     * @param stAudioParam 音频参数结构体（输出参数）
      * @return true表示成功获取参数，false表示参数尚未协商完成
      */
-    bool get_audio_param(NET_VoiceComAudioParam_S& audio_param) const;
+    bool get_audio_param(NET_VoiceComAudioParam_S& stAudioParam) const;
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -155,8 +155,9 @@ private:
  * @author tianl (tianl@kfb.cn)
      * @brief 客户端数据接收循环
      * @details 持续从客户端socket读取音频帧，解析VCP1参数帧和音频数据帧，调用播放回调
+     * @param nClientFd 客户端socket文件描述符
      */
-    void client_recv_loop(socket_fd_t client_fd);
+    void client_recv_loop(socket_fd_t nClientFd);
 
 
     /**
@@ -176,10 +177,10 @@ private:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 获取当前音频参数快照
-     * @param audio_param 音频参数结构体（输出参数）
+     * @param stAudioParam 音频参数结构体（输出参数）
      * @return true表示成功获取，false表示失败
      */
-    bool snapshot_audio_param(NET_VoiceComAudioParam_S& audio_param) const;
+    bool snapshot_audio_param(NET_VoiceComAudioParam_S& stAudioParam) const;
 
     socket_fd_t m_nListenFd{INVALID_SOCKET_FD};     /*/< 监听socket文件描述符 */
     socket_fd_t m_nClientFd{INVALID_SOCKET_FD};     /*/< 当前客户端socket文件描述符 */

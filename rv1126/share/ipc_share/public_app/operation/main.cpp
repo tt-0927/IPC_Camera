@@ -102,8 +102,14 @@ int main(int argc, char const *argv[])
             actionCode = AC_PLATFORM_GETINFO;
         else if (command == BleProvisioning::CMD_WIFI_SCAN)
             actionCode = AC_SCAN_WIFI_STA;
+        else if (command == BleProvisioning::CMD_4G_GET_STATUS)
+            actionCode = AC_GET_4G_INFO;
         else if (command == BleProvisioning::CMD_INTERNAL_RELEASE_PROVISIONING)
             actionCode = AC_RELEASE_BLE_PROVISIONING;
+        else if (command == BleProvisioning::CMD_INTERNAL_CANCEL_PROVISIONING)
+            actionCode = AC_CANCEL_BLE_PROVISIONING;
+        else if (command == BleProvisioning::CMD_INTERNAL_COMMIT_PROVISIONING)
+            actionCode = AC_COMMIT_BLE_PROVISIONING;
         else
             return -1;
 

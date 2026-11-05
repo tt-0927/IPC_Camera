@@ -40,14 +40,19 @@
 #include "ipc_multicast_server.h"
 #include "platform_manager.h"
 #include "control_manage.h"
+#if CAP_BLUETOOTH
+#include "ble_provisioning_define.h"
+#include "share_define.h"
+#endif
 #include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <map>
 namespace
 {
-    #if CAP_NETWORK_WIFI && CAP_BLUETOOTH
-    /* BLE内部请求使用保留的高位UniqueId；网页请求不携带该范围的ID。 */
-    static ::Network::WifiProvisioningOwner provisioningOwnerFromRequest(
-        const std::string &request, bool fromOperation)
+    #if CAP_BLUETOOTH
+    static bool isBleInternalRequest(const std::string &request,
+                                     bool fromOperation)
     {
         unsigned int uniqueId = 0;
         Json::Object *root = Json::init(request.c_str());
@@ -56,7 +61,16 @@ namespace
             Json::get(root, "UniqueId", uniqueId);
             Json::deinit(root);
         }
-        return fromOperation && uniqueId >= 0x40000000U
+        return fromOperation && uniqueId >= 0x40000000U;
+    }
+    #endif
+
+    #if CAP_NETWORK_WIFI && CAP_BLUETOOTH
+    /* BLE内部请求使用保留的高位UniqueId；网页请求不携带该范围的ID。 */
+    static ::Network::WifiProvisioningOwner provisioningOwnerFromRequest(
+        const std::string &request, bool fromOperation)
+    {
+        return isBleInternalRequest(request, fromOperation)
                    ? ::Network::WIFI_PROVISIONING_BLE
                    : ::Network::WIFI_PROVISIONING_WEB;
     }
@@ -79,6 +93,13 @@ namespace
         ::Network::WifiProvisioningOwner m_owner;
         bool m_locked;
     };
+    #endif
+
+    #if CAP_BLUETOOTH && CAP_GARBAGE_STATION_PLATFORM
+    /* 平台配置也属于同一BLE配网事务；取消时恢复首次0x0201之前的值。 */
+    std::mutex g_blePlatformTransactionMutex;
+    bool g_blePlatformTransactionActive = false;
+    ::Network::Platform_Info_t g_blePreviousPlatformConfig;
     #endif
 
 /*
@@ -144,6 +165,102 @@ static bool normalize_network_task_json(const std::string &strSourceJson,
 
 namespace
 {
+
+#if CAP_BLUETOOTH
+/* 读取与BLE广播名称相同的CPU序列号，禁止接口返回值和广播名使用不同标识。 */
+bool read_ble_device_serial(std::string &strSerial)
+{
+    strSerial.clear();
+    std::ifstream cpuinfo("/proc/cpuinfo");
+    std::string line;
+    while (std::getline(cpuinfo, line))
+    {
+        if (line.find("Serial") == std::string::npos)
+            continue;
+        const std::size_t pos = line.find(':');
+        if (pos != std::string::npos)
+            strSerial = line.substr(pos + 1);
+        break;
+    }
+    strSerial.erase(std::remove_if(strSerial.begin(), strSerial.end(),
+        [](char ch) {
+            return std::isspace(static_cast<unsigned char>(ch)) != 0;
+        }), strSerial.end());
+    return !strSerial.empty();
+}
+
+/* setupSecret固定为32字节、64个十六进制字符；绝不把内容写入日志。 */
+bool read_ble_setup_secret(std::string &strSecret)
+{
+    strSecret.clear();
+    std::ifstream secretFile(BLE_SETUP_SECRET_FILE, std::ios::in | std::ios::binary);
+    if (!secretFile)
+        return false;
+
+    char secret[64];
+    secretFile.read(secret, sizeof(secret));
+    if (secretFile.gcount() != static_cast<std::streamsize>(sizeof(secret)))
+        return false;
+
+    for (std::size_t i = 0; i < sizeof(secret); ++i)
+    {
+        if (!std::isxdigit(static_cast<unsigned char>(secret[i])))
+            return false;
+    }
+    strSecret.assign(secret, sizeof(secret));
+    return true;
+}
+
+/* 构造可直接写入二维码、交给APP解析的紧凑JSON连接字符串。 */
+bool build_ble_connection_info(std::string &strResult)
+{
+    std::string serial;
+    std::string setupSecret;
+    if (!read_ble_device_serial(serial) || !read_ble_setup_secret(setupSecret))
+        return false;
+
+    cJSON *connect = cJSON_CreateObject();
+    cJSON *response = cJSON_CreateObject();
+    if (!connect || !response)
+    {
+        cJSON_Delete(connect);
+        cJSON_Delete(response);
+        return false;
+    }
+
+    cJSON_AddNumberToObject(connect, "v", BLE_PROVISIONING_PROTOCOL_VERSION);
+    cJSON_AddStringToObject(connect, "model", MQTT_MODEL);
+    cJSON_AddStringToObject(connect, "sn", serial.c_str());
+    cJSON_AddStringToObject(connect, "service", BLE_PROVISIONING_SERVICE_UUID);
+    cJSON_AddStringToObject(connect, "setupSecret", setupSecret.c_str());
+
+    char *connectText = cJSON_PrintUnformatted(connect);
+    if (!connectText)
+    {
+        cJSON_Delete(connect);
+        cJSON_Delete(response);
+        return false;
+    }
+
+    const std::string bluetoothName = std::string(MQTT_MODEL) + "-" + serial;
+    cJSON_AddNumberToObject(response, "Version", BLE_PROVISIONING_PROTOCOL_VERSION);
+    cJSON_AddStringToObject(response, "Model", MQTT_MODEL);
+    cJSON_AddStringToObject(response, "SerialNumber", serial.c_str());
+    cJSON_AddStringToObject(response, "BluetoothName", bluetoothName.c_str());
+    cJSON_AddStringToObject(response, "ServiceUuid", BLE_PROVISIONING_SERVICE_UUID);
+    cJSON_AddStringToObject(response, "ConnectString", connectText);
+
+    char *responseText = cJSON_PrintUnformatted(response);
+    if (responseText)
+        strResult.assign(responseText);
+
+    cJSON_free(responseText);
+    cJSON_free(connectText);
+    cJSON_Delete(connect);
+    cJSON_Delete(response);
+    return !strResult.empty();
+}
+#endif
 
 #if CAP_GB35114
 /* 国密证书网页上传临时目录兼容路径 */
@@ -290,6 +407,26 @@ int reset_gm_crl_configure()
 #endif
 
 }
+
+void Task::Network::GetBleConnectionInfo::handle()
+{
+#if CAP_BLUETOOTH
+    std::string connectionInfo;
+    if (!build_ble_connection_info(connectionInfo))
+    {
+        dlog_error("获取BLE连接信息失败：序列号或配网密钥不存在/格式非法");
+        result(-1);
+        return;
+    }
+
+    /* setupSecret属于敏感数据，响应允许返回，但日志中只记录非敏感设备标识。 */
+    dlog_info("获取BLE连接信息成功，model=%s", MQTT_MODEL);
+    result(connectionInfo, 0);
+#else
+    result(-1);
+#endif
+}
+
 #if CAP_GARBAGE_STATION_PLATFORM
 /* 检查Mac地址是否符合规范 */
 void Task::Network::GetCheckMacValid::handle()
@@ -1311,6 +1448,14 @@ void Task::Network::ConnectWifiSta::handle()
         result(Convert::to_string(busyResult), -1);
         return;
     }
+    if (owner == ::Network::WIFI_PROVISIONING_BLE &&
+        !CWifiManager::instance()->beginBleProvisioningTransaction())
+    {
+        ::Network::WifiConnectResult snapshotResult;
+        snapshotResult.error_code = ::Network::WIFI_CONNECT_UNKNOWN_ERROR;
+        result(Convert::to_string(snapshotResult), -1);
+        return;
+    }
 #endif
     ::Network::WifiStaConncet_S stInfo;
     Convert::to_struct(m_taskData, stInfo);
@@ -1339,14 +1484,79 @@ void Task::Network::DisconnectWifiSta::handle()
     }
 }
 
-#if CAP_BLUETOOTH
+#endif /* CAP_NETWORK_WIFI */
+
 void Task::Network::ReleaseBleProvisioning::handle()
 {
+#if CAP_BLUETOOTH && CAP_NETWORK_WIFI
     CWifiManager::instance()->releaseProvisioningOwner(
         ::Network::WIFI_PROVISIONING_BLE);
+#endif
     result(0);
 }
+
+void Task::Network::CancelBleProvisioning::handle()
+{
+    bool restored = true;
+#if CAP_BLUETOOTH && CAP_NETWORK_WIFI
+    restored = CWifiManager::instance()->cancelBleProvisioningTransaction();
 #endif
+#if CAP_BLUETOOTH && CAP_GARBAGE_STATION_PLATFORM
+    ::Network::Platform_Info_t previousPlatform;
+    bool restorePlatform = false;
+    {
+        std::lock_guard<std::mutex> lock(g_blePlatformTransactionMutex);
+        if (g_blePlatformTransactionActive)
+        {
+            previousPlatform = g_blePreviousPlatformConfig;
+            g_blePlatformTransactionActive = false;
+            restorePlatform = true;
+        }
+    }
+    if (restorePlatform)
+    {
+        CPlatformManager *platform = CPlatformManager::instance();
+        auto platformLock = platform->lock_platform_operation();
+        bool platformRestored = platform->apply_platform_config(previousPlatform) &&
+                                platform->save_config();
+        if (platformRestored)
+        {
+            if (previousPlatform.enable)
+                platformRestored = platform->reconnect_from_persisted_config() == OK;
+            else
+                platform->disable_mqtt_for_platform();
+        }
+        if (!platformRestored)
+            dlog_error("BLE取消配网：恢复原平台配置失败");
+        restored = restored && platformRestored;
+    }
+#endif
+#if CAP_BLUETOOTH && CAP_NETWORK_WIFI
+    CWifiManager::instance()->releaseProvisioningOwner(
+        ::Network::WIFI_PROVISIONING_BLE);
+#endif
+    result(restored ? 0 : -1);
+}
+
+void Task::Network::CommitBleProvisioning::handle()
+{
+#if CAP_BLUETOOTH && CAP_NETWORK_WIFI
+    CWifiManager::instance()->commitBleProvisioningTransaction();
+#endif
+#if CAP_BLUETOOTH && CAP_GARBAGE_STATION_PLATFORM
+    {
+        std::lock_guard<std::mutex> lock(g_blePlatformTransactionMutex);
+        g_blePlatformTransactionActive = false;
+    }
+#endif
+#if CAP_BLUETOOTH && CAP_NETWORK_WIFI
+    CWifiManager::instance()->releaseProvisioningOwner(
+        ::Network::WIFI_PROVISIONING_BLE);
+#endif
+    result(0);
+}
+
+#if CAP_NETWORK_WIFI
 
 void Task::Network::SetConfigWifiIpv4::handle()
 {
@@ -1379,7 +1589,35 @@ void Task::Network::Get4GInfo::handle()
     nRet = FourGManager::instance()-> getSimInfo(info);
     if(nRet == 0)
     {
-        result(Convert::to_string(info));
+        const bool dataConnected = FourGManager::instance()->isDataConnected();
+        const bool internetAccessible =
+            FourGManager::instance()->has4GInternetAccess();
+        const std::string infoJson = Convert::to_string(info);
+        cJSON *root = cJSON_Parse(infoJson.c_str());
+        if (!root)
+        {
+            result(-1);
+            return;
+        }
+        /* 状态查询不回传APN密码；BLE会话已加密也遵守最小暴露原则。 */
+        cJSON_DeleteItemFromObject(root, "password");
+        cJSON_AddBoolToObject(root, "data_connected", dataConnected);
+        cJSON_AddBoolToObject(root, "internet_accessible", internetAccessible);
+        cJSON_AddStringToObject(root, "interface", "usb0");
+        char *json = cJSON_PrintUnformatted(root);
+        if (!json)
+        {
+            cJSON_Delete(root);
+            result(-1);
+            return;
+        }
+        result(json);
+        cJSON_free(json);
+        cJSON_Delete(root);
+    }
+    else
+    {
+        result(-1);
     }
 }
 
@@ -1559,6 +1797,31 @@ void Task::Network::ConnPlatform::handle()
      * 锁覆盖本次保存的完整业务序列，包含失败回滚、设备注册和 RTMP 更新。
      */
     auto platformOperationLock = pPlatformManager->lock_platform_operation();
+
+#if CAP_BLUETOOTH && CAP_NETWORK_4G
+    if (isBleInternalRequest(
+            m_data, verify_requester(Common::REQUESTER_OPERATION)) &&
+        !FourGManager::instance()->hasUsableInternetAccess())
+    {
+        dlog_warn("BLE平台连接被拒绝：4G和有线均无法访问公网");
+        result("{\"connection_status\":false,\"reason\":\"internet_unavailable\"}", -1);
+        return;
+    }
+#endif
+
+#if CAP_BLUETOOTH
+    if (isBleInternalRequest(
+            m_data, verify_requester(Common::REQUESTER_OPERATION)))
+    {
+        std::lock_guard<std::mutex> lock(g_blePlatformTransactionMutex);
+        if (!g_blePlatformTransactionActive)
+        {
+            pPlatformManager->getplatforminfo(g_blePreviousPlatformConfig);
+            g_blePlatformTransactionActive = true;
+            dlog_info("BLE配网：已保存平台配置回滚快照");
+        }
+    }
+#endif
 
 //     #if defined(ENABLE_TVSDK_SRC) && !CAP_IO_EXTERNAL_DDR_00S
 //     /* 无外置 DDR 的资源受限机型才限制平台与 TVSDK 同时运行。 */

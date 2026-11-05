@@ -29,10 +29,10 @@ using namespace tvsdk;
 class CAlarmListener : public std::enable_shared_from_this<CAlarmListener>
 {
 public:
-    CAlarmListener(const std::string& host, int port, const std::string& user, const std::string& pass);
+    CAlarmListener(const std::string& host, int nPort, const std::string& user, const std::string& pass);
     ~CAlarmListener();
 
-    bool StartListen(void* userHandle, const std::string& sessionId);
+    bool StartListen(void* pUserHandle, const std::string& sessionId);
 
     /**
      * @author tianl (tianl@kfb.cn)
@@ -76,27 +76,27 @@ public:
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 SetCallback 定义的内联处理。
  * @param [in] cb 函数处理参数。
- * @param [in,out] userData 函数处理参数。
+ * @param [in,out] pUserData 函数处理参数。
  * @return 无返回值。
  */
 
-    void SetCallback(NET_AlarmCallBack cb, void* userData)
+    void SetCallback(NET_AlarmCallBack cb, void* pUserData)
     {
         m_fnAlarmCallback = cb;
-        m_pAlarmUserData = userData;
+        m_pAlarmUserData = pUserData;
     }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 SetChannelStatusCallback 定义的内联处理。
  * @param [in] cb 函数处理参数。
- * @param [in,out] userData 函数处理参数。
+ * @param [in,out] pUserData 函数处理参数。
  * @return 无返回值。
  */
 
-    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData)
+    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* pUserData)
     {
         m_fnChannelStatusCallback = cb;
-        m_pChannelStatusUserData = userData;
+        m_pChannelStatusUserData = pUserData;
     }
 
 private:

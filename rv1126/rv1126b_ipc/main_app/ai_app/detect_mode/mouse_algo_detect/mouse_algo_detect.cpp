@@ -222,11 +222,11 @@ void CMouseAlgoDetect::run()
         }
 
         /* 纯帧判定：检测到老鼠活动目标（类别达标 + 置信度达标 + 位于区域内）即触发 */
-        processMouseDetect(vecResults);
+        processMouseDetect(vecResults, rgbMat);
     }
 }
 
-bool CMouseAlgoDetect::processMouseDetect(const std::vector<DetectedTarget_S> &vecResults)
+bool CMouseAlgoDetect::processMouseDetect(const std::vector<DetectedTarget_S> &vecResults, const cv::Mat &rgbMat)
 {
     /* 事件未开启不参与判定 */
     if (!m_stAlgoMouseCfg.bEnable)
@@ -267,6 +267,7 @@ bool CMouseAlgoDetect::processMouseDetect(const std::vector<DetectedTarget_S> &v
         break;
     }
 
+#ifdef ENABLE_TVSDK_SRC
     /* 组装触发上下文，状态机驱动事件开始/结束上报 */
     EventTriggerContext_S stContext;
     stContext.enEventType = Event::Type::MOUSE_INFESTATION;
@@ -282,8 +283,29 @@ bool CMouseAlgoDetect::processMouseDetect(const std::vector<DetectedTarget_S> &v
         stContext.nTop    = static_cast<int>(stHitTarget.fY1);
         stContext.nRight  = static_cast<int>(stHitTarget.fX2);
         stContext.nBottom = static_cast<int>(stHitTarget.fY2);
+
+        /* 命中携带大小图 小图按目标框裁剪 裁剪异常仅缺小图不影响上报 */
+        if (!rgbMat.empty())
+        {
+            encode_mat_to_tvsdk_image(rgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(rgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(rgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = rgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
+        }
     }
     m_mouseAlarmStateMachine.handleAlarmState(bAlarm, stContext);
+#else
+    (void)rgbMat;
+    (void)stHitTarget;
+    m_mouseAlarmStateMachine.handleAlarmState(bAlarm, Event::Type::MOUSE_INFESTATION);
+#endif
 
     return bAlarm;
 }

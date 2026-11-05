@@ -619,8 +619,10 @@ int CRtspServer::update_userInfo(std::string strUser, std::string strPwd, bool b
     /*
      * bReboot 是 live555 后端遗留的兼容参数。smolrtsp 的凭据由鉴权控制面热更新，
      * 服务运行时无需关闭监听器；未运行时缓存值会在下次 init() 写入 ServerConfig。
+     * 凭据实际变化时，库会同步断开所有已用旧凭据认证成功的连接（NIST SP 800-63B
+     * 会话失效要求），在线拉流的客户端需带新密码重连。
      */
-    dlog_info("RTSP用户凭据已更新：%s（服务不重启）；兼容参数bReboot=%d已忽略",
+    dlog_info("RTSP用户凭据已更新：%s；凭据变化时旧密码已连接的客户端会被立即断开（服务不重启）；兼容参数bReboot=%d已忽略",
               bServerRunning ? "已热生效" : "服务未启动，缓存待下次启动生效",
               bReboot ? 1 : 0);
     return OK;

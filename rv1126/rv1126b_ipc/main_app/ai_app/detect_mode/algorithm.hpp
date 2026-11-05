@@ -163,16 +163,6 @@ public:
     {
     }
     ~CAlarmStateMachine() = default;
-
-    /**
-     * @brief   : 查询当前是否处于报警激活状态
-     * @return   {bool} true：事件进行中 false：未激活
-     * @note    : 供事件产生侧判断"是否事件开始帧"，避免每帧重复编码图片。
-     */
-    bool isActive() const
-    {
-        return m_bIsAlarmActive;
-    }
  
     /**
      * @brief   : 处理报警状态，兼容旧事件类型入口

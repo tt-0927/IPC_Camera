@@ -23,6 +23,27 @@
 
 using namespace Json;
 
+namespace
+{
+    /* 类型校验错误标志（按线程隔离）：任一 get 检测到 JSON 节点类型与目标类型不匹配时置位 */
+    thread_local bool g_bTypeError = false;
+
+    void set_type_error()
+    {
+        g_bTypeError = true;
+    }
+}
+
+bool Json::has_type_error()
+{
+    return g_bTypeError;
+}
+
+void Json::clear_type_error()
+{
+    g_bTypeError = false;
+}
+
 Object *Json::init()
 {
     return cJSON_CreateObject();
@@ -192,6 +213,15 @@ bool Json::Value::get(Object *pObj, bool &bValue)
     {
         return false;
     }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_True && pObj->type != cJSON_False && pObj->type != cJSON_Number)
+    {
+        set_type_error();
+        return false;
+    }
     if (pObj->valueint == 0)
     {
         bValue = false;
@@ -209,6 +239,15 @@ bool Json::Value::get(Object *pObj, int &nValue)
     {
         return false;
     }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_Number)
+    {
+        set_type_error();
+        return false;
+    }
     nValue = pObj->valueint;
     return true;
 }
@@ -219,6 +258,15 @@ bool Json::Value::get(Object *pObj, double &dValue)
     {
         return false;
     }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_Number)
+    {
+        set_type_error();
+        return false;
+    }
     dValue = pObj->valuedouble;
     return true;
 }
@@ -227,6 +275,15 @@ bool Json::Value::get(Object *pObj, std::string &value)
 {
     if (!pObj)
     {
+        return false;
+    }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_String)
+    {
+        set_type_error();
         return false;
     }
     value = pObj->valuestring;
@@ -253,6 +310,15 @@ bool Json::get(Object *pObj, std::string key, bool &bValue)
         auto pItem = cJSON_GetObjectItem(pObj, key.c_str());
         if (!pItem)
         {
+            break;
+        }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_True && pItem->type != cJSON_False && pItem->type != cJSON_Number)
+        {
+            set_type_error();
             break;
         }
 
@@ -291,6 +357,15 @@ bool Json::get(Object *pObj, std::string key, int &nValue)
         {
             break;
         }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
+            break;
+        }
         nValue = pItem->valueint;
         bRet = true;
     } while (0);
@@ -317,6 +392,15 @@ bool Json::get(Object *pObj, std::string key, int16_t &nValue)
         auto pItem = cJSON_GetObjectItem(pObj, key.c_str());
         if (!pItem)
         {
+            break;
+        }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
             break;
         }
         nValue = (int16_t)pItem->valueint;
@@ -360,6 +444,15 @@ bool Json::get(Object *pObj, std::string key, long long &lValue)
         {
             break;
         }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
+            break;
+        }
         lValue = pItem->valuedouble;
         bRet = true;
     } while (0);
@@ -388,6 +481,15 @@ bool Json::get(Object *pObj, std::string key, double &dValue)
         {
             break;
         }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
+            break;
+        }
         dValue = pItem->valuedouble;
         bRet = true;
     } while (0);
@@ -414,6 +516,15 @@ bool Json::get(Object *pObj, std::string key, float &fValue)
         auto pItem = cJSON_GetObjectItem(pObj, key.c_str());
         if (!pItem)
         {
+            break;
+        }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
             break;
         }
         fValue = pItem->valuedouble;
@@ -448,6 +559,11 @@ bool Json::get(Object *pObj, std::string key, std::string &value)
         {
             return false;
         }
+        if (pItem->type != cJSON_String)
+        {
+            set_type_error();
+            return false;
+        }
         value = pItem->valuestring;
         bRet = true;
     } while (0);
@@ -470,12 +586,12 @@ bool Json::get(Object *pObj, std::string key, size_t nSize, char *pValue)
     {
         return false;
     }
-    std::string value;
-    if (!get(pObj, key, value))
+    std::string strValue;
+    if (!get(pObj, key, strValue))
     {
         return false;
     }
-    strncpy(pValue, value.c_str(), nSize);
+    strncpy(pValue, strValue.c_str(), nSize);
     return true;
 }
 /**
@@ -561,6 +677,15 @@ bool Json::get(const char *pObj, std::string item, std::string key, int &nValue)
         {
             break;
         }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
+            break;
+        }
         nValue = pItem->valueint;
         bRet = true;
     } while (0);
@@ -603,6 +728,15 @@ bool Json::get(const char *pObj, std::string item, std::string key, double &dVal
         {
             break;
         }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_Number)
+        {
+            set_type_error();
+            break;
+        }
         dValue = pItem->valuedouble;
         bRet = true;
     } while (0);
@@ -643,6 +777,15 @@ bool Json::get(const char *pObj, std::string item, std::string key, std::string 
         auto pItem = cJSON_GetObjectItem(pItems, key.c_str());
         if (!pItem)
         {
+            break;
+        }
+        if (pItem->type == cJSON_NULL)
+        {
+            break;
+        }
+        if (pItem->type != cJSON_String)
+        {
+            set_type_error();
             break;
         }
         value = pItem->valuestring;
@@ -692,12 +835,12 @@ bool Json::get(const char *pObj, std::string key, size_t nSize, char *pValue)
     {
         return false;
     }
-    std::string value;
-    if (!get(pObj, key, value))
+    std::string strValue;
+    if (!get(pObj, key, strValue))
     {
         return false;
     }
-    strncpy(pValue, value.c_str(), nSize);
+    strncpy(pValue, strValue.c_str(), nSize);
     return true;
 }
 /**
@@ -716,12 +859,12 @@ bool Json::get(const char *pObj, std::string item, std::string key, size_t nSize
     {
         return false;
     }
-    std::string value;
-    if (!get(pObj, item, key, value))
+    std::string strValue;
+    if (!get(pObj, item, key, strValue))
     {
         return false;
     }
-    strncpy(pValue, value.c_str(), nSize);
+    strncpy(pValue, strValue.c_str(), nSize);
     return true;
 }
 /**
@@ -753,17 +896,17 @@ void Json::add(Object *pObj, std::string key, const char *pValue)
  * @brief 执行 add 定义的内部处理。
  * @param [in,out] pObj 函数处理参数。
  * @param [in] key 函数处理参数。
- * @param [in] value 函数处理参数。
+ * @param [in] strValue 函数处理参数。
  * @return 无返回值。
  */
 
-void Json::add(Object *pObj, std::string key, std::string value)
+void Json::add(Object *pObj, std::string key, std::string strValue)
 {
     if (!pObj || key.empty())
     {
         return;
     }
-    if (cJSON_AddStringToObject(pObj, key.c_str(), value.c_str()) == nullptr)
+    if (cJSON_AddStringToObject(pObj, key.c_str(), strValue.c_str()) == nullptr)
     {
         return;
     }
@@ -907,6 +1050,15 @@ bool Json::Array::get(Object *pObj, std::vector<int> &value)
     {
         return false;
     }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_Array)
+    {
+        set_type_error();
+        return false;
+    }
     for (int i = 0; i < size(pObj); i++)
     {
         Object *pItem = get(pObj, i);
@@ -923,6 +1075,15 @@ bool Json::Array::get(Object *pObj, std::vector<std::string> &value)
 {
     if (!pObj)
     {
+        return false;
+    }
+    if (pObj->type == cJSON_NULL)
+    {
+        return false;
+    }
+    if (pObj->type != cJSON_Array)
+    {
+        set_type_error();
         return false;
     }
     for (int i = 0; i < size(pObj); i++)

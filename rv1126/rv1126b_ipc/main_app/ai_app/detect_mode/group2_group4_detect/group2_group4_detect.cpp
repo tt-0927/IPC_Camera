@@ -2520,6 +2520,7 @@ int CGroup2_Group4Detect::licensePlateDetectProcess(cv::Mat &srcData, const std:
 
 int CGroup2_Group4Detect::group4DetectProcess(cv::Mat &srcData, const std::vector<Group2Detect_NS::Result_S> &vstResult)
 {
+    return 0 ;//测试用
     if (!m_stAlgoSleepOnDutyCfg.bEnable && !m_stAlgoTripCfg.bEnable && !m_stAlgoSmokingCfg.bEnable && !m_stPhoneUsageCfg.bEnable)
     {
         return 0;

@@ -42,24 +42,24 @@ CAlarmModule::~CAlarmModule()
  * @details 根据命令码解析告警信息类型（人脸比对、基础告警、规则告警、AI告警、交通告警、异常告警、统计告警等），
  *          将告警信息转换为JSON格式后推送到所有活跃会话客户端
  * @param pAlarmer 告警设备信息
- * @param lCommand 命令码（报警类型）
+ * @param nCommand 命令码（报警类型）
  * @param pAlarmInfo 具体告警结构体指针
- * @param dwBufLen pAlarmInfo 长度
+ * @param nBufLen pAlarmInfo 长度
  * @return TRUE表示成功推送到至少一个客户端，FALSE表示失败
  */
 BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
-                               INT32 lCommand,
+                               INT32 nCommand,
                                LPVOID pAlarmInfo,
-                               INT32 dwBufLen)
+                               INT32 nBufLen)
 {
-    if (!pAlarmer || !pAlarmInfo || dwBufLen <= 0)
+    if (!pAlarmer || !pAlarmInfo || nBufLen <= 0)
     {
         NETSDK_LOG_MESSAGE_ERROR("PushAlarmInfo: Invalid parameters");
         return FALSE;
     }
 
-    NETSDK_LOG_MESSAGE_DEBUG("Pushing alarm info: cmd=0x%x, device=%s", lCommand, pAlarmer->strDeviceIP);
-    const size_t totalSessions = CSessionManager::instance()->GetSessionCount();
+    NETSDK_LOG_MESSAGE_DEBUG("Pushing alarm info: cmd=0x%x, device=%s", nCommand, pAlarmer->strDeviceIP);
+    const size_t uTotalSessions = CSessionManager::instance()->GetSessionCount();
 
     // 构建告警JSON
     Json::Object* pRoot = Json::init();
@@ -71,19 +71,19 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
 
     // [诊断] 注入入队时间戳，方便下游测量队列延迟
     {
-        auto tp_now = std::chrono::steady_clock::now();
-        long long ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
-            tp_now.time_since_epoch()).count();
-        Json::add(pRoot, "enqueue_ts", ts_now);
+        auto stTpNow = std::chrono::steady_clock::now();
+        long long lTsNow = std::chrono::duration_cast<std::chrono::milliseconds>(
+            stTpNow.time_since_epoch()).count();
+        Json::add(pRoot, "enqueue_ts", lTsNow);
     }
 
-    Json::add(pRoot, "Command", (long long)lCommand);
+    Json::add(pRoot, "Command", (long long)nCommand);
 
     // 添加Alarmer信息
     {
         Json::Object* pAlarmerJson = Json::init();
-        NET_Alarmer_S tmp = *pAlarmer;
-        SDKConvert::deal(pAlarmerJson, tmp, false);
+        NET_Alarmer_S stTmp = *pAlarmer;
+        SDKConvert::deal(pAlarmerJson, stTmp, false);
         Json::add(pRoot, "Alarmer", pAlarmerJson);
     }
 
@@ -91,173 +91,173 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
     {
         Json::Object* pInfoJson = Json::init();
         /* 抓拍基类为 0x6100，必须按高字节分流，不能用 0xF000 与统计类 0x6000 混淆。 */
-        INT32 alarmBase = lCommand & 0xFF00;
+        INT32 nAlarmBase = nCommand & 0xFF00;
 
-        if (lCommand == NET_ALARM_FACE_COMPARE)
+        if (nCommand == NET_ALARM_FACE_COMPARE)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmFaceCompareInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmFaceCompareInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_AlarmFaceCompareInfo_S& info = *(NET_AlarmFaceCompareInfo_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                NET_AlarmFaceCompareInfo_S& stInfo = *(NET_AlarmFaceCompareInfo_S*)pAlarmInfo;
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_BASIC)
+        else if (nAlarmBase == NET_ALARM_BASE_BASIC)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmBasicInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmBasicInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
-                NET_AlarmBasicInfo_S& info = *(NET_AlarmBasicInfo_S*)pAlarmInfo;
+                NET_AlarmBasicInfo_S& stInfo = *(NET_AlarmBasicInfo_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Basic input: cmd=0x%x, alarmType=0x%x, timestamp=%lld, panoramaLen=%u, bufLen=%d, structSize=%zu",
-                              lCommand,
-                              info.uAlarmType,
-                              (long long)info.llTimestampMs,
-                              info.uPanoramaImgLen,
-                              dwBufLen,
+                              nCommand,
+                              stInfo.uAlarmType,
+                              (long long)stInfo.llTimestampMs,
+                              stInfo.uPanoramaImgLen,
+                              nBufLen,
                               sizeof(NET_AlarmBasicInfo_S));
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_RULE)
+        else if (nAlarmBase == NET_ALARM_BASE_RULE)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmRuleInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmRuleInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_AlarmRuleInfo_S& info = *(NET_AlarmRuleInfo_S*)pAlarmInfo;
+                NET_AlarmRuleInfo_S& stInfo = *(NET_AlarmRuleInfo_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Rule input: cmd=0x%x, alarmType=0x%x, channel=%u, rule=%u, target=%u, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, targetLen=%u, bufLen=%d, structSize=%zu",
-                              lCommand,
-                              info.uAlarmType,
-                              info.uChannel,
-                              info.uRuleID,
-                              info.uTargetID,
-                              info.uObjectType,
-                              (long long)info.llTimestampMs,
-                              info.nLeft,
-                              info.nTop,
-                              info.nRight,
-                              info.nBottom,
-                              info.uPanoramaImgLen,
-                              info.uTargetImgLen,
-                              dwBufLen,
+                              nCommand,
+                              stInfo.uAlarmType,
+                              stInfo.uChannel,
+                              stInfo.uRuleID,
+                              stInfo.uTargetID,
+                              stInfo.uObjectType,
+                              (long long)stInfo.llTimestampMs,
+                              stInfo.nLeft,
+                              stInfo.nTop,
+                              stInfo.nRight,
+                              stInfo.nBottom,
+                              stInfo.uPanoramaImgLen,
+                              stInfo.uTargetImgLen,
+                              nBufLen,
                               sizeof(NET_AlarmRuleInfo_S));
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_AI)
+        else if (nAlarmBase == NET_ALARM_BASE_AI)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmAiObjectInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmAiObjectInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 /* 含大图片数组，禁止栈上拷贝，直接引用原始数据 */
-                NET_AlarmAiObjectInfo_S& info = *(NET_AlarmAiObjectInfo_S*)pAlarmInfo;
+                NET_AlarmAiObjectInfo_S& stInfo = *(NET_AlarmAiObjectInfo_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] AI object input: cmd=0x%x, alarmType=0x%x, channel=%u, object=%s, "
                               "objType=%u, timestamp=%lld, rect=[%d,%d,%d,%d], panoramaLen=%u, imgLen=%u, bufLen=%d, structSize=%zu",
-                              lCommand,
-                              info.uAlarmType,
-                              info.uChannel,
-                              info.strObjectID,
-                              info.uObjectType,
-                              (long long)info.llTimestampMs,
-                              info.nLeft,
-                              info.nTop,
-                              info.nRight,
-                              info.nBottom,
-                              info.uPanoramaImgLen,
-                              info.uImgLen,
-                              dwBufLen,
+                              nCommand,
+                              stInfo.uAlarmType,
+                              stInfo.uChannel,
+                              stInfo.strObjectID,
+                              stInfo.uObjectType,
+                              (long long)stInfo.llTimestampMs,
+                              stInfo.nLeft,
+                              stInfo.nTop,
+                              stInfo.nRight,
+                              stInfo.nBottom,
+                              stInfo.uPanoramaImgLen,
+                              stInfo.uImgLen,
+                              nBufLen,
                               sizeof(NET_AlarmAiObjectInfo_S));
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_TRAFFIC)
+        else if (nAlarmBase == NET_ALARM_BASE_TRAFFIC)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmPlateInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmPlateInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 SDKConvert::deal(pInfoJson, *(NET_AlarmPlateInfo_S*)pAlarmInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_EXCEPTION)
+        else if (nAlarmBase == NET_ALARM_BASE_EXCEPTION)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmExceptionInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmExceptionInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 SDKConvert::deal(pInfoJson, *(NET_AlarmExceptionInfo_S*)pAlarmInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_STATISTICS)
+        else if (nAlarmBase == NET_ALARM_BASE_STATISTICS)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmStatisticsInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmStatisticsInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 /* 统计类结构体含多个 1MB 图片数组，总大小约 3MB，禁止栈上拷贝，直接使用指针引用原始数据 */
-                NET_AlarmStatisticsInfo_S& info = *(NET_AlarmStatisticsInfo_S*)pAlarmInfo;
-                SDKConvert::deal(pInfoJson, info, false);
+                NET_AlarmStatisticsInfo_S& stInfo = *(NET_AlarmStatisticsInfo_S*)pAlarmInfo;
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (alarmBase == NET_ALARM_BASE_CAPTURE)
+        else if (nAlarmBase == NET_ALARM_BASE_CAPTURE)
         {
-            if (dwBufLen < (INT32)sizeof(NET_AlarmCaptureInfo_S))
+            if (nBufLen < (INT32)sizeof(NET_AlarmCaptureInfo_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
                 /* 图片由调用方持有，转换过程在 PushAlarmInfo 返回前完成。 */
-                NET_AlarmCaptureInfo_S& info = *(NET_AlarmCaptureInfo_S*)pAlarmInfo;
+                NET_AlarmCaptureInfo_S& stInfo = *(NET_AlarmCaptureInfo_S*)pAlarmInfo;
                 NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] Capture input: cmd=0x%x, alarmType=0x%x, channel=%u, "
                               "captureType=%u, timestamp=%lld, panorama=%ux%u/%u, cropCount=%u, "
                               "faceAttrs={male=%d,age=%d,glasses=%d,beard=%d,mask=%d,emotion=%d,faceExpression=%d}, bufLen=%d, structSize=%zu",
-                              lCommand,
-                              info.uAlarmType,
-                              info.uChannel,
-                              info.uCaptureType,
-                              (long long)info.llTimestampMs,
-                              info.uPanoramaWidth,
-                              info.uPanoramaHeight,
-                              info.stPanoramaImg.uDataLen,
-                              info.uCropCount,
-                              info.stExtraInfo.bMale,
-                              info.stExtraInfo.nAgeLabel,
-                              info.stExtraInfo.bGlasses,
-                              info.stExtraInfo.bBeard,
-                              info.stExtraInfo.bMask,
-                              info.stExtraInfo.nEmotionLabel,
-                              info.stExtraInfo.nFaceExpression,
-                              dwBufLen,
+                              nCommand,
+                              stInfo.uAlarmType,
+                              stInfo.uChannel,
+                              stInfo.uCaptureType,
+                              (long long)stInfo.llTimestampMs,
+                              stInfo.uPanoramaWidth,
+                              stInfo.uPanoramaHeight,
+                              stInfo.stPanoramaImg.uDataLen,
+                              stInfo.uCropCount,
+                              stInfo.stExtraInfo.bMale,
+                              stInfo.stExtraInfo.nAgeLabel,
+                              stInfo.stExtraInfo.bGlasses,
+                              stInfo.stExtraInfo.bBeard,
+                              stInfo.stExtraInfo.bMask,
+                              stInfo.stExtraInfo.nEmotionLabel,
+                              stInfo.stExtraInfo.nFaceExpression,
+                              nBufLen,
                               sizeof(NET_AlarmCaptureInfo_S));
-                SDKConvert::deal(pInfoJson, info, false);
+                SDKConvert::deal(pInfoJson, stInfo, false);
             }
         }
-        else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
+        else if (nCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
-            if (dwBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
+            if (nBufLen < (INT32)sizeof(NET_RecordDownloadProgress_S))
             {
-                Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }
             else
             {
@@ -266,57 +266,57 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
         }
         else
         {
-            Json::add(pInfoJson, "AlarmType", (long long)lCommand);
+            Json::add(pInfoJson, "AlarmType", (long long)nCommand);
         }
 
         Json::add(pRoot, "AlarmInfo", pInfoJson);
     }
 
     // 转换为JSON字符串
-    std::string jsonStr = Json::to_string(pRoot);
+    std::string strJson = Json::to_string(pRoot);
     Json::deinit(pRoot);
-    if ((lCommand & 0xFF00) == NET_ALARM_BASE_RULE ||
-        (lCommand & 0xFF00) == NET_ALARM_BASE_AI ||
-        (lCommand & 0xFF00) == NET_ALARM_BASE_CAPTURE)
+    if ((nCommand & 0xFF00) == NET_ALARM_BASE_RULE ||
+        (nCommand & 0xFF00) == NET_ALARM_BASE_AI ||
+        (nCommand & 0xFF00) == NET_ALARM_BASE_CAPTURE)
     {
         NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] JSON output: cmd=0x%x, jsonLen=%zu, hasPanoramaB64=%d, hasTargetB64=%d, hasImgDataB64=%d, hasCaptureImgB64=%d, hasExtraInfo=%d",
-                      lCommand,
-                      jsonStr.size(),
-                      jsonStr.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
-                      jsonStr.find("TargetImgBase64") != std::string::npos ? 1 : 0,
-                      jsonStr.find("ImgDataBase64") != std::string::npos ? 1 : 0,
-                      jsonStr.find("\"ImgBase64\"") != std::string::npos ? 1 : 0,
-                      jsonStr.find("ExtraInfo") != std::string::npos ? 1 : 0);
+                      nCommand,
+                      strJson.size(),
+                      strJson.find("PanoramaImgBase64") != std::string::npos ? 1 : 0,
+                      strJson.find("TargetImgBase64") != std::string::npos ? 1 : 0,
+                      strJson.find("ImgDataBase64") != std::string::npos ? 1 : 0,
+                      strJson.find("\"ImgBase64\"") != std::string::npos ? 1 : 0,
+                      strJson.find("ExtraInfo") != std::string::npos ? 1 : 0);
     }
 
     // [诊断] 记录 PushToAll 前的时间戳，用于定位报警转发延迟
-    auto tp_before_push = std::chrono::steady_clock::now();
-    long long ts_before_push = std::chrono::duration_cast<std::chrono::milliseconds>(
-        tp_before_push.time_since_epoch()).count();
+    auto stTpBeforePush = std::chrono::steady_clock::now();
+    long long lTsBeforePush = std::chrono::duration_cast<std::chrono::milliseconds>(
+        stTpBeforePush.time_since_epoch()).count();
 
     // 推送到所有会话
-    size_t pushCount = CSessionManager::instance()->PushToAll(std::move(jsonStr));
+    size_t uPushCount = CSessionManager::instance()->PushToAll(std::move(strJson));
 
-    auto tp_after_push = std::chrono::steady_clock::now();
-    long long ts_after_push = std::chrono::duration_cast<std::chrono::milliseconds>(
-        tp_after_push.time_since_epoch()).count();
+    auto stTpAfterPush = std::chrono::steady_clock::now();
+    long long lTsAfterPush = std::chrono::duration_cast<std::chrono::milliseconds>(
+        stTpAfterPush.time_since_epoch()).count();
     NETSDK_LOG_MESSAGE_INFO("[DIAG] PushToAll done: cmd=0x%x, enqueue_ts=%lld, cost_ms=%lld",
-                  lCommand, ts_before_push, ts_after_push - ts_before_push);
-    if (pushCount == 0)
+                  nCommand, lTsBeforePush, lTsAfterPush - lTsBeforePush);
+    if (uPushCount == 0)
     {
-        std::string diagInfo = CSessionManager::instance()->GetSessionDiagnosticInfo();
+        std::string strDiagInfo = CSessionManager::instance()->GetSessionDiagnosticInfo();
         NETSDK_LOG_MESSAGE_WARN("CAlarmModule::PushAlarmInfo: FAILED - No eligible clients, cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d. "
                       "Client status: %s",
-                      lCommand, pAlarmer->strDeviceIP, totalSessions, dwBufLen, diagInfo.c_str());
+                      nCommand, pAlarmer->strDeviceIP, uTotalSessions, nBufLen, strDiagInfo.c_str());
     }
     else
     {
         NETSDK_LOG_MESSAGE_INFO("CAlarmModule::PushAlarmInfo: SUCCESS - Forwarded to %zu client(s), cmd=0x%x, device=%s, totalSessions=%zu, bufLen=%d",
-                      pushCount, lCommand, pAlarmer->strDeviceIP, totalSessions, dwBufLen);
+                      uPushCount, nCommand, pAlarmer->strDeviceIP, uTotalSessions, nBufLen);
     }
 
     m_lPushCount++;
-    return (pushCount > 0) ? TRUE : FALSE;
+    return (uPushCount > 0) ? TRUE : FALSE;
 }
 
 /**
@@ -339,10 +339,10 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
     // 打印输入参数详情
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Input Channel Info:");
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel:      %u", pChannelInfo->uChannel);
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   ChannelName:  %s", pChannelInfo->szChannelName);
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceName:   %s", pChannelInfo->szDevName);
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceIP:     %s", pChannelInfo->szDeviceIP);
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   SerialNum:    %s", pChannelInfo->szSerialNum);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   ChannelName:  %s", pChannelInfo->strChannelName);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceName:   %s", pChannelInfo->strDevName);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   DeviceIP:     %s", pChannelInfo->strDeviceIP);
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   SerialNum:    %s", pChannelInfo->strSerialNum);
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Enable:       %d (%s)", pChannelInfo->byEnable,
                   pChannelInfo->byEnable ? "ENABLED" : "DISABLED");
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Online:       %d (%s)", pChannelInfo->byOnline,
@@ -363,25 +363,25 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Command: NET_NOTIFY_CHANNEL_STATUS (0x%X)", NET_NOTIFY_CHANNEL_STATUS);
 
     Json::Object* pChannelJson = Json::init();
-    NET_ChannelInfo_S info = *pChannelInfo;
-    SDKConvert::deal(pChannelJson, info, false);
+    NET_ChannelInfo_S stInfo = *pChannelInfo;
+    SDKConvert::deal(pChannelJson, stInfo, false);
     Json::add(pRoot, "ChannelInfo", pChannelJson);
 
-    std::string jsonStr = Json::to_string(pRoot);
+    std::string strJson = Json::to_string(pRoot);
     Json::deinit(pRoot);
 
     // 打印将要推送的JSON数据
-    NETSDK_LOG_MESSAGE_DEBUG("[CAlarmModule] Channel Status JSON: %s", jsonStr.c_str());
+    NETSDK_LOG_MESSAGE_DEBUG("[CAlarmModule] Channel Status JSON: %s", strJson.c_str());
 
     // 获取在线客户端数量
-    size_t clientCount = CSessionManager::instance()->GetSessionCount();
-    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Current online clients: %zu", clientCount);
+    size_t uClientCount = CSessionManager::instance()->GetSessionCount();
+    NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Current online clients: %zu", uClientCount);
 
     // 执行推送
     NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Calling PushToAll...");
-    size_t pushCount = CSessionManager::instance()->PushToAll(std::move(jsonStr));
+    size_t uPushCount = CSessionManager::instance()->PushToAll(std::move(strJson));
 
-    if (pushCount == 0)
+    if (uPushCount == 0)
     {
         NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] No active clients for channel status!");
         NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel: %u, Online: %u",
@@ -389,7 +389,7 @@ BOOL CAlarmModule::PushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
     }
     else
     {
-        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Channel status pushed to %zu client(s) SUCCESS", pushCount);
+        NETSDK_LOG_MESSAGE_WARN("[CAlarmModule] Channel status pushed to %zu client(s) SUCCESS", uPushCount);
         NETSDK_LOG_MESSAGE_WARN("[CAlarmModule]   Channel: %u, Online: %s",
                       pChannelInfo->uChannel,
                       pChannelInfo->byOnline ? "ONLINE" : "OFFLINE");

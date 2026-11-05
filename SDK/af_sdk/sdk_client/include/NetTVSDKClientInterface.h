@@ -43,13 +43,13 @@ NET_API BOOL NET_STDCALL NET_clientCleanup(void);
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 设置日志
- * @param [in] dwLogLevel   日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无“关闭日志”档，0 不是关闭而是最详细的全量输出
- * @param [in] strLogDir    日志路径
- * @param [in] dwLogFileSize 日志文件大小(单位：字节)
- * @param [in] dwLogFileNum 日志文件个数
+ * @param [in] nLogLevel    日志输出等级（spdlog 阈值语义：消息等级 >= 设定值才输出，故数值越大输出越少）：0-TRACE 全量(trace/debug/info/warn/error 都输出，最详细)，1-DEBUG(debug 及以上)，2-INFO(info 及以上)，3-WARN(仅 warn/error)，4-ERROR(仅 error)。注意：无"关闭日志"档，0 不是关闭而是最详细的全量输出
+ * @param [in] pstrLogDir   日志路径
+ * @param [in] nLogFileSize 日志文件大小(单位：字节)
+ * @param [in] nLogFileNum  日志文件个数
  * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
  */
-NET_API BOOL NET_STDCALL NET_clientSetLogToFile(NET_IN INT32 dwLogLevel,NET_IN CHAR  *strLogDir,NET_IN INT32 dwLogFileSize,NET_IN INT32 dwLogFileNum);
+NET_API BOOL NET_STDCALL NET_clientSetLogToFile(NET_IN INT32 nLogLevel,NET_IN CHAR  *pstrLogDir,NET_IN INT32 nLogFileSize,NET_IN INT32 nLogFileNum);
 
 /**
 * 获取SDK的版本信息 Get SDK version information
@@ -76,13 +76,13 @@ NET_API const char* NET_STDCALL NET_clientGetErrorMsg(void);
 /**
 * 接收异常.重连等消息的回调函数  Callback function to receive exception and reconnection messages
 * @param [in] lpUserID     用户登录句柄 User login ID
-* @param [in] dwType       异常或重连等消息的类型:NET_EXCEPTION_TYPE_E Type of exception or reconnection message: NET_EXCEPTION_TYPE_E
+* @param [in] nType        异常或重连等消息的类型:NET_EXCEPTION_TYPE_E Type of exception or reconnection message: NET_EXCEPTION_TYPE_E
 * @param [in] lpExpHandle  出现异常的相应类型的句柄 Exception type handle
 * @param [in] lpUserData   用户数据 User data
 * @note
 */
 typedef void(NET_STDCALL *NET_ExceptionCallBack_PF)(NET_IN LPVOID lpUserID,
-                                                   NET_IN INT32 dwType,
+                                                   NET_IN INT32 nType,
                                                    NET_IN LPVOID lpExpHandle,
                                                    NET_IN LPVOID lpUserData
                                                    );
@@ -107,13 +107,13 @@ NET_API BOOL NET_STDCALL NET_clientSetRevTimeOut(NET_IN pNET_RevTimeout_S pstRev
 
 /**
 * 设置保活参数 Set keep-alive parameters
-* @param [in]  dwWaitTime            间隔等待时间  Waiting time
-* @param [in]  dwTrytimes            尝试连接次数  Connecting attempts
+* @param [in]  nWaitTime             间隔等待时间  Waiting time
+* @param [in]  nTrytimes             尝试连接次数  Connecting attempts
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
-NET_API BOOL NET_STDCALL NET_clientSetConnectTime(NET_IN INT32 dwWaitTime,
-                                                           NET_IN INT32 dwTrytimes);
+NET_API BOOL NET_STDCALL NET_clientSetConnectTime(NET_IN INT32 nWaitTime,
+                                                           NET_IN INT32 nTrytimes);
 
 /**
 * 设置自动重连开关  Set auto-reconnect switch
@@ -156,8 +156,8 @@ NET_API BOOL NET_STDCALL NET_clientLogout(NET_IN LPVOID lpUserID);
 */
 typedef void(NET_STDCALL *NET_AlarmCallBack)(NET_OUT INT64 lCommand,
                                                    NET_OUT NET_Alarmer_S *pAlarmer,
-                                                   NET_OUT CHAR*   pAlarmInfo,
-                                                   NET_OUT INT32*   dwBufLen,
+                                                   NET_OUT CHAR*   pstrAlarmInfo,
+                                                   NET_OUT INT32*   nBufLen,
                                                    NET_OUT LPVOID lpUserData);
 
 /**
@@ -222,43 +222,43 @@ NET_API BOOL NET_STDCALL NET_clientDeviceControl(NET_IN LPVOID lpUserID,
 * @brief 获取回放播放地址
 * @param [in]     lpUserID          用户登录句柄
 * @param [in,out]  pstInfo           回放查询条件和返回信息，调用前填通道/时间，返回后读取播放URL
-* @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
+* @param [out] pnBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
 NET_API BOOL NET_STDCALL NET_clientGetReplayUrl(NET_IN    LPVOID lpUserID,
                                             NET_INOUT pNET_ReplayUrlInfo_S pstInfo,
-                                            NET_OUT   INT32 *pdwBytesReturned);
+                                            NET_OUT   INT32 *pnBytesReturned);
 
 /**
  * @author tianl (tianl@kfb.cn)
 * @brief 控制回放开始/停止/倍速
 * @param [in]     lpUserID          用户登录句柄
 * @param [in,out]  pstInfo           回放控制信息，开始播放时返回会话ID和播放URL
-* @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
+* @param [out] pnBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
 NET_API BOOL NET_STDCALL NET_clientControlReplay(NET_IN    LPVOID lpUserID,
                                              NET_INOUT pNET_ReplayCtrlInfo_S pstInfo,
-                                             NET_OUT   INT32 *pdwBytesReturned);
+                                             NET_OUT   INT32 *pnBytesReturned);
 
 /**
  * @author tianl (tianl@kfb.cn)
 * @brief 获取NVR回放录像时间段
 * @param [in]     lpUserID          用户登录句柄
 * @param [in,out]  pstInfo           查询条件和返回结果，调用前填通道/日期
-* @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
+* @param [out] pnBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功,其他表示失败
 */
 NET_API BOOL NET_STDCALL NET_clientGetReplayRecordList(NET_IN    LPVOID lpUserID,
                                                    NET_INOUT pNET_ReplayRecordList_S pstInfo,
-                                                   NET_OUT   INT32 *pdwBytesReturned);
+                                                   NET_OUT   INT32 *pnBytesReturned);
 
 /**
 * @brief 分页查询真实录像文件
 * @param [in]     lpUserID          用户登录句柄
 * @param [in,out]  pstQuery          检索条件+分页（nCurPage 从1起，nPageSize 上限
 *                                    NET_RECORD_QUERY_PAGE_MAX_NUM，pResults 调用方分配数组）
-* @param [out]    pdwBytesReturned  实际返回的数据长度指针，可为NULL
+* @param [out]    pnBytesReturned  实际返回的数据长度指针，可为NULL
 * @return TRUE表示成功，其他表示失败
 * @note 对应服务端 NET_API_PATH_RECORD_QUERY_FILES，服务端按页回调
 *       NET_serverRegisterQueryRecordFilesCb 注册的回调。
@@ -268,7 +268,7 @@ NET_API BOOL NET_STDCALL NET_clientGetReplayRecordList(NET_IN    LPVOID lpUserID
 */
 NET_API BOOL NET_STDCALL NET_clientQueryRecordFiles(NET_IN    LPVOID lpUserID,
                                                 NET_INOUT pNET_RecordFileQuery_S pstQuery,
-                                                NET_OUT   INT32 *pdwBytesReturned);
+                                                NET_OUT   INT32 *pnBytesReturned);
 
 /************************************************************************/
 /*                    录像下载 Record Download                            */
@@ -276,14 +276,14 @@ NET_API BOOL NET_STDCALL NET_clientQueryRecordFiles(NET_IN    LPVOID lpUserID,
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 录像下载进度回调
- * @param [in] dwDownloadedBytes 已下载字节数
- * @param [in] dwTotalBytes      总字节数；chunked 传输时通常是 SDK 按时长估算值，不一定是真实总量
+ * @param [in] ulDownloadedBytes 已下载字节数
+ * @param [in] ulTotalBytes      总字节数；chunked 传输时通常是 SDK 按时长估算值，不一定是真实总量
  * @param [in] lpUserData        用户数据，由下载接口传入
- * @note  dwTotalBytes 仅用于进度展示，不能作为下载完成条件；
+ * @note  ulTotalBytes 仅用于进度展示，不能作为下载完成条件；
  *        下载真正成功结束时，回调会把已下载量与总量都置为最终字节数。
  */
-typedef void (NET_STDCALL *NET_DownloadProgressCb)(NET_IN UINT64 dwDownloadedBytes,
-                                                   NET_IN UINT64 dwTotalBytes,
+typedef void (NET_STDCALL *NET_DownloadProgressCb)(NET_IN UINT64 ulDownloadedBytes,
+                                                   NET_IN UINT64 ulTotalBytes,
                                                    NET_IN LPVOID lpUserData);
 
 /**
@@ -304,10 +304,10 @@ typedef enum NET_DOWNLOAD_TASK_STATUS_E
  * @brief 下载录像文件到本地（同步接口，阻塞至下载结束）
  * @param [in] lpUserID     用户登录句柄
  * @param [in] nChannelID   通道ID（与 NET_clientQueryRecordFiles 返回的 nChnId 一致，从 1 开始）
- * @param [in] szDate       录像日期（如 "2026-08-24"，取自查询结果）
+ * @param [in] pstrDate     录像日期（如 "2026-08-24"，取自查询结果）
  * @param [in] nStartTime   开始时间（秒数，当天0点起，取自查询结果）
  * @param [in] nEndTime     结束时间（秒数，当天0点起，取自查询结果）
- * @param [in] szSavePath   本地保存路径（含文件名，例如 "D:/record/20260824.mkv"）
+ * @param [in] pstrSavePath 本地保存路径（含文件名，例如 "D:/record/20260824.mkv"）
  * @param [in] cbProgress   下载进度回调，可为NULL
  * @param [in] lpUserData   进度回调用户数据
  * @return TRUE 表示下载成功；FALSE 表示失败，可调用 NET_clientGetLastError 获取错误码
@@ -317,10 +317,10 @@ typedef enum NET_DOWNLOAD_TASK_STATUS_E
  */
 NET_API BOOL NET_STDCALL NET_clientDownloadRecordFile(NET_IN LPVOID lpUserID,
                                                       NET_IN INT32 nChannelID,
-                                                      NET_IN const CHAR* szDate,
+                                                      NET_IN const CHAR* pstrDate,
                                                       NET_IN INT32 nStartTime,
                                                       NET_IN INT32 nEndTime,
-                                                      NET_IN const CHAR* szSavePath,
+                                                      NET_IN const CHAR* pstrSavePath,
                                                       NET_IN NET_DownloadProgressCb cbProgress,
                                                       NET_IN LPVOID lpUserData);
 
@@ -329,10 +329,10 @@ NET_API BOOL NET_STDCALL NET_clientDownloadRecordFile(NET_IN LPVOID lpUserID,
  * @brief 异步启动录像下载
  * @param [in]  lpUserID    用户登录句柄
  * @param [in]  nChannelID  通道ID
- * @param [in]  szDate      录像日期（如 "2026-08-24"）
+ * @param [in]  pstrDate    录像日期（如 "2026-08-24"）
  * @param [in]  nStartTime  开始时间（秒数，当天0点起）
  * @param [in]  nEndTime    结束时间（秒数，当天0点起）
- * @param [in]  szSavePath  本地保存路径（含文件名）
+ * @param [in]  pstrSavePath 本地保存路径（含文件名）
  * @param [in]  cbProgress  下载进度回调，可为NULL
  * @param [in]  lpUserData  进度回调用户数据
  * @param [out] phTask      输出下载任务句柄，成功时非NULL
@@ -343,10 +343,10 @@ NET_API BOOL NET_STDCALL NET_clientDownloadRecordFile(NET_IN LPVOID lpUserID,
  */
 NET_API BOOL NET_STDCALL NET_clientStartDownloadRecordFile(NET_IN  LPVOID lpUserID,
                                                            NET_IN  INT32 nChannelID,
-                                                           NET_IN  const CHAR* szDate,
+                                                           NET_IN  const CHAR* pstrDate,
                                                            NET_IN  INT32 nStartTime,
                                                            NET_IN  INT32 nEndTime,
-                                                           NET_IN  const CHAR* szSavePath,
+                                                           NET_IN  const CHAR* pstrSavePath,
                                                            NET_IN  NET_DownloadProgressCb cbProgress,
                                                            NET_IN  LPVOID lpUserData,
                                                            NET_OUT LPVOID* phTask);
@@ -367,24 +367,24 @@ NET_API BOOL NET_STDCALL NET_clientCancelDownloadRecordFile(NET_IN LPVOID hTask)
  * @brief 获取指定下载任务的状态与进度快照
  * @param [in]  hTask                下载任务句柄
  * @param [out] pnStatus             任务状态，参见 NET_DOWNLOAD_TASK_STATUS_E，可为NULL
- * @param [out] pdwDownloadedBytes   已下载字节数，可为NULL
- * @param [out] pdwTotalBytes        总字节数（估算/最终值），可为NULL
+ * @param [out] pulDownloadedBytes   已下载字节数，可为NULL
+ * @param [out] pulTotalBytes        总字节数（估算/最终值），可为NULL
  * @return TRUE 表示查询成功；FALSE 表示句柄无效
  */
 NET_API BOOL NET_STDCALL NET_clientGetDownloadRecordFileStatus(NET_IN  LPVOID hTask,
                                                                 NET_OUT INT32* pnStatus,
-                                                                NET_OUT UINT64* pdwDownloadedBytes,
-                                                                NET_OUT UINT64* pdwTotalBytes);
+                                                                NET_OUT UINT64* pulDownloadedBytes,
+                                                                NET_OUT UINT64* pulTotalBytes);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 等待下载任务结束
  * @param [in] hTask       下载任务句柄
- * @param [in] dwTimeoutMs 超时毫秒数；0 表示立即返回，0xFFFFFFFF 表示一直等待
+ * @param [in] uTimeoutMs 超时毫秒数；0 表示立即返回，0xFFFFFFFF 表示一直等待
  * @return TRUE 表示在超时前任务已结束；FALSE 表示超时或句柄无效
  */
 NET_API BOOL NET_STDCALL NET_clientWaitDownloadRecordFile(NET_IN LPVOID hTask,
-                                                          NET_IN UINT32 dwTimeoutMs);
+                                                          NET_IN UINT32 uTimeoutMs);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -428,55 +428,58 @@ NET_API BOOL NET_STDCALL NET_clientStopDownloadRecordFile(NET_INOUT LPVOID* phTa
 NET_API BOOL NET_STDCALL NET_clientCancelAndReleaseDownloadRecordFile(NET_INOUT LPVOID* phTask);
 
 /**
+
+
+
 * 获取设备能力集 Obtain device capability
 * @param [in]   lpUserID                用户登录句柄 User login ID
-* @param [in]   dwChannelID             通道号 Channel ID
-* @param [in]   dwCommand               设备能力类型指令 NET_CAPABILITY_COMMOND_E
+* @param [in]   nChannelID              通道号 Channel ID
+* @param [in]   nCommand                设备能力类型指令 NET_CAPABILITY_COMMOND_E
 * @param [out]  lpOutBuffer             接收数据的缓冲指针 Pointer to buffer that receives data
-* @param [out]  dwOutBufferSize         接收数据的缓冲长度(以字节为单位)，不能为0 Length (in byte) of buffer that receives data, cannot be 0.
-* @param [out]  pdwBytesReturned        实际收到的数据长度指针，不能为NULL  Pointer to length of received data, cannot be NULL.
+* @param [out]  nOutBufferSize          接收数据的缓冲长度(以字节为单位)，不能为0 Length (in byte) of buffer that receives data, cannot be 0.
+* @param [out]  pnBytesReturned         实际收到的数据长度指针，不能为NULL  Pointer to length of received data, cannot be NULL.
 * @return TRUE表示成功，其他表示失败      NET_TRUE means success, and any other value means failure.
 * @note
 */
 NET_API BOOL NET_STDCALL NET_clientGetDeviceCapability(NET_IN LPVOID lpUserID,
-                                                                NET_IN INT32 dwChannelID,
-                                                                NET_IN INT32 dwCommand,
+                                                                NET_IN INT32 nChannelID,
+                                                                NET_IN INT32 nCommand,
                                                                 NET_OUT LPVOID lpOutBuffer,
-                                                                NET_OUT INT32  dwOutBufferSize,
-                                                                NET_OUT INT32  *pdwBytesReturned);
+                                                                NET_OUT INT32  nOutBufferSize,
+                                                                NET_OUT INT32  *pnBytesReturned);
 /**
 * 获取设备的配置信息  Get configuration information of device
 * @param [in]     lpUserID                用户登录句柄 User login ID
-* @param [in]     dwChannelID             通道号 Channel ID
-* @param [in]     dwCommand               设备配置命令,参见# NET_CONFIG_COMMAND_E  Device configuration commands, see #NET_CONFIG_COMMAND_E
+* @param [in]     nChannelID              通道号 Channel ID
+* @param [in]     nCommand                设备配置命令,参见# NET_CONFIG_COMMAND_E  Device configuration commands, see #NET_CONFIG_COMMAND_E
 * @param [in,out]  lpOutBuffer             接收数据的缓冲指针 Pointer to buffer that receives data
-* @param [out]    dwOutBufferSize         接收数据的缓冲长度(以字节为单位),不能为0 Length (in byte) of buffer that receives data, cannot be 0.
-* @param [out]    pdwBytesReturned        实际收到的数据长度指针,不能为NULL  Pointer to length of received data, cannot be NULL.
+* @param [out]    nOutBufferSize          接收数据的缓冲长度(以字节为单位),不能为0 Length (in byte) of buffer that receives data, cannot be 0.
+* @param [out]    pnBytesReturned         实际收到的数据长度指针,不能为NULL  Pointer to length of received data, cannot be NULL.
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
 NET_API BOOL NET_STDCALL NET_clientGetDevConfig(NET_IN  LPVOID  lpUserID,
-                                                                NET_IN    INT32   dwChannelID,
-                                                                NET_IN    INT32   dwCommand,
+                                                                NET_IN    INT32   nChannelID,
+                                                                NET_IN    INT32   nCommand,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
-                                                                NET_OUT   INT32   dwOutBufferSize,
-                                                                NET_OUT   INT32   *pdwBytesReturned);
+                                                                NET_OUT   INT32   nOutBufferSize,
+                                                                NET_OUT   INT32   *pnBytesReturned);
 /**
 * 设置设备的配置信息  Modify device configuration information
 * @param [in]   lpUserID            用户登录句柄 User login ID
-* @param [in]   dwChannelID         通道号 Channel ID
-* @param [in]   dwCommand           设备配置命令,参见# NET_CONFIG_COMMAND_E  Device configuration commands, see #NET_CONFIG_COMMAND_E
+* @param [in]   nChannelID          通道号 Channel ID
+* @param [in]   nCommand            设备配置命令,参见# NET_CONFIG_COMMAND_E  Device configuration commands, see #NET_CONFIG_COMMAND_E
 * @param [in]   lpInBuffer          输入数据的缓冲指针 Pointer to buffer of input data
-* @param [in]   dwInBufferSize      输入数据的缓冲长度(以字节为单位) Length of input data buffer (byte)
+* @param [in]   nInBufferSize       输入数据的缓冲长度(以字节为单位) Length of input data buffer (byte)
 * @return TRUE表示成功,其他表示失败 NET_TRUE means success, and any other value means failure.
 * @note
 */
 NET_API BOOL NET_STDCALL NET_clientSetDevConfig(NET_IN  LPVOID  lpUserID,
-                                                                NET_IN    INT32   dwChannelID,
-                                                                NET_IN    INT32   dwCommand,
+                                                                NET_IN    INT32   nChannelID,
+                                                                NET_IN    INT32   nCommand,
                                                                 NET_INOUT LPVOID  lpOutBuffer,
-                                                                NET_OUT   INT32   dwOutBufferSize,
-                                                                NET_OUT   INT32   *pdwBytesReturned);
+                                                                NET_OUT   INT32   nOutBufferSize,
+                                                                NET_OUT   INT32   *pnBytesReturned);
 /**
  * @brief 修改用户密码（需旧密码校验） Modify user password (old password verification required)
  * @param [in] lpUserID 用户登录句柄 User login ID
@@ -497,14 +500,14 @@ NET_API BOOL NET_STDCALL NET_clientSetUserPassword(NET_IN LPVOID lpUserID,
  * @author tianl (tianl@kfb.cn)
  * @brief 上传固件文件到设备
  * @param [in]  lpUserID     用户登录句柄
- * @param [in]  szFilePath   本地固件文件路径
- * @param [in]  szRemoteName 上传到设备的文件名
+ * @param [in]  pstrFilePath   本地固件文件路径
+ * @param [in]  pstrRemoteName 上传到设备的文件名
  * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_clientGetLastError() 获取错误码）
  */
 NET_API BOOL NET_STDCALL
 NET_clientUploadFile(NET_IN LPVOID   lpUserID,
-                  NET_IN const CHAR* szFilePath,
-                  NET_IN const CHAR* szRemoteName);
+                  NET_IN const CHAR* pstrFilePath,
+                  NET_IN const CHAR* pstrRemoteName);
 
 /**
  * @author ITC
@@ -512,22 +515,22 @@ NET_clientUploadFile(NET_IN LPVOID   lpUserID,
  * @details 文件先落盘到设备上传目录；随后需再调用 NET_clientSetDevConfig 并传入
  *          NET_ADD_AUDIBLE_ALARM_CUSTOM_INFO 命令码，把该文件注册为自定义音频。
  * @param [in]  lpUserID     用户登录句柄
- * @param [in]  szFilePath   本地音频文件路径
- * @param [in]  szRemoteName 上传到设备的文件名，长度不超过
+ * @param [in]  pstrFilePath   本地音频文件路径
+ * @param [in]  pstrRemoteName 上传到设备的文件名，长度不超过
  *                           NET_ALARM_CUSTOM_AUDIO_FILE_NAME_LEN；归档到配置目录后的
  *                           完整路径必须能放入 NET_ALARM_CUSTOM_AUDIO_PATH_LEN
  * @return NET_TRUE 成功，NET_FALSE 失败（调用 NET_clientGetLastError() 获取错误码）
  */
 NET_API BOOL NET_STDCALL
 NET_clientUploadAlarmAudio(NET_IN LPVOID   lpUserID,
-                           NET_IN const CHAR* szFilePath,
-                           NET_IN const CHAR* szRemoteName);
+                           NET_IN const CHAR* pstrFilePath,
+                           NET_IN const CHAR* pstrRemoteName);
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 搜索局域网内设备（UDP 组播）
- * @param [in]  szInterfaceIP 网卡 IP 地址，传 NULL 使用默认网卡
- * @param [in]  dwTimeoutMs   等待响应超时 (ms)，建议 2000~5000
+ * @param [in]  pstrInterfaceIP 网卡 IP 地址，传 NULL 使用默认网卡
+ * @param [in]  uTimeoutMs    等待响应超时 (ms)，建议 2000~5000
  * @param [out] pDeviceList   输出设备列表缓冲区
  * @param [in]  nMaxCount     设备列表最大容量
  * @param [out] pnOutCount    实际发现的设备数量
@@ -535,8 +538,8 @@ NET_clientUploadAlarmAudio(NET_IN LPVOID   lpUserID,
  * @note 重复调用 NET_clientSearchDiscovery 前无需调用 NET_clientInit()
  */
 NET_API BOOL NET_STDCALL
-NET_clientSearchDiscovery(NET_IN  const CHAR*                      szInterfaceIP,
-                        NET_IN  UINT32                           dwTimeoutMs,
+NET_clientSearchDiscovery(NET_IN  const CHAR*                      pstrInterfaceIP,
+                        NET_IN  UINT32                           uTimeoutMs,
                         NET_OUT NET_DiscoveryDeviceInfo_S*       pDeviceList,
                         NET_IN  int                              nMaxCount,
                         NET_OUT int*                             pnOutCount);
@@ -558,13 +561,13 @@ NET_clientSetPoeNetwork(NET_IN const NET_PoeNetworkConfig_S* pstConfig);
  * @author tianl (tianl@kfb.cn)
  * @brief 录像帧回调: SDK收到一包录像帧后调用
  * @param [in] pstFrameInfo 帧元数据，包含媒体类型、序号、时间戳、负载长度和标志位
- * @param [in] pData        帧负载数据；流结束包可为空
- * @param [in] dwSize       帧负载长度
+ * @param [in] pstrData     帧负载数据；流结束包可为空
+ * @param [in] uSize        帧负载长度
  * @param [in] lpUserData   用户数据
  */
 typedef void (NET_STDCALL *NET_RecordFrameCallBack)(NET_IN const NET_RecordFrameInfo_S* pstFrameInfo,
-                                                   NET_IN const CHAR* pData,
-                                                   NET_IN UINT32 dwSize,
+                                                   NET_IN const CHAR* pstrData,
+                                                   NET_IN UINT32 uSize,
                                                    NET_IN LPVOID lpUserData);
 
 /**
@@ -588,14 +591,14 @@ NET_clientStartRecordFrameStream(NET_IN LPVOID lpUserID,
  * @author tianl (tianl@kfb.cn)
  * @brief 停止录像帧TCP流
  * @param [in] lpUserID  用户登录句柄
- * @param [in] szStreamId 需要停止的流ID
+ * @param [in] pstrStreamId 需要停止的流ID
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
 NET_clientStopRecordFrameStream(NET_IN LPVOID lpUserID,
-                             NET_IN const CHAR* szStreamId);
+                             NET_IN const CHAR* pstrStreamId);
 
-typedef void (NET_STDCALL *NET_VoiceComCallBack)(const char* data, unsigned int size, LPVOID lpUserData);
+typedef void (NET_STDCALL *NET_VoiceComCallBack)(const char* pstrData, unsigned int uSize, LPVOID lpUserData);
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -616,14 +619,14 @@ NET_clientStartVoiceCom(NET_IN LPVOID              lpUserID,
  * @author tianl (tianl@kfb.cn)
  * @brief 发送音频数据到设备
  * @param [in]  lpUserID  用户登录句柄
- * @param [in]  pData     音频帧数据，格式需与 NET_clientStartVoiceCom 协商参数一致
- * @param [in]  dwSize    数据长度(字节)
+ * @param [in]  pstrData  音频帧数据，格式需与 NET_clientStartVoiceCom 协商参数一致
+ * @param [in]  uSize     数据长度(字节)
  * @return NET_TRUE 成功，NET_FALSE 失败
  */
 NET_API BOOL NET_STDCALL
 NET_clientVoiceComSendData(NET_IN LPVOID       lpUserID,
-                        NET_IN const CHAR*  pData,
-                        NET_IN UINT32       dwSize);
+                        NET_IN const CHAR*  pstrData,
+                        NET_IN UINT32       uSize);
 
 /**
  * @author tianl (tianl@kfb.cn)

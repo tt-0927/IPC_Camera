@@ -91,7 +91,7 @@ extern "C"{
 /* 硬件版本 */
 #define HARDWARE_VERSION     "V1.0.0"
 /* 系统版本 */
-#define SYSTEM_VERSION       "V1.0.9"
+#define SYSTEM_VERSION       "V1.0.10"
 /* 插件版本 */
 #define PLUG_VERSION         "V2.0.27"
 /* web版本 */

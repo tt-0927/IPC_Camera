@@ -166,29 +166,29 @@ bool DrainUploadBody(const httplib::ContentReader& contentReader,
                      const std::string& client,
                      const std::string& filename)
 {
-    size_t drainedSize = 0;
-    size_t nextLogSize = kUploadProgressLogStep;
-    const bool readOk = contentReader([&drainedSize, &nextLogSize, &client, &filename](const char* data, size_t dataLength) -> bool {
-        if (!data || dataLength == 0) {
+    size_t uDrainedSize = 0;
+    size_t uNextLogSize = kUploadProgressLogStep;
+    const bool bReadOk = contentReader([&uDrainedSize, &uNextLogSize, &client, &filename](const char* pstrData, size_t uDataLength) -> bool {
+        if (!pstrData || uDataLength == 0) {
             return true;
         }
-        drainedSize += dataLength;
-        if (drainedSize >= nextLogSize) {
+        uDrainedSize += uDataLength;
+        if (uDrainedSize >= uNextLogSize) {
             NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] draining unauth body: client=%s, filename=%s, drained=%zu",
-                          client.c_str(), filename.c_str(), drainedSize);
-            nextLogSize += kUploadProgressLogStep;
+                          client.c_str(), filename.c_str(), uDrainedSize);
+            uNextLogSize += kUploadProgressLogStep;
         }
         return true;
     });
 
-    if (!readOk) {
+    if (!bReadOk) {
         NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] drain unauth body failed: client=%s, filename=%s, drained=%zu",
-                      client.c_str(), filename.c_str(), drainedSize);
+                      client.c_str(), filename.c_str(), uDrainedSize);
         return false;
     }
 
     NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] drained unauth body before challenge: client=%s, filename=%s, drained=%zu",
-                  client.c_str(), filename.c_str(), drainedSize);
+                  client.c_str(), filename.c_str(), uDrainedSize);
     return true;
 }
 
@@ -272,17 +272,17 @@ void HandleBinaryUpload(const httplib::Request& req, httplib::Response& res,
         /* 确保父目录与目标目录存在，两个上传端点均位于 /opt/course/ 之下 */
         errno = 0;
         if (!EnsureDir(kUploadParentDir)) {
-            const int err = errno;
+            const int nErr = errno;
             NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
-                           kUploadParentDir, err, std::strerror(err));
+                           kUploadParentDir, nErr, std::strerror(nErr));
             SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
             return;
         }
         errno = 0;
         if (!EnsureDir(targetDir.c_str())) {
-            const int err = errno;
+            const int nErr = errno;
             NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] ensure dir failed: path=%s, errno=%d(%s)",
-                           targetDir.c_str(), err, std::strerror(err));
+                           targetDir.c_str(), nErr, std::strerror(nErr));
             SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
             return;
         }
@@ -293,50 +293,50 @@ void HandleBinaryUpload(const httplib::Request& req, httplib::Response& res,
         errno = 0;
         std::ofstream outFile(tempPath, std::ios::binary | std::ios::trunc);
         if (!outFile.is_open()) {
-            const int err = errno;
+            const int nErr = errno;
             NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] open temp file failed: path=%s, errno=%d(%s)",
-                           tempPath.c_str(), err, std::strerror(err));
+                           tempPath.c_str(), nErr, std::strerror(nErr));
             SetSdkJsonResponse(res, NET_E_FILE_NO_EXIST);
             return;
         }
 
         NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, final=%s",
                       tempPath.c_str(), filePath.c_str());
-        size_t writtenSize = 0;
-        size_t nextLogSize = kUploadProgressLogStep;
+        size_t uWrittenSize = 0;
+        size_t uNextLogSize = kUploadProgressLogStep;
         errno = 0;
-        const bool readOk = contentReader([&outFile, &writtenSize, &nextLogSize, &tempPath](const char* data, size_t dataLength) -> bool {
-            if (!data || dataLength == 0) {
+        const bool bReadOk = contentReader([&outFile, &uWrittenSize, &uNextLogSize, &tempPath](const char* pstrData, size_t uDataLength) -> bool {
+            if (!pstrData || uDataLength == 0) {
                 return true;
             }
-            outFile.write(data, static_cast<std::streamsize>(dataLength));
+            outFile.write(pstrData, static_cast<std::streamsize>(uDataLength));
             if (!outFile) {
                 NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] write chunk failed: temp=%s, written=%zu, chunk=%zu",
-                               tempPath.c_str(), writtenSize, dataLength);
+                               tempPath.c_str(), uWrittenSize, uDataLength);
                 return false;
             }
-            writtenSize += dataLength;
-            if (writtenSize >= nextLogSize) {
+            uWrittenSize += uDataLength;
+            if (uWrittenSize >= uNextLogSize) {
                 NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] receiving body: temp=%s, written=%zu",
-                              tempPath.c_str(), writtenSize);
-                nextLogSize += kUploadProgressLogStep;
+                              tempPath.c_str(), uWrittenSize);
+                uNextLogSize += kUploadProgressLogStep;
             }
             return true;
         });
         outFile.close();
 
-        if (!readOk || !outFile) {
-            const int err = errno;
+        if (!bReadOk || !outFile) {
+            const int nErr = errno;
             NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] body read/write failed: temp=%s, read_ok=%d, written=%zu, fail=%d, bad=%d, errno=%d(%s)",
-                           tempPath.c_str(), readOk ? 1 : 0, writtenSize,
+                           tempPath.c_str(), bReadOk ? 1 : 0, uWrittenSize,
                            outFile.fail() ? 1 : 0, outFile.bad() ? 1 : 0,
-                           err, std::strerror(err));
+                           nErr, std::strerror(nErr));
             std::remove(tempPath.c_str());
             SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
             return;
         }
 
-        if (writtenSize == 0) {
+        if (uWrittenSize == 0) {
             NETSDK_LOG_MESSAGE_WARN("[TVSDK][Upload] empty body: temp=%s", tempPath.c_str());
             std::remove(tempPath.c_str());
             SetSdkJsonResponse(res, NET_E_INVALID_PARAM);
@@ -346,15 +346,15 @@ void HandleBinaryUpload(const httplib::Request& req, httplib::Response& res,
         std::remove(filePath.c_str());
         errno = 0;
         if (std::rename(tempPath.c_str(), filePath.c_str()) != 0) {
-            const int err = errno;
+            const int nErr = errno;
             NETSDK_LOG_MESSAGE_ERROR("[TVSDK][Upload] rename failed: temp=%s, final=%s, errno=%d(%s)",
-                           tempPath.c_str(), filePath.c_str(), err, std::strerror(err));
+                           tempPath.c_str(), filePath.c_str(), nErr, std::strerror(nErr));
             std::remove(tempPath.c_str());
             SetSdkJsonResponse(res, NET_E_SYSCALL_FALIED);
             return;
         }
 
-        NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] file uploaded: %s (%zu bytes)", filePath.c_str(), writtenSize);
+        NETSDK_LOG_MESSAGE_INFO("[TVSDK][Upload] file uploaded: %s (%zu bytes)", filePath.c_str(), uWrittenSize);
 
         /* 仅升级端点写标记文件；自定义音频上传不得污染升级链路 */
         if (bWriteUpgradeMarker && !UpdateLastUpgradeFile(filePath)) {
@@ -406,7 +406,6 @@ BOOL CRouteModule::RegisterAllRoutes()
     RegisterDeviceControlRoutes();
     RegisterVideoRoutes();
     RegisterUpgradeRoutes();
-    RegisterAlarmRoutes();
 
     NETSDK_LOG_MESSAGE_INFO("Successfully registered %zu routes", m_nRouteCount);
     return TRUE;

@@ -51,10 +51,10 @@ public:
     /**
      * 启动HTTP服务器
      * @details 创建HTTP服务器实例，绑定指定端口，开始监听请求
-     * @param dwPort 服务器端口号
+     * @param uPort 服务器端口号
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL Start(UINT32 dwPort);
+    BOOL Start(UINT32 uPort);
 
     /**
      * 停止HTTP服务器

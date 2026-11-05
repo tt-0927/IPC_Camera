@@ -33,6 +33,8 @@
 #define FIGHT_MODEL_CONFIG_PATH (ALGORITHM_MODEL_DIR "FightDetection.json")
 /* 鼠患识别模型配置文件 */
 #define MOUSE_DETECT_MODEL_CONFIG_PATH (ALGORITHM_MODEL_DIR "Mouse.json")
+/* 第四组安防检测（香烟/睡觉/玩手机/摔跤）模型配置文件 */
+#define GROUP4_DETECT_MODEL_CONFIG_PATH (ALGORITHM_MODEL_DIR "group4.json")
 /* ===================== 公共数据契约 ===================== */
 /* 检测目标 */
 typedef struct _DetectedTarget_S_

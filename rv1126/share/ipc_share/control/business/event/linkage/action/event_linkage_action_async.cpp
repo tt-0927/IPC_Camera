@@ -52,10 +52,12 @@ void EventLinkageAsyncAction::execute(const LinkageTask_S &stTask, std::atomic<b
     switch (stTask.enLinkageType)
     {
     case LinkageType_E::EMAIL:
-        bRunningFlag.store(true);
-        execute_email(stTask, bRunningFlag);
-        bRunningFlag.store(false);
+    {
+        /* 邮件任务可并发入队由邮件模块聚合，改用任务私有标志，避免共享标志被先完成的任务清除导致其余任务丢弃 */
+        std::atomic<bool> bTaskRunning{ true };
+        execute_email(stTask, bTaskRunning);
         break;
+    }
     case LinkageType_E::SOUND:
         execute_audio(stTask, bRunningFlag);
         break;

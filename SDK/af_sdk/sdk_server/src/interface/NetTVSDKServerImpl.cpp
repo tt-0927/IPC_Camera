@@ -21,7 +21,7 @@ std::string g_sdkDeviceName = "AF_SDK";
         (rev2 & 0xFF) \
     ))
 
-#define NETTVSDK_VERSION  NETTVSDK_MAKE_VERSION(1, 0, 0, 0)
+#define NETTVSDK_VERSION  NETTVSDK_MAKE_VERSION(1, 0, 1, 0)
 
 CNetTVSDKServerImpl::CNetTVSDKServerImpl()
     : m_bInitialized(false)
@@ -46,10 +46,10 @@ CNetTVSDKServerImpl::~CNetTVSDKServerImpl()
     NETSDK_LOG_MESSAGE_DEBUG("CNetTVSDKServerImpl: Destroyed");
 }
 
-BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
-                                CHAR szUserName[NET_LEN_132],
-                                CHAR szPassword[NET_LEN_132],
-                                CHAR szDeviceName[NET_LEN_132])
+BOOL CNetTVSDKServerImpl::DoInit(UINT32 uPort,
+                                CHAR strUserName[NET_LEN_132],
+                                CHAR strPassword[NET_LEN_132],
+                                CHAR strDeviceName[NET_LEN_132])
 {
     if (m_bInitialized)
     {
@@ -60,17 +60,17 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialization Started ===");
 
     // 保存设备名称到全局变量
-    if (szDeviceName && strlen(szDeviceName) > 0)
+    if (strDeviceName && strlen(strDeviceName) > 0)
     {
-        g_sdkDeviceName = szDeviceName;
+        g_sdkDeviceName = strDeviceName;
     }
     NETSDK_LOG_MESSAGE_INFO("SDK Server device name: %s", g_sdkDeviceName.c_str());
 
     // 1. 设置鉴权信息
-    std::string username = (strlen(szUserName) > 0) ? szUserName : "admin";
-    std::string password = (strlen(szPassword) > 0) ? szPassword : "admin@123";
+    std::string strAuthUserName = (strlen(strUserName) > 0) ? strUserName : "admin";
+    std::string strAuthPassword = (strlen(strPassword) > 0) ? strPassword : "admin@123";
 
-    if (!m_pSessionModule->SetAuthInfo("NetTVSDK", username, password))
+    if (!m_pSessionModule->SetAuthInfo("NetTVSDK", strAuthUserName, strAuthPassword))
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to set authentication info");
         return FALSE;
@@ -84,7 +84,7 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     }
 
     // 3. 启动HTTP服务器
-    if (!m_pServerModule->Start(udwPort))
+    if (!m_pServerModule->Start(uPort))
     {
         NETSDK_LOG_MESSAGE_ERROR("Failed to start HTTP server");
         m_pRouteModule->ClearRoutes();
@@ -92,7 +92,7 @@ BOOL CNetTVSDKServerImpl::DoInit(UINT32 udwPort,
     }
 
     m_bInitialized = true;
-    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialized Successfully (Port: %u) ===", udwPort);
+    NETSDK_LOG_MESSAGE_INFO("=== SDK Server Initialized Successfully (Port: %u) ===", uPort);
     return TRUE;
 }
 
@@ -121,20 +121,20 @@ BOOL CNetTVSDKServerImpl::DoCleanup()
     return TRUE;
 }
 
-BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 nLogLevel, CHAR* strLogDir,
-                                        INT32 nLogFileSize, INT32 dwLogFileNum)
+BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 nLogLevel, CHAR* pstrLogDir,
+                                        INT32 nLogFileSize, INT32 nLogFileNum)
 {
-    if (strLogDir == NULL)
+    if (pstrLogDir == NULL)
     {
         return FALSE;
     }
 
     // 构造完整日志路径
-   char szLogPath[512] = {0};
+   char strLogPath[512] = {0};
 #ifdef _WIN32
-    snprintf(szLogPath, sizeof(szLogPath), "%s\\NetTVSDKServer.log", strLogDir);
+    snprintf(strLogPath, sizeof(strLogPath), "%s\\NetTVSDKServer.log", pstrLogDir);
 #else
-    snprintf(szLogPath, sizeof(szLogPath), "%s/NetTVSDKServer.log", strLogDir);
+    snprintf(strLogPath, sizeof(strLogPath), "%s/NetTVSDKServer.log", pstrLogDir);
 #endif
 
     if (nLogFileSize <= 0)
@@ -142,13 +142,13 @@ BOOL CNetTVSDKServerImpl::DoSetLogToFile(INT32 nLogLevel, CHAR* strLogDir,
         nLogFileSize = 5 * 1024 * 1024; // Default 5MB
     }
 
-    if (dwLogFileNum <= 0)
+    if (nLogFileNum <= 0)
     {
-        dwLogFileNum = 10; // Default 10 files
+        nLogFileNum = 10; // Default 10 files
     }
 
     // 初始化日志
-    if (initSdkLogBySize("NetTVSDKServer", szLogPath, nLogFileSize, dwLogFileNum) != 0)
+    if (initSdkLogBySize("NetTVSDKServer", strLogPath, nLogFileSize, nLogFileNum) != 0)
     {
         return FALSE;
     }
@@ -174,31 +174,31 @@ INT32 CNetTVSDKServerImpl::DoGetClientCount()
         return 0;
     }
 
-    size_t sessionCount = m_pSessionModule->GetActiveSessionCount();
-    if (sessionCount > static_cast<size_t>(std::numeric_limits<INT32>::max()))
+    size_t uSessionCount = m_pSessionModule->GetActiveSessionCount();
+    if (uSessionCount > static_cast<size_t>(std::numeric_limits<INT32>::max()))
     {
         return std::numeric_limits<INT32>::max();
     }
 
-    return static_cast<INT32>(sessionCount);
+    return static_cast<INT32>(uSessionCount);
 }
 
-BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR szUserName[NET_LEN_132],
-                                         CHAR szPassword[NET_LEN_132])
+BOOL CNetTVSDKServerImpl::DoSetUserPasswd(CHAR strUserName[NET_LEN_132],
+                                         CHAR strPassword[NET_LEN_132])
 {
-    if (!strlen(szUserName) || !strlen(szPassword))
+    if (!strlen(strUserName) || !strlen(strPassword))
     {
         NETSDK_LOG_MESSAGE_ERROR("SetUserPasswd: Invalid parameters (empty string)");
         return FALSE;
     }
 
-    return m_pSessionModule->UpdatePassword(szUserName, szPassword);
+    return m_pSessionModule->UpdatePassword(strUserName, strPassword);
 }
 
 BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
-                                         INT32 lCommand,
+                                         INT32 nCommand,
                                          LPVOID pAlarmInfo,
-                                         INT32 dwBufLen)
+                                         INT32 nBufLen)
 {
     if (!m_bInitialized)
     {
@@ -206,7 +206,7 @@ BOOL CNetTVSDKServerImpl::DoPushAlarmInfo(NET_Alarmer_S* pAlarmer,
         return FALSE;
     }
 
-    return m_pAlarmModule->PushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+    return m_pAlarmModule->PushAlarmInfo(pAlarmer, nCommand, pAlarmInfo, nBufLen);
 }
 
 BOOL CNetTVSDKServerImpl::DoPushChannelStatusInfo(NET_ChannelInfo_S* pChannelInfo)
@@ -233,7 +233,7 @@ BOOL CNetTVSDKServerImpl::DoRegisterCb_SetNetwork(NET_CB_SetNetwork cbFunc)
     return (cbFunc != nullptr) ? TRUE : FALSE;
 }
 
-BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
+BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* pstrInterfaceName)
 {
     if (!m_cbDiscoveryDeviceInfo) {
         NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: callback not registered");
@@ -246,21 +246,22 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
     m_pDiscoveryResponder = std::make_unique<CDiscoveryResponder>();
 
     /* 注册回调：C 回调 → C++ lambda */
-    NET_CB_GetDiscoveryDeviceInfo cb = m_cbDiscoveryDeviceInfo;
+    NET_CB_GetDiscoveryDeviceInfo cbDeviceInfo = m_cbDiscoveryDeviceInfo;
     m_pDiscoveryResponder->set_device_info_callback(
-        [cb](NET_DiscoveryDeviceInfo_S* pInfo) {
-            if (cb) cb(pInfo);
+        [cbDeviceInfo](NET_DiscoveryDeviceInfo_S* pInfo) {
+            if (cbDeviceInfo) cbDeviceInfo(pInfo);
         });
 
-    NET_CB_SetNetwork network_cb = m_cbSetNetwork;
+    NET_CB_SetNetwork cbNetwork = m_cbSetNetwork;
     m_pDiscoveryResponder->set_network_callback(
-        [network_cb](const NET_PoeNetworkConfig_S& config) {
-            return network_cb &&
-                   network_cb(&config) == NET_E_SUCCEED;
+        [cbNetwork](const NET_PoeNetworkConfig_S& stConfig) {
+            return cbNetwork &&
+                   cbNetwork(&stConfig) == NET_E_SUCCEED;
         });
 
-    if (m_pDiscoveryResponder->init(szInterfaceName) < 0) {
-        NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: init failed for iface[%s]", szInterfaceName);
+    const int nInitRet = m_pDiscoveryResponder->init(pstrInterfaceName);
+    if (nInitRet < 0) {
+        NETSDK_LOG_MESSAGE_ERROR("DiscoveryStart: init failed for iface[%s], ret=%d", pstrInterfaceName, nInitRet);
         m_pDiscoveryResponder.reset();
         return FALSE;
     }
@@ -271,7 +272,7 @@ BOOL CNetTVSDKServerImpl::DoDiscoveryStart(const CHAR* szInterfaceName)
         return FALSE;
     }
 
-    NETSDK_LOG_MESSAGE_INFO("Discovery started on iface[%s]", szInterfaceName);
+    NETSDK_LOG_MESSAGE_INFO("Discovery started on iface[%s]", pstrInterfaceName);
     return TRUE;
 }
 

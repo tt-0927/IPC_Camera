@@ -38,14 +38,14 @@ int executeGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo);
 int executeQueryRecordFilesCb(LPNET_RECORD_FILE_QUERY_S pInfo);
 
 /* NVR独有：执行JPEG抓图回调；供RouteModule调用 */
-int executeCaptureJPEGCb(INT32 dwChannelID, INT32 dwWidth, INT32 dwHeight,
-                         INT32 dwImageQuality, LPVOID pOutBuffer,
-                         INT32 dwOutBufferSize, LPINT32 pdwOutSize);
+int executeCaptureJPEGCb(INT32 nChannelID, INT32 nWidth, INT32 nHeight,
+                         INT32 nImageQuality, LPVOID pOutBuffer,
+                         INT32 nOutBufferSize, LPINT32 pnOutSize);
 
 /* NVR独有：执行获取录像文件完整路径回调；供RouteModule调用 */
-int executeGetRecordFilePathCb(INT32 dwChannelID, const char* szDate,
-                               INT32 dwStartTime, INT32 dwEndTime,
-                               char* szFilePath, INT32 dwPathSize);
+int executeGetRecordFilePathCb(INT32 nChannelID, const char* pstrDate,
+                               INT32 nStartTime, INT32 nEndTime,
+                               char* pstrFilePath, INT32 nPathSize);
 
 #ifdef __cplusplus
 }

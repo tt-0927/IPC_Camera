@@ -39,11 +39,11 @@ public:
     /**
      * @brief 发送音频数据到设备
      * @param lpUserID 用户登录句柄
-     * @param pData    音频帧数据
-     * @param dwSize   数据长度（字节）
+     * @param pstrData 音频帧数据
+     * @param uSize    数据长度（字节）
      * @return TRUE 成功，FALSE 失败
      */
-    BOOL SendData(LPVOID lpUserID, const CHAR* pData, UINT32 dwSize);
+    BOOL SendData(LPVOID lpUserID, const CHAR* pstrData, UINT32 uSize);
 
     /**
      * @brief 停止语音对讲

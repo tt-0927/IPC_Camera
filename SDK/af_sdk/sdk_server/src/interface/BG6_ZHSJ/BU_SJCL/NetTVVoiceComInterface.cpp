@@ -20,9 +20,9 @@ extern "C" {
 /* ==================== 语音对讲 VoiceCom (服务端) ==================== */
 
 NET_API BOOL STDCALL
-NET_serverStartVoiceComServer(IN UINT32 dwPort)
+NET_serverStartVoiceComServer(IN UINT32 uPort)
 {
-	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(dwPort)) ? TRUE : FALSE;
+	return tvsdk::CVoiceComServer::instance()->start(static_cast<int>(uPort)) ? TRUE : FALSE;
 }
 
 NET_API BOOL STDCALL
@@ -41,8 +41,8 @@ NET_serverRegisterVoiceComPlayCb(IN NET_serverVoiceComPlayCallBack cb)
 	}
 
 	tvsdk::CVoiceComServer::instance()->set_play_callback(
-		[cb](const char* data, size_t size) {
-			cb(data, static_cast<unsigned int>(size));
+		[cb](const char* pstrData, size_t uSize) {
+			cb(pstrData, static_cast<unsigned int>(uSize));
 		});
 	return TRUE;
 }
@@ -57,23 +57,23 @@ NET_serverRegisterVoiceComCaptureCb(IN NET_serverVoiceComCaptureCallBack cb,
 	}
 
 	tvsdk::CVoiceComServer::instance()->set_capture_callback(
-		[cb, lpUserData](const NET_VoiceComAudioParam_S& audioParam,
-						 char* buffer,
-						 size_t bufferSize) -> int {
-			return cb(&audioParam,
-					  buffer,
-					  static_cast<UINT32>(bufferSize),
+		[cb, lpUserData](const NET_VoiceComAudioParam_S& stAudioParam,
+						 char* pstrBuffer,
+						 size_t uBufferSize) -> int {
+			return cb(&stAudioParam,
+					  pstrBuffer,
+					  static_cast<UINT32>(uBufferSize),
 					  lpUserData);
 		});
 	return TRUE;
 }
 
 NET_API BOOL STDCALL
-NET_serverSendVoiceComData(IN const CHAR* pData, IN UINT32 dwSize)
+NET_serverSendVoiceComData(IN const CHAR* pstrData, IN UINT32 uSize)
 {
-	if (!pData || dwSize == 0) return FALSE;
+	if (!pstrData || uSize == 0) return FALSE;
 
-	return tvsdk::CVoiceComServer::instance()->send_to_client(pData, dwSize) ? TRUE : FALSE;
+	return tvsdk::CVoiceComServer::instance()->send_to_client(pstrData, uSize) ? TRUE : FALSE;
 }
 
 NET_API BOOL STDCALL

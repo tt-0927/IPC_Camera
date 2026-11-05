@@ -13,9 +13,9 @@
 
 namespace
 {
-bool HasText(const CHAR* text)
+bool HasText(const CHAR* pstrText)
 {
-    return text != NULL && text[0] != '\0';
+    return pstrText != NULL && pstrText[0] != '\0';
 }
 
 int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
@@ -23,18 +23,18 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
     /* Unified reject logging: the field only sees 102 and cannot tell which check
      * failed (channel / ctrlType / session / speed). Log the reason plus the key
      * fields once, so the next run is diagnosable from a single line. */
-    const auto reject = [&stInfo](const CHAR* reason) -> int
+    const auto reject = [&stInfo](const CHAR* pstrReason) -> int
     {
         NETSDK_LOG_MESSAGE_WARN("replay validate rejected: reason=%s, channel=%d, ctrlType=%d, replayType=%d, speed=%.3f, seek=%d, session=[%s], start=[%s], end=[%s]",
-                                reason,
+                                pstrReason,
                                 stInfo.uChannel,
                                 stInfo.uCtrlType,
                                 stInfo.nReplayType,
                                 stInfo.fSpeed,
                                 stInfo.nSeekTime,
-                                stInfo.szSessionId,
-                                stInfo.szStartTime,
-                                stInfo.szEndTime);
+                                stInfo.strSessionId,
+                                stInfo.strStartTime,
+                                stInfo.strEndTime);
         return NET_E_INVALID_PARAM;
     };
 
@@ -49,7 +49,7 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
     switch (stInfo.uCtrlType)
     {
         case NET_REPLAY_CTRL_START:
-            if (!HasText(stInfo.szStartTime) || !HasText(stInfo.szEndTime))
+            if (!HasText(stInfo.strStartTime) || !HasText(stInfo.strEndTime))
             {
                 return reject("start: missing start/end time");
             }
@@ -61,13 +61,13 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
         case NET_REPLAY_CTRL_STOP:
         case NET_REPLAY_CTRL_PAUSE:
         case NET_REPLAY_CTRL_RESUME:
-            if (!HasText(stInfo.szSessionId))
+            if (!HasText(stInfo.strSessionId))
             {
                 return reject("stop/pause/resume: missing sessionId");
             }
             break;
         case NET_REPLAY_CTRL_SET_SPEED:
-            if (!HasText(stInfo.szSessionId))
+            if (!HasText(stInfo.strSessionId))
             {
                 return reject("set_speed: missing sessionId");
             }
@@ -81,12 +81,12 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
             }
             break;
         case NET_REPLAY_CTRL_SET_SEEK:
-            if (!HasText(stInfo.szSessionId))
+            if (!HasText(stInfo.strSessionId))
             {
                 return reject("set_seek: missing sessionId");
             }
             if (stInfo.nReplayType == NET_REPLAY_PLATFORM_CTRL_NONE &&
-                HasText(stInfo.szStartTime) && HasText(stInfo.szEndTime))
+                HasText(stInfo.strStartTime) && HasText(stInfo.strEndTime))
             {
                 stInfo.nReplayType = NET_REPLAY_PLATFORM_CTRL_JUMP_TIME;
             }
@@ -107,7 +107,7 @@ int ValidateReplayCtrlInfo(NET_ReplayCtrlInfo_S& stInfo)
                 case NET_REPLAY_PLATFORM_CTRL_CANCEL_EVENT:
                     break;
                 case NET_REPLAY_PLATFORM_CTRL_JUMP_TIME:
-                    if (!HasText(stInfo.szStartTime) || !HasText(stInfo.szEndTime))
+                    if (!HasText(stInfo.strStartTime) || !HasText(stInfo.strEndTime))
                     {
                         return reject("set_seek/jump_time: missing start/end time");
                     }
@@ -153,8 +153,8 @@ std::string CPlaybackBusiness::GetReplayUrl(const std::string& req_data, const s
 
     NETSDK_LOG_MESSAGE_INFO("GetReplayUrl request: channel=%d, start=%s, end=%s",
                   stInfo.uChannel,
-                  stInfo.szStartTime,
-                  stInfo.szEndTime);
+                  stInfo.strStartTime,
+                  stInfo.strEndTime);
 
     int nRespCode = executeGetReplayUrlCb(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
@@ -184,23 +184,23 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     SDKConvert::deal(pRoot, stInfo, true);
     Json::deinit(pRoot);
 
-    /* szUserIp 为空时自动填充HTTP对端IP（服务端权威来源，客户端/平台无需填写） */
-    if (!HasText(stInfo.szUserIp))
+    /* strUserIp 为空时自动填充HTTP对端IP（服务端权威来源，客户端/平台无需填写） */
+    if (!HasText(stInfo.strUserIp))
     {
         const std::string clientIp = SdkHttpContext::client_ip();
         if (!clientIp.empty())
         {
-            snprintf(stInfo.szUserIp, sizeof(stInfo.szUserIp), "%s", clientIp.c_str());
+            snprintf(stInfo.strUserIp, sizeof(stInfo.strUserIp), "%s", clientIp.c_str());
         }
     }
 
     NETSDK_LOG_MESSAGE_INFO("ControlReplay after JSON parse: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s], userIp=[%s]",
                   stInfo.uChannel,
                   stInfo.uCtrlType,
-                  stInfo.szStartTime,
-                  stInfo.szEndTime,
-                  stInfo.szSessionId,
-                  stInfo.szUserIp);
+                  stInfo.strStartTime,
+                  stInfo.strEndTime,
+                  stInfo.strSessionId,
+                  stInfo.strUserIp);
 
     int nValidCode = ValidateReplayCtrlInfo(stInfo);
     if (nValidCode != NET_E_SUCCEED)
@@ -209,11 +209,11 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
                       stInfo.uChannel,
                       stInfo.uCtrlType,
                       stInfo.nReplayType,
-                      stInfo.szSessionId,
+                      stInfo.strSessionId,
                       stInfo.fSpeed,
                       stInfo.nSeekTime,
-                      stInfo.szStartTime,
-                      stInfo.szEndTime);
+                      stInfo.strStartTime,
+                      stInfo.strEndTime);
         return SDKConvert::to_respString((NET_COMMON_ECODE_E)nValidCode);
     }
 
@@ -221,12 +221,12 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
                   stInfo.uChannel,
                   stInfo.uCtrlType,
                   stInfo.nReplayType,
-                  stInfo.szSessionId,
+                  stInfo.strSessionId,
                   stInfo.fSpeed,
                   stInfo.nSeekTime,
-                  stInfo.szStartTime,
-                  stInfo.szEndTime,
-                  stInfo.szUserIp);
+                  stInfo.strStartTime,
+                  stInfo.strEndTime,
+                  stInfo.strUserIp);
 
     int nRespCode = executeControlReplayCb(&stInfo);
     if (nRespCode != NET_E_SUCCEED)
@@ -236,10 +236,10 @@ std::string CPlaybackBusiness::ControlReplay(const std::string& req_data, const 
     NETSDK_LOG_MESSAGE_INFO("ControlReplay after callback: channel=%d, ctrlType=%d, url=[%s], start=[%s], end=[%s], userIp=[%s]",
                   stInfo.uChannel,
                   stInfo.uCtrlType,
-                  stInfo.szUrl,
-                  stInfo.szStartTime,
-                  stInfo.szEndTime,
-                  stInfo.szUserIp);
+                  stInfo.strUrl,
+                  stInfo.strStartTime,
+                  stInfo.strEndTime,
+                  stInfo.strUserIp);
 
     return SDKConvert::to_respString(nRespCode, 0, stInfo);
 }
@@ -275,9 +275,9 @@ std::string CPlaybackBusiness::GetReplayRecordList(const std::string& req_data, 
                   stInfo.uChannel,
                   stInfo.bFilterByEventType,
                   stInfo.uEventType,
-                  stInfo.szDate,
-                  stInfo.szStartTime,
-                  stInfo.szEndTime);
+                  stInfo.strDate,
+                  stInfo.strStartTime,
+                  stInfo.strEndTime);
 
     int nRespCode = executeGetReplayRecordListCb(&stInfo);
     if (nRespCode != NET_E_SUCCEED)

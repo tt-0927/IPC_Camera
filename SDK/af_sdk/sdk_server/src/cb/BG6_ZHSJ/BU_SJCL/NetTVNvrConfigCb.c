@@ -120,7 +120,7 @@ int executeGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
     }
 
     /* 通道号兜底：若未指定通道号，无法降级到命令码分发 */
-    INT32 dwChannelID = pInfo->uChannel;
+    INT32 nChannelID = pInfo->uChannel;
 
     /* 优先使用专用回放URL回调 */
     if (g_stNvrCbTable.cbGetReplayUrl != NULL)
@@ -129,7 +129,7 @@ int executeGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
     }
 
     /* 降级到通用配置回调（走Common的命令码分发） */
-    return executeGetDevConfigCb(dwChannelID, NET_GET_REPLAY_URLCFG, pInfo);
+    return executeGetDevConfigCb(nChannelID, NET_GET_REPLAY_URLCFG, pInfo);
 }
 
 /* ===================== 回放控制配置 ===================== */
@@ -169,10 +169,10 @@ int executeControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
     }
 
     printf("[NetTVNvrConfigCb] ControlReplay callback: channel=%d, ctrlType=%d, startTime=[%s], endTime=[%s], sessionId=[%s]\n",
-           pInfo->uChannel, pInfo->uCtrlType, pInfo->szStartTime, pInfo->szEndTime, pInfo->szSessionId);
+           pInfo->uChannel, pInfo->uCtrlType, pInfo->strStartTime, pInfo->strEndTime, pInfo->strSessionId);
 
     /* 通道号兜底 */
-    INT32 dwChannelID = pInfo->uChannel;
+    INT32 nChannelID = pInfo->uChannel;
 
     /* 优先使用专用回放控制回调 */
     if (g_stNvrCbTable.cbControlReplay != NULL)
@@ -181,7 +181,7 @@ int executeControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
     }
 
     /* 降级到通用配置设置回调（走Common的命令码分发） */
-    return executeSetDevConfigCb(dwChannelID, NET_SET_REPLAY_CTRL, pInfo);
+    return executeSetDevConfigCb(nChannelID, NET_SET_REPLAY_CTRL, pInfo);
 }
 
 /* ===================== 回放录像列表配置 ===================== */
@@ -221,7 +221,7 @@ int executeGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
     }
 
     /* 通道号兜底 */
-    INT32 dwChannelID = pInfo->uChannel;
+    INT32 nChannelID = pInfo->uChannel;
 
     /* 优先使用专用回放录像列表回调 */
     if (g_stNvrCbTable.cbGetReplayRecordList != NULL)
@@ -230,7 +230,7 @@ int executeGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
     }
 
     /* 降级到通用配置回调（走Common的命令码分发） */
-    return executeGetDevConfigCb(dwChannelID, NET_GET_REPLAY_RECORD_LIST, pInfo);
+    return executeGetDevConfigCb(nChannelID, NET_GET_REPLAY_RECORD_LIST, pInfo);
 }
 
 /* ===================== 录像计划与高级参数（NVR独有） ===================== */
@@ -496,15 +496,15 @@ NET_API BOOL STDCALL NET_serverRegisterCaptureJPEGCb(NET_CB_CaptureJPEG pCb)
  * @brief 执行JPEG抓图回调
  * @return NET_E_SUCCEED 成功，其他值失败
  */
-int executeCaptureJPEGCb(INT32 dwChannelID, INT32 dwWidth, INT32 dwHeight,
-                         INT32 dwImageQuality, LPVOID pOutBuffer,
-                         INT32 dwOutBufferSize, LPINT32 pdwOutSize)
+int executeCaptureJPEGCb(INT32 nChannelID, INT32 nWidth, INT32 nHeight,
+                         INT32 nImageQuality, LPVOID pOutBuffer,
+                         INT32 nOutBufferSize, LPINT32 pnOutSize)
 {
     if (g_stNvrCbTable.cbCaptureJPEG != NULL)
     {
-        return g_stNvrCbTable.cbCaptureJPEG(dwChannelID, dwWidth, dwHeight,
-                                            dwImageQuality, pOutBuffer,
-                                            dwOutBufferSize, pdwOutSize);
+        return g_stNvrCbTable.cbCaptureJPEG(nChannelID, nWidth, nHeight,
+                                            nImageQuality, pOutBuffer,
+                                            nOutBufferSize, pnOutSize);
     }
 
     return NET_E_NOT_SUPPORT;
@@ -537,15 +537,15 @@ NET_API BOOL STDCALL NET_serverRegisterGetRecordFilePathCb(NET_CB_GetRecordFileP
  * @brief 执行获取录像文件完整路径回调
  * @return NET_E_SUCCEED 成功，其他值失败
  */
-int executeGetRecordFilePathCb(INT32 dwChannelID, const char* szDate,
-                               INT32 dwStartTime, INT32 dwEndTime,
-                               char* szFilePath, INT32 dwPathSize)
+int executeGetRecordFilePathCb(INT32 nChannelID, const char* pstrDate,
+                               INT32 nStartTime, INT32 nEndTime,
+                               char* pstrFilePath, INT32 nPathSize)
 {
     if (g_stNvrCbTable.cbGetRecordFilePath != NULL)
     {
-        return g_stNvrCbTable.cbGetRecordFilePath(dwChannelID, szDate,
-                                                  dwStartTime, dwEndTime,
-                                                  szFilePath, dwPathSize);
+        return g_stNvrCbTable.cbGetRecordFilePath(nChannelID, pstrDate,
+                                                  nStartTime, nEndTime,
+                                                  pstrFilePath, nPathSize);
     }
 
     return NET_E_NOT_SUPPORT;

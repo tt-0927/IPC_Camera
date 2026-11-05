@@ -64,7 +64,7 @@ static void NET_STDCALL FillDeviceInfo(NET_DiscoveryDeviceInfo_S* pInfo)
     snprintf(pInfo->strIPv4SubnetMask,  sizeof(pInfo->strIPv4SubnetMask),  "255.255.255.0");
     snprintf(pInfo->strIPv4Gateway,     sizeof(pInfo->strIPv4Gateway),     "172.16.25.1");
     snprintf(pInfo->strMACAddress,      sizeof(pInfo->strMACAddress),      "aa:bb:cc:dd:ee:ff");
-    snprintf(pInfo->strFirmwareVersion, sizeof(pInfo->strFirmwareVersion), "V1.0.0");
+    snprintf(pInfo->strFirmwareVersion, sizeof(pInfo->strFirmwareVersion), "V1.0.1");
     pInfo->uHttpPort = 80;
     snprintf(pInfo->strManufacturer,    sizeof(pInfo->strManufacturer),    "ITC");
 

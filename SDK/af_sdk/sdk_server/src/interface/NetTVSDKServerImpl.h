@@ -25,13 +25,13 @@ public:
 
     /**
      * @brief 初始化SDK服务器
-     * @param udwPort 服务器端口号
-     * @param szUserName 用户名
-     * @param szPassword 密码
-     * @param szDeviceName 设备名称
+     * @param uPort 服务器端口号
+     * @param strUserName 用户名
+     * @param strPassword 密码
+     * @param strDeviceName 设备名称
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoInit(UINT32 udwPort, CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132], CHAR szDeviceName[NET_LEN_132]);
+    BOOL DoInit(UINT32 uPort, CHAR strUserName[NET_LEN_132], CHAR strPassword[NET_LEN_132], CHAR strDeviceName[NET_LEN_132]);
 
     /**
      * @brief 清理SDK服务器资源
@@ -42,12 +42,12 @@ public:
     /**
      * @brief 设置日志
      * @param nLogLevel 日志级别
-     * @param strLogDir 日志目录
+     * @param pstrLogDir 日志目录
      * @param nLogFileSize 日志文件大小
-     * @param dwLogFileNum 日志文件数量
+     * @param nLogFileNum 日志文件数量
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoSetLogToFile(INT32 nLogLevel, CHAR* strLogDir, INT32 nLogFileSize, INT32 dwLogFileNum);
+    BOOL DoSetLogToFile(INT32 nLogLevel, CHAR* pstrLogDir, INT32 nLogFileSize, INT32 nLogFileNum);
 
     /**
      * @brief 获取SDK版本
@@ -63,21 +63,21 @@ public:
 
     /**
      * @brief 设置用户名密码
-     * @param szUserName 用户名
-     * @param szPassword 密码
+     * @param strUserName 用户名
+     * @param strPassword 密码
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoSetUserPasswd(CHAR szUserName[NET_LEN_132], CHAR szPassword[NET_LEN_132]);
+    BOOL DoSetUserPasswd(CHAR strUserName[NET_LEN_132], CHAR strPassword[NET_LEN_132]);
 
     /**
      * @brief 推送告警信息
      * @param pAlarmer 告警设备信息
-     * @param lCommand 命令码
+     * @param nCommand 命令码
      * @param pAlarmInfo 告警信息指针
-     * @param dwBufLen 缓冲区长度
+     * @param nBufLen 缓冲区长度
      * @return TRUE表示成功，FALSE表示失败
      */
-    BOOL DoPushAlarmInfo(NET_Alarmer_S* pAlarmer, INT32 lCommand, LPVOID pAlarmInfo, INT32 dwBufLen);
+    BOOL DoPushAlarmInfo(NET_Alarmer_S* pAlarmer, INT32 nCommand, LPVOID pAlarmInfo, INT32 nBufLen);
 
     /**
      * @brief 推送通道上下线状态
@@ -99,7 +99,7 @@ public:
     /**
      * @brief 启动设备发现响应服务
      */
-    BOOL DoDiscoveryStart(const CHAR* szInterfaceName);
+    BOOL DoDiscoveryStart(const CHAR* pstrInterfaceName);
 
     /**
      * @brief 停止设备发现响应服务

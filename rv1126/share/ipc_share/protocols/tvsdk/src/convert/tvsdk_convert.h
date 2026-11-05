@@ -244,8 +244,6 @@ void FillKeyAreaAbnormalStayInfo(const Alarm::KeyAreaAbnormalStayDetection_S &sr
 void ToKeyAreaAbnormalStay(const NET_KeyAreaAbnormalStayInfo_S &src, Alarm::KeyAreaAbnormalStayDetection_S &dst);
 void FillOpenFlameLeaveInfo(const Alarm::OpenFlameLeaveDetection_S &src, NET_OpenFlameLeaveInfo_S &dst);
 void ToOpenFlameLeave(const NET_OpenFlameLeaveInfo_S &src, Alarm::OpenFlameLeaveDetection_S &dst);
-
-/* ---- 平安校园扩展：单区域事件 ---- */
 void FillQueueCrowdingInfo(const Alarm::QueueCrowdingDetection_S &src, NET_QueueCrowdingInfo_S &dst);
 void ToQueueCrowding(const NET_QueueCrowdingInfo_S &src, Alarm::QueueCrowdingDetection_S &dst);
 void FillKitchenUnrelatedPersonInfo(const Alarm::KitchenUnrelatedPersonEntry_S &src, NET_KitchenUnrelatedPersonInfo_S &dst);

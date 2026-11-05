@@ -9,10 +9,13 @@
 #include "kitchen_clothing_sub_detector.hpp"
 
 #include <algorithm>
+#include <chrono>
 
 #include "event_configure.h" /* CEventConfigure */
 #include "kitchen_detect.hpp"
+#include "common_process.h"
 #include "dlog.h"
+#include "share_data.h"
 
 /* 灵敏度[1,100] 反向映射置信度门槛（同 region_stay_processor） */
 static float sensitivityToConfidence(unsigned int nSensitivity)
@@ -115,6 +118,7 @@ int CKitchenClothingSubDetector::process(const cv::Mat &rgbMat,
         std::min(static_cast<size_t>(stRegion.nPointNum), stRegion.aPoint.size()) >= 3;
 
     bool bAlarm = false;
+    const TrackedTarget_S *pstHitPerson = nullptr; /* 命中的违规人员 */
 
     for (const auto &stPerson : vecPersonTargets)
     {
@@ -174,11 +178,47 @@ int CKitchenClothingSubDetector::process(const cv::Mat &rgbMat,
         if (!bUniform || !bHat || !bMask)
         {
             bAlarm = true;
+            pstHitPerson = &stPerson;
             break;
         }
     }
 
-    /* 命中即驱动事件开始/结束上报（true/false + 事件类型，抓图等富化后续迭代） */
+#ifdef ENABLE_TVSDK_SRC
+    /* 组装触发上下文，状态机驱动事件开始/结束上报 */
+    EventTriggerContext_S stContext;
+    stContext.enEventType = Event::Type::KITCHEN_CLOTHING_COMPLIANCE;
+    stContext.nChnId = 0;
+    stContext.llTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+
+    /* 命中违规人员携带目标框与大小图 裁剪异常仅缺小图不影响上报 */
+    if (bAlarm && pstHitPerson != nullptr)
+    {
+        stContext.nTargetId = pstHitPerson->nTrackId;
+        stContext.nObjectType = 1; /* 人 */
+        stContext.fConfidence = pstHitPerson->fConfidence;
+        stContext.nLeft   = static_cast<int>(pstHitPerson->fX1);
+        stContext.nTop    = static_cast<int>(pstHitPerson->fY1);
+        stContext.nRight  = static_cast<int>(pstHitPerson->fX2);
+        stContext.nBottom = static_cast<int>(pstHitPerson->fY2);
+
+        encode_mat_to_tvsdk_image(rgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+
+        const int nX1 = std::max(0, stContext.nLeft);
+        const int nY1 = std::max(0, stContext.nTop);
+        const int nX2 = std::min(rgbMat.cols, stContext.nRight);
+        const int nY2 = std::min(rgbMat.rows, stContext.nBottom);
+        if (nX2 > nX1 && nY2 > nY1)
+        {
+            cv::Mat targetMat = rgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+            encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+        }
+    }
+
+    m_alarmStateMachine.handleAlarmState(bAlarm, stContext);
+#else
+    (void)pstHitPerson;
     m_alarmStateMachine.handleAlarmState(bAlarm, Event::Type::KITCHEN_CLOTHING_COMPLIANCE);
+#endif
     return 0;
 }

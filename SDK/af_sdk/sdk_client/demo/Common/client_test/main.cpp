@@ -24,6 +24,9 @@
 
 #include "NetTVSDKClientInterface.h"
 #include "web_server.h"
+/* 内部头: 仅测试工具旁路使用(手工构造带 Mode 查询参数的 GET URL), 正式产品请走公开接口 */
+#include "CommandExecutor.h"
+#include "NetTVSDKHttpUrl.h"
 
 /* Convert 头文件必须在 SDKConvert.h 之前包含 */
 #include "AlarmInfoConvert.h"
@@ -41,7 +44,7 @@
 
 static WebServer g_webServer;  /* 嵌入式 Web 服务器实例 */
 
-#define SERVER_IP       "172.16.25.213"
+#define SERVER_IP       "172.16.25.216"
 #define SERVER_PORT     9019
 #define USERNAME        "admin"
 #define PASSWORD        "itc20232024"
@@ -190,6 +193,62 @@ static void PrintStructJson(const char* pTestFunc, const char* pApiCall,
     printf("%s\n", SDKConvert::to_string(stStruct).c_str());
 }
 
+/* 打印本次测试的身份信息: 测试接口名 / 返回结构体 / GET与SET命令码
+ * 在等待任何输入之前调用, 便于只看到命令号(如187=逆行查询, 23=存储信息)时,
+ * 立刻知道当前在跑哪个接口, 不必再回头对照菜单标题栏;
+ * 这里打印的两个命令码即收发链路中实际使用的 NVR command 值 */
+static void PrintTestIdentity(const char* pTestFunc, const char* pStructName,
+                              INT32 nGetCmd, INT32 nSetCmd)
+{
+    printf("=== 测试接口：%s | 返回结构体：%s", pTestFunc, pStructName);
+    if (nGetCmd > 0) printf(" | GET命令：%d", nGetCmd);
+    if (nSetCmd > 0) printf(" | SET命令：%d", nSetCmd);
+    printf(" ===\n");
+}
+
+/* 事件配置返回值字段解读: 把返回JSON里的字段翻译成"取值含义 + 合法范围",
+ * 便于不查文档即可判断返回值是否合理。仅覆盖字段定义已确认的规则类事件:
+ *   线段规则类     - 违规变道(451/452)、逆行(453/454), 规则体为一条起止线
+ *   多边形区域规则类 - 行人闯入/离岗/非机动车闯入/应急车道占用, 规则体为多边形
+ * 其它结构体不打印, 避免输出无字段依据的说明 */
+static void PrintEventFieldGuide(const char* pStructName)
+{
+    static const char* kLineRuleEvents[] = {
+        "NET_IllegalLaneInfo_S", "NET_RetrogradeInfo_S",
+    };
+    static const char* kRegionRuleEvents[] = {
+        "NET_PedestrianIntrusionInfo_S", "NET_DimissionInfo_S",
+        "NET_NonmotorVehicleIntrusionInfo_S", "NET_OccupationEmergencyInfo_S",
+    };
+    BOOL bLine = 0;
+    BOOL bRegion = 0;
+    size_t i = 0;
+    for (i = 0; i < sizeof(kLineRuleEvents) / sizeof(kLineRuleEvents[0]); ++i) {
+        if (strcmp(pStructName, kLineRuleEvents[i]) == 0) { bLine = 1; break; }
+    }
+    for (i = 0; i < sizeof(kRegionRuleEvents) / sizeof(kRegionRuleEvents[0]); ++i) {
+        if (strcmp(pStructName, kRegionRuleEvents[i]) == 0) { bRegion = 1; break; }
+    }
+    if (!bLine && !bRegion) return;
+
+    printf("返回值解读(事件配置):\n");
+    printf("  Enable    : 事件总开关, 0=关, 1=开\n");
+    printf("  RuleCount : 实际生效规则条数(0~4), 仅 Rules 下标 0~RuleCount-1 有效\n");
+    if (bLine) {
+        printf("  Rules[i].StartPosX/StartPosY : 线段起点, 画布整数像素(0~1920 / 0~1080)\n");
+        printf("  Rules[i].EndPosX/EndPosY     : 线段终点, 同上\n");
+        printf("  Rules[i].CrossDirection      : 穿越方向, 1=由左至右, 2=由右至左\n");
+        printf("  起点与终点重合(如四值全0)表示该规则尚未绘制线段, 摄像机通常判为无效规则\n");
+    } else {
+        printf("  Rules[i].PointCount          : 多边形顶点数(0~32), 仅 PointX/PointY 下标 0~PointCount-1 有效\n");
+        printf("  Rules[i].PointX/PointY       : 顶点坐标数组, 画布整数像素(0~1920 / 0~1080)\n");
+        printf("  Rules[i].TimeThreshold       : 行为事件触发时间阈值(0~100, 单位秒)\n");
+    }
+    printf("  Rules[i].Sensitivity         : 灵敏度(1~100), 值越小越灵敏\n");
+    printf("  AlarmSchedule                : 布防时间段, TimeSectionCount[d]为第d天(d:0=周一~6=周日)段数(每天0~8段)\n");
+    printf("  LinkageList                  : 联动动作(报警输出/录像/抓拍/声音/闪光等), 各Count为生效条数\n");
+}
+
 /* Web 模式: 打印提示并从 stdin 读取一行 JSON 解析到结构体
  * 空行或解析失败时保持结构体当前值(即默认参数),
  * from_string 仅覆盖 JSON 中出现的字段 */
@@ -198,8 +257,15 @@ static void ReadStructJson(T& stStruct)
 {
     printf("等待输入Json数据：\n");
     fflush(stdout);
-    char line[2048];
+    /* 完整结构体JSON可达9KB(如移动侦测含GridArea/AlarmSchedule/Regions)，
+       缓冲区过小会被fgets截断导致解析失败静默回退旧值，且剩余输入残留stdin污染后续读取 */
+    static char line[65536];
     if (!fgets(line, sizeof(line), stdin)) return;
+    /* 输入超过缓冲区时排空该行剩余字符 */
+    if (!strchr(line, '\n')) {
+        int ch;
+        while ((ch = getchar()) != EOF && ch != '\n') {}
+    }
     size_t len = strlen(line);
     if (len > 0 && line[len - 1] == '\n') line[--len] = '\0';
     if (strcmp(line, "quit") == 0) {
@@ -251,6 +317,52 @@ static INT32 ReadChannelParam(INT32 nDefault)
 }
 
 /**
+ * @brief 读取智能模式参数(Mode), 用于支持前后智能切换的事件(如翻越围栏447 GET)
+ * @return 0=前智能(摄像机IPC配置), 1=NVR后智能(NVR本地配置), -1=不指定(按本地存储模式路由)
+ */
+static INT32 ReadModeParam(bool bRequire = false)
+{
+    for (;;)
+    {
+        printf(bRequire
+               ? "等待输入Mode值(0=前智能(摄像机IPC配置), 1=NVR后智能(NVR本地配置)，必须输入0或1)：\n"
+               : "等待输入Mode值(0=前智能(摄像机IPC配置), 1=NVR后智能(NVR本地配置), 空行=不指定)：\n");
+        fflush(stdout);
+        char line[128];
+        if (!fgets(line, sizeof(line), stdin)) return -1;
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') line[--len] = '\0';
+        if (strcmp(line, "quit") == 0) {
+            printf("\n[中断] 用户输入 quit, 中止当前测试\n");
+            fflush(stdout);
+            longjmp(g_quitJmp, 1);
+        }
+        if (strcmp(line, "clear") == 0) {
+            printf("\n[CLEAR]\n");
+            fflush(stdout);
+            longjmp(g_quitJmp, 1);
+        }
+        if (line[0] == '\0') {
+            if (bRequire) {
+                printf("[输入] 前后智能事件必须明确输入 0 或 1，避免读写模式不一致\n");
+                continue;
+            }
+            return -1;  /* 空行: 不指定, 由服务端按本地存储模式路由 */
+        }
+        int nVal = -1;
+        if (sscanf(line, "%d", &nVal) == 1 && (nVal == 0 || nVal == 1)) {
+            return (INT32)nVal;
+        }
+        if (bRequire) {
+            printf("[输入] 非0/1, 请重新输入\n");
+            continue;
+        }
+        printf("[输入] 非0/1, 按不指定处理\n");
+        return -1;
+    }
+}
+
+/**
  * @brief 选择操作的客户端槽位
  * @return 槽位索引 [0, MAX_CLIENTS)，-1 表示取消
  */
@@ -290,21 +402,396 @@ static void NET_STDCALL ExceptionCallBack(LPVOID lpUserID, INT32 dwType,
            lpUserID, dwType, lpExpHandle);
 }
 
+/* ---- 报警回调打印辅助 ---- */
+
+/**
+ * @brief 报警命令码 -> 可读名称
+ * @note  覆盖 SDK 服务端目前会下发的全部报警类型；新增报警类型时在此同步补充。
+ *        命令码定义见 NetTVSDKCommon.h 的 NET_ALARM_xxx / NET_NOTIFY_xxx。
+ */
+static const char* AlarmCmdName(INT64 lCommand)
+{
+    switch ((INT32)lCommand)
+    {
+    /* 0x1000 基础/常规报警 */
+    case NET_ALARM_MOTION_DETECT:  return "移动侦测";
+    case NET_ALARM_OCCLUSION:      return "视频遮挡";
+    case NET_ALARM_ANOMALY:        return "异常报警";
+    case NET_ALARM_AUDIO:          return "声音报警";
+    case NET_ALARM_INPUT:          return "报警输入";
+    case NET_ALARM_OUTPUT:         return "报警输出";
+    case NET_ALARM_FLASH:          return "闪光灯报警";
+    case NET_ALARM_PIR:            return "PIR红外报警";
+
+    /* 0x2000 周界/区域规则报警 */
+    case NET_ALARM_LINE_CROSSING:     return "越界侦测";
+    case NET_ALARM_INTRUSION:         return "区域入侵";
+    case NET_ALARM_ENTER_REGION:      return "进入区域";
+    case NET_ALARM_LEAVE_REGION:      return "离开区域";
+    case NET_ALARM_OBJECT_REMOVAL:    return "物品拿取";
+    case NET_ALARM_UNATTENDED_OBJECT: return "物品遗留";
+
+    /* 0x3000 AI 目标/行为报警 */
+    case NET_ALARM_FACE_DETECT:              return "人脸侦测";
+    case NET_ALARM_FACE_CAPTURE:             return "人脸抓拍";
+    case NET_ALARM_CROWD_GATHERING:          return "人员聚集";
+    case NET_ALARM_LOITERING:                return "徘徊侦测";
+    case NET_ALARM_PERSON_FALL:              return "人员倒地";
+    case NET_ALARM_RUNNING:                  return "快速奔跑";
+    case NET_ALARM_FACE_COMPARE:             return "人脸比对";
+    case NET_ALARM_PARKING_DETECT:           return "停车侦测";
+    case NET_ALARM_SLEEP_ON_DUTY:            return "睡岗";
+    case NET_ALARM_LEAVE_POST:               return "离岗";
+    case NET_ALARM_SMOKING:                  return "抽烟";
+    case NET_ALARM_PHONE_USAGE:              return "玩手机";
+    case NET_ALARM_HELMET_MISSING:           return "未戴安全帽";
+    case NET_ALARM_NO_REFLECTIVE_VEST:       return "未穿反光衣";
+    case NET_ALARM_SMOKE_FIRE:               return "烟火检测";
+    case NET_ALARM_PERSON_TRIP:              return "人员绊倒";
+    case NET_ALARM_ELECTRIC_VEHICLE_IN_ELEVATOR: return "电瓶车进电梯";
+    case NET_ALARM_GARBAGE_EXPOSURE:         return "垃圾暴露";
+    case NET_ALARM_GARBAGE_OVERFLOW:         return "垃圾满溢";
+    case NET_ALARM_MANHOLE_COVER_ABNORMAL:   return "井盖异常";
+    case NET_ALARM_FENCE_CLIMBING:           return "翻越围栏";
+    case NET_ALARM_BARE_SOIL:                return "黄土裸露";
+    case NET_ALARM_HOLE_PROTECTION_BAR:      return "洞口防护栏";
+    case NET_ALARM_PEDESTRIAN_INTRUSION:     return "行人入侵";
+    case NET_ALARM_HIGH_ALTITUDE_SEATBELT:   return "高空安全带";
+    case NET_ALARM_CONSTRUCTION_OCCUPY_ROAD: return "施工占道";
+    case NET_ALARM_EMERGENCY_LANE_OCCUPANCY: return "应急车道占用";
+    case NET_ALARM_REVERSE_DIRECTION:        return "车辆逆行";
+    case NET_ALARM_NON_MOTOR_VEHICLE_INTRUSION: return "非机动车入侵";
+    case NET_ALARM_ROAD_PONDING:             return "道路积水";
+    case NET_ALARM_CONGESTION:               return "拥堵识别";
+    case NET_ALARM_ILLEGAL_LANE_CHANGE:      return "违法变道";
+    case NET_ALARM_SCENE_CHANGE:             return "场景变更";
+    case NET_ALARM_OPEN_FLAME:               return "明火识别";
+    case NET_ALARM_AUDIO_ANOMALY:            return "音频异常";
+    case NET_ALARM_AUDIO_SUDDEN_RISE:        return "声强陡升";
+    case NET_ALARM_AUDIO_SUDDEN_DROP:        return "声强突降";
+
+    /* 0x4000 交通/车辆 */
+    case NET_ALARM_PLATE_RECOGNITION:    return "车牌识别";
+    case NET_ALARM_ILLEGAL_PARKING:      return "违章停车";
+    case NET_ALARM_TRAFFIC_CONGESTION:   return "交通拥堵";
+
+    /* 0x5000 设备异常/状态 */
+    case NET_ALARM_DISK_FULL:            return "硬盘满";
+    case NET_ALARM_DISK_ERROR:           return "硬盘异常";
+    case NET_ALARM_NET_BROKEN:           return "网络断开";
+    case NET_ALARM_IP_CONFLICT:          return "IP冲突";
+    case NET_ALARM_VIDEO_LOSS:           return "视频丢失";
+
+    /* 0x6000 统计类 */
+    case NET_ALARM_PEOPLE_FLOW_STATISTICS:    return "人流统计";
+    case NET_ALARM_PEOPLE_DENSITY_STATISTICS: return "人员密度统计";
+
+    /* 0x6100 抓拍类 */
+    case NET_ALARM_CAPTURE_PEOPLE:       return "行人抓拍";
+    case NET_ALARM_CAPTURE_FACE:         return "人脸抓拍(抓拍结构)";
+    case NET_ALARM_CAPTURE_VEHICLE:      return "机动车抓拍";
+    case NET_ALARM_CAPTURE_NON_MOTOR:    return "非机动车抓拍";
+
+    /* 0x7000 通知类 */
+    case NET_NOTIFY_CHANNEL_STATUS:      return "通道状态变更";
+
+    /* 通用命令码 */
+    case NET_NOTICE_DOWNLOAD_RECORD_PROGRESS: return "录像下载进度";
+
+    default: return "未定义";
+    }
+}
+
+/**
+ * @brief 判断图片缓冲区内容格式（只做调试展示，不解码图片）
+ * @return "空" / "JPEG" / "非JPEG"
+ */
+static const char* ImageFormatName(const BYTE *pData, UINT32 uLen)
+{
+    if (!pData || uLen == 0) return "空";
+    if (uLen >= 2 && pData[0] == 0xFF && pData[1] == 0xD8) return "JPEG";
+    return "非JPEG";
+}
+
+/**
+ * @brief 打印基础报警里的通道位图（byChannel[i]=1 表示通道 i 触发）
+ */
+static void PrintChannelList(const BYTE *pFlags, int nMax)
+{
+    printf("[");
+    bool bFirst = true;
+    for (int i = 0; pFlags && i < nMax; ++i) {
+        if (pFlags[i]) {
+            printf("%s%d", bFirst ? "" : ",", i);
+            bFirst = false;
+        }
+    }
+    printf("%s]", bFirst ? "无" : "");
+}
+
+/**
+ * @brief 毫秒时间戳 -> 本地时间字符串（仅调试展示，不做时区换算）
+ */
+static const char* FormatAlarmTime(INT64 llTimestampMs, char *pBuf, size_t nBufSize)
+{
+    if (!pBuf || nBufSize == 0) return "";
+    if (llTimestampMs <= 0) {
+        snprintf(pBuf, nBufSize, "0(无效)");
+        return pBuf;
+    }
+    const time_t sec = (time_t)(llTimestampMs / 1000);
+    struct tm tmValue = {0};
+    localtime_r(&sec, &tmValue);
+    snprintf(pBuf, nBufSize, "%04d-%02d-%02d %02d:%02d:%02d.%03d",
+             tmValue.tm_year + 1900, tmValue.tm_mon + 1, tmValue.tm_mday,
+             tmValue.tm_hour, tmValue.tm_min, tmValue.tm_sec,
+             (int)(llTimestampMs % 1000));
+    return pBuf;
+}
+
+/**
+ * @brief 未知命令码/结构体长度不符时打印原始载荷
+ * @note  客户端对未建模的命令码会把 JSON 文本原样透传上来，所以优先按 JSON 显示；
+ *        其余情况按二进制打印前 32 字节，便于判断是不是结构体版本不一致。
+ */
+static void PrintRawAlarmPayload(const CHAR *pData, INT32 nLen)
+{
+    if (!pData || nLen <= 0) {
+        printf("  └ 原始数据: 空\n");
+        return;
+    }
+
+    /* 跳过前导空白后判断是否为 JSON 文本 */
+    INT32 i = 0;
+    while (i < nLen && (pData[i] == ' ' || pData[i] == '\r' || pData[i] == '\n' || pData[i] == '\t')) ++i;
+    if (i < nLen && pData[i] == '{') {
+        const INT32 nShow = (nLen > 512) ? 512 : nLen;
+        printf("  └ 原始JSON(%d字节, 显示前%d字节): %.*s%s\n",
+               nLen, nShow, nShow, pData, (nLen > nShow) ? "..." : "");
+        return;
+    }
+
+    const INT32 nShow = (nLen > 32) ? 32 : nLen;
+    printf("  └ 原始二进制(%d字节), 前%d字节:", nLen, nShow);
+    for (INT32 k = 0; k < nShow; ++k) {
+        printf(" %02X", (BYTE)pData[k]);
+    }
+    printf("\n");
+}
+
+/**
+ * @brief 报警消息回调（NET_clientSetAlarmCallBack 注册）
+ * @param lCommand   命令码，按高字节划分报警基类
+ * @param pAlarmer   报警设备信息（设备名/序列号/IP）
+ * @param pAlarmInfo 报警结构体指针；未建模的命令码为 JSON 文本
+ * @param dwBufLen   载荷字节数（结构体大小或 JSON 长度）
+ * @note  结构体里带 1MB 级图片缓冲，绝不能当字符串打印；这里按命令码基类强转后
+ *        只输出关键字段（类型/通道/时间/目标框/图片长度），未知类型退化为原始数据。
+ */
 static void NET_STDCALL AlarmCallBack(INT64 lCommand, NET_Alarmer_S *pAlarmer,
                                        CHAR *pAlarmInfo, INT32 *dwBufLen, LPVOID lpUserData)
 {
-    printf("\n[报警回调] Cmd=%lld", (long long)lCommand);
+    (void)lpUserData;
+
+    const INT32 nDataLen = (dwBufLen && *dwBufLen > 0) ? *dwBufLen : 0;
+    /* 与服务端/客户端 AlarmListener 保持一致：按命令码高字节识别基类，
+       避免把 0x6100 抓拍误判成 0x6000 统计、把 0x3007 比对误判成普通 AI */
+    const INT32 nAlarmBase = ((INT32)lCommand) & 0xFF00;
+
+    /* 第一行：命令码 + 载荷长度 + 设备身份 */
+    printf("\n[报警回调] cmd=0x%llX(%s) 载荷=%d字节",
+           (long long)lCommand, AlarmCmdName(lCommand), nDataLen);
     if (pAlarmer) {
-        printf(", 设备=%s, 序列号=%s, IP=%s",
+        printf(" | 设备=%s 序列号=%.*s IP=%s",
                pAlarmer->strDeviceName,
-               (const char*)pAlarmer->strSerialNumber,
+               (int)sizeof(pAlarmer->strSerialNumber), (const char*)pAlarmer->strSerialNumber,
                pAlarmer->strDeviceIP);
     }
-    if (pAlarmInfo && dwBufLen && *dwBufLen > 0) {
-        INT32 len = (*dwBufLen > 256) ? 256 : *dwBufLen;
-        printf("\n  报警数据(%d字节): %.*s", *dwBufLen, len, pAlarmInfo);
-    }
     printf("\n");
+
+    if (!pAlarmInfo || nDataLen <= 0) {
+        printf("  └ 无报警数据(回调载荷为空，检查服务端是否组包成功)\n");
+        fflush(stdout);
+        return;
+    }
+
+    char strTime[64] = {0};
+
+    /* 人脸比对(0x3007)也落在 0x3000 基类，必须先于 AI 分支判断 */
+    if ((INT32)lCommand == NET_ALARM_FACE_COMPARE)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmFaceCompareInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmFaceCompareInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmFaceCompareInfo_S *pInfo = (const NET_AlarmFaceCompareInfo_S*)pAlarmInfo;
+            printf("  └ 类型=人脸比对 channel=%u 结果=%s(CompResult=%d) 相似度=%d%% faceId=%d eventId=%d\n",
+                   pInfo->uChannel,
+                   pInfo->nCompResult == 1 ? "匹配" : "不匹配",
+                   pInfo->nCompResult, pInfo->nSimilarity, pInfo->nFaceId, pInfo->nEventId);
+            printf("     时间=%s 目标库=%s 姓名=%s\n",
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)),
+                   pInfo->strFaceLibName, pInfo->strFaceName);
+            printf("     库脸图=%u字节(%s) 抓拍脸图=%u字节(%s) 抓拍原图路径=%s\n",
+                   pInfo->uLibFaceImgLen, ImageFormatName(pInfo->byLibFaceImg, pInfo->uLibFaceImgLen),
+                   pInfo->uCapFaceImgLen, ImageFormatName(pInfo->byCapFaceImg, pInfo->uCapFaceImgLen),
+                   pInfo->strCapImagePath);
+        }
+    }
+    /* 0x1000 基础/常规报警 */
+    else if (nAlarmBase == NET_ALARM_BASE_BASIC)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmBasicInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmBasicInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmBasicInfo_S *pInfo = (const NET_AlarmBasicInfo_S*)pAlarmInfo;
+            printf("  └ 类型=基础报警 alarmType=0x%X(%s) 触发通道=",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType));
+            PrintChannelList(pInfo->byChannel, NET_MAX_ALARM_IN_NUM);
+            printf(" 时间=%s 全景图=%u字节(%s)\n",
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)),
+                   pInfo->uPanoramaImgLen, ImageFormatName(pInfo->byPanoramaImg, pInfo->uPanoramaImgLen));
+            if (pInfo->uAlarmInputNumber > 0) {
+                printf("     报警输入口=%u\n", pInfo->uAlarmInputNumber);
+            }
+        }
+    }
+    /* 0x2000 周界/区域规则报警 */
+    else if (nAlarmBase == NET_ALARM_BASE_RULE)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmRuleInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmRuleInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmRuleInfo_S *pInfo = (const NET_AlarmRuleInfo_S*)pAlarmInfo;
+            printf("  └ 类型=周界规则 alarmType=0x%X(%s) channel=%u ruleId=%u ruleType=%u 规则名=%s\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType),
+                   pInfo->uChannel, pInfo->uRuleID, pInfo->uRuleType, pInfo->strRuleName);
+            printf("     目标ID=%u 目标类型=%u 置信度=%.2f 目标框=[%d,%d,%d,%d] 时间=%s\n",
+                   pInfo->uTargetID, pInfo->uObjectType, pInfo->fConfidence,
+                   pInfo->nLeft, pInfo->nTop, pInfo->nRight, pInfo->nBottom,
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)));
+            printf("     全景图=%u字节(%s) 目标图=%u字节(%s)\n",
+                   pInfo->uPanoramaImgLen, ImageFormatName(pInfo->byPanoramaImg, pInfo->uPanoramaImgLen),
+                   pInfo->uTargetImgLen, ImageFormatName(pInfo->byTargetImg, pInfo->uTargetImgLen));
+        }
+    }
+    /* 0x3000 AI 目标/行为报警 */
+    else if (nAlarmBase == NET_ALARM_BASE_AI)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmAiObjectInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmAiObjectInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmAiObjectInfo_S *pInfo = (const NET_AlarmAiObjectInfo_S*)pAlarmInfo;
+            printf("  └ 类型=AI目标报警 alarmType=0x%X(%s) channel=%u 目标ID=%s\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType),
+                   pInfo->uChannel, pInfo->strObjectID);
+            printf("     目标类型=%u 置信度=%.2f 目标框=[%d,%d,%d,%d] 时间=%s\n",
+                   pInfo->uObjectType, pInfo->fConfidence,
+                   pInfo->nLeft, pInfo->nTop, pInfo->nRight, pInfo->nBottom,
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)));
+            printf("     主图=%u字节(%s) 全景图=%u字节(%s)\n",
+                   pInfo->uImgLen, ImageFormatName(pInfo->byImgData, pInfo->uImgLen),
+                   pInfo->uPanoramaImgLen, ImageFormatName(pInfo->byPanoramaImg, pInfo->uPanoramaImgLen));
+        }
+    }
+    /* 0x4000 交通/车辆报警 */
+    else if (nAlarmBase == NET_ALARM_BASE_TRAFFIC)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmPlateInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmPlateInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmPlateInfo_S *pInfo = (const NET_AlarmPlateInfo_S*)pAlarmInfo;
+            printf("  └ 类型=交通报警 alarmType=0x%X(%s) channel=%u 车牌=%s\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType),
+                   pInfo->uChannel, pInfo->strPlateNumber);
+            printf("     车牌颜色=%u 车辆类型=%u 置信度=%.2f 速度=%u 车道=%u 车牌图=%u字节(%s)\n",
+                   pInfo->uPlateColor, pInfo->uVehicleType, pInfo->fConfidence,
+                   pInfo->uSpeed, pInfo->uLaneNo,
+                   pInfo->uPlateImgLen, ImageFormatName(pInfo->byPlateImg, pInfo->uPlateImgLen));
+        }
+    }
+    /* 0x5000 设备异常/状态 */
+    else if (nAlarmBase == NET_ALARM_BASE_EXCEPTION)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmExceptionInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmExceptionInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmExceptionInfo_S *pInfo = (const NET_AlarmExceptionInfo_S*)pAlarmInfo;
+            printf("  └ 类型=设备异常 alarmType=0x%X(%s) channel=%u 硬盘号=%u 状态=%s(%u)\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType), pInfo->uChannel,
+                   pInfo->uDiskNo, pInfo->uStatus ? "触发" : "恢复", pInfo->uStatus);
+        }
+    }
+    /* 0x6000 统计类 */
+    else if (nAlarmBase == NET_ALARM_BASE_STATISTICS)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmStatisticsInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmStatisticsInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmStatisticsInfo_S *pInfo = (const NET_AlarmStatisticsInfo_S*)pAlarmInfo;
+            printf("  └ 类型=统计报警 alarmType=0x%X(%s) channel=%u 统计类型=%u 时间=%s\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType), pInfo->uChannel,
+                   pInfo->uStatisticsType,
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)));
+            printf("     进入=%u 离开=%u 总计=%u 当前人数=%u 平均停留=%u秒 目标数=%u 全景图=%u字节(%s)\n",
+                   pInfo->uEnterCount, pInfo->uLeaveCount, pInfo->uTotalCount,
+                   pInfo->uCurrentPeopleCount, pInfo->uAverageStayTimeSec, pInfo->uTargetCount,
+                   pInfo->uPanoramaImgLen, ImageFormatName(pInfo->byPanoramaImg, pInfo->uPanoramaImgLen));
+        }
+    }
+    /* 0x6100 抓拍类 */
+    else if (nAlarmBase == NET_ALARM_BASE_CAPTURE)
+    {
+        if (nDataLen < (INT32)sizeof(NET_AlarmCaptureInfo_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_AlarmCaptureInfo_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_AlarmCaptureInfo_S *pInfo = (const NET_AlarmCaptureInfo_S*)pAlarmInfo;
+            printf("  └ 类型=抓拍报警 alarmType=0x%X(%s) channel=%u 抓拍类型=%u 时间=%s\n",
+                   pInfo->uAlarmType, AlarmCmdName(pInfo->uAlarmType), pInfo->uChannel,
+                   pInfo->uCaptureType,
+                   FormatAlarmTime(pInfo->llTimestampMs, strTime, sizeof(strTime)));
+            printf("     全景图=%ux%u %u字节(%s) 小图数=%u\n",
+                   pInfo->uPanoramaWidth, pInfo->uPanoramaHeight,
+                   pInfo->stPanoramaImg.uDataLen,
+                   ImageFormatName(pInfo->stPanoramaImg.pData, pInfo->stPanoramaImg.uDataLen),
+                   pInfo->uCropCount);
+        }
+    }
+    /* 录像下载进度通知 */
+    else if ((INT32)lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
+    {
+        if (nDataLen < (INT32)sizeof(NET_RecordDownloadProgress_S)) {
+            printf("  └ 载荷长度不足: 收到=%d 期望>=%zu，结构体版本可能不一致\n",
+                   nDataLen, sizeof(NET_RecordDownloadProgress_S));
+            PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+        } else {
+            const NET_RecordDownloadProgress_S *pInfo = (const NET_RecordDownloadProgress_S*)pAlarmInfo;
+            printf("  └ 类型=录像下载进度 文件=%s 进度=%d%%\n", pInfo->strFilename, pInfo->nProgress);
+        }
+    }
+    else
+    {
+        printf("  └ 类型=未建模命令码(基类=0x%X)\n", nAlarmBase);
+        PrintRawAlarmPayload(pAlarmInfo, nDataLen);
+    }
+
+    /* 回调可能运行在 SDK 接收线程，及时刷出，避免重定向到日志时内容滞留在缓冲区 */
+    fflush(stdout);
 }
 
 static void NET_STDCALL ChannelStatusCallBack(NET_ChannelInfo_S *pChannelInfo, LPVOID lpUserData)
@@ -314,8 +801,8 @@ static void NET_STDCALL ChannelStatusCallBack(NET_ChannelInfo_S *pChannelInfo, L
            pChannelInfo->uChannel,
            pChannelInfo->byEnable ? "是" : "否",
            pChannelInfo->byOnline ? "是" : "否",
-           pChannelInfo->szChannelName,
-           pChannelInfo->szDeviceIP);
+           pChannelInfo->strChannelName,
+           pChannelInfo->strDeviceIP);
 }
 
 static void NET_STDCALL RecordFrameCallBack(const NET_RecordFrameInfo_S *pstFrameInfo,
@@ -407,8 +894,9 @@ static void Test_GetVersion()
     INT32 ver = NET_clientGetSdkVersion();
     int major = (ver >> 24) & 0xFF;
     int minor = (ver >> 16) & 0xFF;
-    int sub   = ver & 0xFFFF;
-    printf("[版本] SDK版本: %d.%d.%d (0x%08X)\n", major, minor, sub, ver);
+    int rev1  = (ver >> 8) & 0xFF;
+    int rev2  = ver & 0xFF;
+    printf("[版本] SDK版本: %d.%d.%d.%d (0x%08X)\n", major, minor, rev1, rev2, ver);
 }
 
 /** 4. 获取最后错误码 */
@@ -521,10 +1009,10 @@ static void Test_Login()
 
     NET_DeviceLoginInfo_S loginInfo;
     memset(&loginInfo, 0, sizeof(loginInfo));
-    SafeCopy(loginInfo.szIPAddr, sizeof(loginInfo.szIPAddr), ip);
+    SafeCopy(loginInfo.strIPAddr, sizeof(loginInfo.strIPAddr), ip);
     loginInfo.uPort = port;
-    SafeCopy(loginInfo.szUserName, sizeof(loginInfo.szUserName), user);
-    SafeCopy(loginInfo.szPassword, sizeof(loginInfo.szPassword), pass);
+    SafeCopy(loginInfo.strUserName, sizeof(loginInfo.strUserName), user);
+    SafeCopy(loginInfo.strPassword, sizeof(loginInfo.strPassword), pass);
 
     memset(&g_devInfo[idx], 0, sizeof(NET_DeviceInfo_S));
 
@@ -892,6 +1380,7 @@ static void Test_GetChannelList()
 /** 23. 获取存储信息 (NET_GET_STORAGE_INFO=504) */
 static void Test_GetStorageInfo()
 {
+    PrintTestIdentity("Test_GetStorageInfo", "NET_DeviceStorageInfo_S", NET_GET_STORAGE_INFO, 0);
     int idx = SelectClient("存储信息");
     if (idx < 0) return;
     if (!g_lpUserID[idx]) { printf("[Storage] 客户端%d未登录\n", idx+1); return; }
@@ -1054,49 +1543,22 @@ static void Test_GetReplayRecordList()
         /* Web 模式: 必要参数以 JSON 一次性输入, 如 {"Channel":0,"Date":"2026-09-01"} */
         time_t now = time(NULL);
         struct tm* tmNow = localtime(&now);
-        strftime(list.szDate, sizeof(list.szDate), "%Y-%m-%d", tmNow);  /* 默认今天 */
+        strftime(list.strDate, sizeof(list.strDate), "%Y-%m-%d", tmNow);  /* 默认今天 */
         ReadStructJson(list);
     } else {
         list.uChannel = ReadInt("通道号(0=第一通道, 回车=-1设备级): ");
         time_t now = time(NULL);
         struct tm* tmNow = localtime(&now);
-        strftime(list.szDate, sizeof(list.szDate), "%Y-%m-%d", tmNow);
+        strftime(list.strDate, sizeof(list.strDate), "%Y-%m-%d", tmNow);
         char dateBuf[32];
-        ReadStringDefault("日期(YYYY-MM-DD)", dateBuf, sizeof(dateBuf), list.szDate);
-        SafeCopy(list.szDate, sizeof(list.szDate), dateBuf);
+        ReadStringDefault("日期(YYYY-MM-DD)", dateBuf, sizeof(dateBuf), list.strDate);
+        SafeCopy(list.strDate, sizeof(list.strDate), dateBuf);
     }
 
     INT32 nRetBytes = 0;
     BOOL ret = NET_clientGetDevConfig(g_lpUserID[idx], list.uChannel, NET_GET_REPLAY_RECORD_LIST, &list, sizeof(list), &nRetBytes);
     if (!ret) { PrintFailure("[RecList] 查询"); return; }
     PrintStructJson("Test_GetReplayRecordList", "NET_clientGetDevConfig【124】", "NET_ReplayRecordList_S", list);
-}
-
-/** 31. 获取回放地址 (NET_clientGetReplayUrl) */
-static void Test_GetReplayUrl()
-{
-    int idx = SelectClient("回放地址");
-    if (idx < 0) return;
-    if (!g_lpUserID[idx]) { printf("[ReplayUrl] 客户端%d未登录\n", idx+1); return; }
-
-    NET_ReplayUrlInfo_S url;
-    memset(&url, 0, sizeof(url));
-    if (g_bWebMode) {
-        /* Web 模式: 必要参数以 JSON 一次性输入, 如 {"Channel":0,"StartTime":"2026-09-01 00:00:00","EndTime":"2026-09-01 23:59:59"} */
-        GetDefaultTimeRange(url.szStartTime, sizeof(url.szStartTime), url.szEndTime, sizeof(url.szEndTime));
-        ReadStructJson(url);
-    } else {
-        url.uChannel = ReadInt("通道号(0=第一通道, 回车=-1设备级): ");
-        char start[64], end[64];
-        GetDefaultTimeRange(start, sizeof(start), end, sizeof(end));
-        ReadStringDefault("开始时间", url.szStartTime, sizeof(url.szStartTime), start);
-        ReadStringDefault("结束时间", url.szEndTime, sizeof(url.szEndTime), end);
-    }
-
-    INT32 nRetBytes = 0;
-    BOOL ret = NET_clientGetReplayUrl(g_lpUserID[idx], &url, &nRetBytes);
-    if (ret) PrintStructJson("Test_GetReplayUrl", "NET_clientGetReplayUrl", "NET_ReplayUrlInfo_S", url);
-    else PrintFailure("[ReplayUrl]");
 }
 
 /** 32. 回放控制 (NET_clientControlReplay) */
@@ -1127,13 +1589,13 @@ static void Test_ControlReplay()
         /* from_string 对 char 数组字段是覆写语义(JSON缺key即清空), 解析前的预填会被抹掉,
          * 所以默认参数统一在解析后兜底: 2~6补上次会话ID(服务端校验 stop/pause/resume 缺失即拒 102),
          * 1补默认时间(仅起止都未填时) */
-        if (ctrl.uCtrlType != NET_REPLAY_CTRL_START && ctrl.szSessionId[0] == '\0' && g_replaySessionId[0]) {
-            SafeCopy(ctrl.szSessionId, sizeof(ctrl.szSessionId), g_replaySessionId);
+        if (ctrl.uCtrlType != NET_REPLAY_CTRL_START && ctrl.strSessionId[0] == '\0' && g_replaySessionId[0]) {
+            SafeCopy(ctrl.strSessionId, sizeof(ctrl.strSessionId), g_replaySessionId);
             printf("[Replay] 自动填上次会话: %s\n", g_replaySessionId);
         }
-        if (ctrl.uCtrlType == NET_REPLAY_CTRL_START && ctrl.szStartTime[0] == '\0' && ctrl.szEndTime[0] == '\0') {
-            GetDefaultTimeRange(ctrl.szStartTime, sizeof(ctrl.szStartTime), ctrl.szEndTime, sizeof(ctrl.szEndTime));
-            printf("[Replay] 自动填默认时间: %s ~ %s\n", ctrl.szStartTime, ctrl.szEndTime);
+        if (ctrl.uCtrlType == NET_REPLAY_CTRL_START && ctrl.strStartTime[0] == '\0' && ctrl.strEndTime[0] == '\0') {
+            GetDefaultTimeRange(ctrl.strStartTime, sizeof(ctrl.strStartTime), ctrl.strEndTime, sizeof(ctrl.strEndTime));
+            printf("[Replay] 自动填默认时间: %s ~ %s\n", ctrl.strStartTime, ctrl.strEndTime);
         }
         /* 2~6 若未填 Channel, 沿用上次会话所在的通道, 避免全部落到 0 通道 */
         if (ctrl.uCtrlType != NET_REPLAY_CTRL_START && ctrl.uChannel == 0) {
@@ -1144,8 +1606,8 @@ static void Test_ControlReplay()
          * 服务端按会话续位, 传时间也不会报错但会被忽略 —— 这里直接清空,
          * 避免用户误以为要自己算暂停时刻, 也避免把无关时间下发到服务端 */
         if (ctrl.uCtrlType == NET_REPLAY_CTRL_RESUME || ctrl.uCtrlType == NET_REPLAY_CTRL_PAUSE) {
-            ctrl.szStartTime[0] = '\0';
-            ctrl.szEndTime[0] = '\0';
+            ctrl.strStartTime[0] = '\0';
+            ctrl.strEndTime[0] = '\0';
         }
     } else {
         printf("  [1] 开始回放  [2] 停止  [3] 倍速  [4] 暂停  [5] 跳转  [6] 恢复\n");
@@ -1159,21 +1621,21 @@ static void Test_ControlReplay()
             g_replayChannel = ctrl.uChannel;
             char start[64], end[64];
             GetDefaultTimeRange(start, sizeof(start), end, sizeof(end));
-            ReadStringDefault("开始时间", ctrl.szStartTime, sizeof(ctrl.szStartTime), start);
-            ReadStringDefault("结束时间", ctrl.szEndTime, sizeof(ctrl.szEndTime), end);
+            ReadStringDefault("开始时间", ctrl.strStartTime, sizeof(ctrl.strStartTime), start);
+            ReadStringDefault("结束时间", ctrl.strEndTime, sizeof(ctrl.strEndTime), end);
         } else {
             if (g_replaySessionId[0]) {
-                SafeCopy(ctrl.szSessionId, sizeof(ctrl.szSessionId), g_replaySessionId);
+                SafeCopy(ctrl.strSessionId, sizeof(ctrl.strSessionId), g_replaySessionId);
                 printf("使用会话: %s\n", g_replaySessionId);
             } else {
-                ReadString("会话ID(上次为空): ", ctrl.szSessionId, sizeof(ctrl.szSessionId));
+                ReadString("会话ID(上次为空): ", ctrl.strSessionId, sizeof(ctrl.strSessionId));
             }
             /* 通道号必须带: 设备端 ControlReplay 用它定位 relay 组, 缺省 0 会与
              * 实际会话通道不一致 —— 默认直接沿用开始回放时的通道 */
             {
-                char szPrompt[64] = {0};
-                snprintf(szPrompt, sizeof(szPrompt), "通道号(默认%d): ", g_replayChannel);
-                ctrl.uChannel = ReadInt(szPrompt);
+                char strPrompt[64] = {0};
+                snprintf(strPrompt, sizeof(strPrompt), "通道号(默认%d): ", g_replayChannel);
+                ctrl.uChannel = ReadInt(strPrompt);
             }
             if (cmd == NET_REPLAY_CTRL_SET_SPEED) {
                 printf("倍速值(仅支持1/2/4/8): ");
@@ -1192,12 +1654,12 @@ static void Test_ControlReplay()
     BOOL ret = NET_clientControlReplay(g_lpUserID[idx], &ctrl, &nRetBytes);
     if (ret) {
         PrintStructJson("Test_ControlReplay", "NET_clientControlReplay", "NET_ReplayCtrlInfo_S", ctrl);
-        if (ctrl.uCtrlType == NET_REPLAY_CTRL_START && ctrl.szSessionId[0])
-            SafeCopy(g_replaySessionId, sizeof(g_replaySessionId), ctrl.szSessionId);
+        if (ctrl.uCtrlType == NET_REPLAY_CTRL_START && ctrl.strSessionId[0])
+            SafeCopy(g_replaySessionId, sizeof(g_replaySessionId), ctrl.strSessionId);
         if (ctrl.uCtrlType == NET_REPLAY_CTRL_STOP) g_replaySessionId[0] = '\0';
         /* 2~6 的回包可能带真实流地址(尤其6=恢复播放重建后), 单独打印便于直接拿去拉流 */
-        if (ctrl.uCtrlType != NET_REPLAY_CTRL_STOP && ctrl.szUrl[0])
-            printf("[Replay] 回包Url: %s\n", ctrl.szUrl);
+        if (ctrl.uCtrlType != NET_REPLAY_CTRL_STOP && ctrl.strUrl[0])
+            printf("[Replay] 回包Url: %s\n", ctrl.strUrl);
     } else {
         PrintFailure("[Replay]");
     }
@@ -1228,14 +1690,14 @@ static void Test_RecordFrameStream()
     cond.uSize = sizeof(cond);
     if (g_bWebMode) {
         /* Web 模式: 必要参数以 JSON 一次性输入 (字段为小写), 如 {"channel":0,"startTime":"...","endTime":"..."} */
-        GetDefaultTimeRange(cond.szStartTime, sizeof(cond.szStartTime), cond.szEndTime, sizeof(cond.szEndTime));
+        GetDefaultTimeRange(cond.strStartTime, sizeof(cond.strStartTime), cond.strEndTime, sizeof(cond.strEndTime));
         ReadStructJson(cond);
     } else {
         cond.uChannel = ReadInt("通道号(0=第一通道, 回车=-1设备级): ");
         char start[64], end[64];
         GetDefaultTimeRange(start, sizeof(start), end, sizeof(end));
-        ReadStringDefault("开始时间", cond.szStartTime, sizeof(cond.szStartTime), start);
-        ReadStringDefault("结束时间", cond.szEndTime, sizeof(cond.szEndTime), end);
+        ReadStringDefault("开始时间", cond.strStartTime, sizeof(cond.strStartTime), start);
+        ReadStringDefault("结束时间", cond.strEndTime, sizeof(cond.strEndTime), end);
     }
 
     NET_RecordFrameStreamInfo_S info;
@@ -1246,7 +1708,7 @@ static void Test_RecordFrameStream()
     BOOL ret = NET_clientStartRecordFrameStream(g_lpUserID[idx], &cond, &info, RecordFrameCallBack, NULL);
     if (!ret) { PrintFailure("[RecFrame] 启动"); return; }
     PrintStructJson("Test_RecordFrameStream", "NET_clientStartRecordFrameStream", "NET_RecordFrameStreamInfo_S", info);
-    SafeCopy(g_recordStreamId, sizeof(g_recordStreamId), info.szStreamId);
+    SafeCopy(g_recordStreamId, sizeof(g_recordStreamId), info.strStreamId);
     g_recordStreamSlot = idx;
     printf("按回车停止录像帧流...\n");
     getchar();
@@ -1260,62 +1722,62 @@ static void Test_RecordFrameStream()
 
 /* 净化时间文本: 全角空格(U+3000=E3 80 80)/制表符等替换为半角空格。
  * 全角空格 %s 打印看不出差异, 但服务端 strlen!=19 严格校验会判 102。 */
-static void SanitizeTimeText(char* szText, size_t size)
+static void SanitizeTimeText(char* pstrText, size_t uSize)
 {
-    if (!szText || szText[0] == '\0') return;
-    char szOut[128];
+    if (!pstrText || pstrText[0] == '\0') return;
+    char strOut[128];
     size_t j = 0;
-    for (size_t i = 0; szText[i] != '\0' && j < sizeof(szOut) - 1; ) {
-        if ((unsigned char)szText[i] == 0xE3 && (unsigned char)szText[i+1] == 0x80 && (unsigned char)szText[i+2] == 0x80) {
-            szOut[j++] = ' ';   /* 全角空格 -> 半角 */
+    for (size_t i = 0; pstrText[i] != '\0' && j < sizeof(strOut) - 1; ) {
+        if ((unsigned char)pstrText[i] == 0xE3 && (unsigned char)pstrText[i+1] == 0x80 && (unsigned char)pstrText[i+2] == 0x80) {
+            strOut[j++] = ' ';   /* 全角空格 -> 半角 */
             i += 3;
-        } else if (szText[i] == '\t') {
-            szOut[j++] = ' ';   /* 制表符 -> 半角空格 */
+        } else if (pstrText[i] == '\t') {
+            strOut[j++] = ' ';   /* 制表符 -> 半角空格 */
             i++;
         } else {
-            szOut[j++] = szText[i++];
+            strOut[j++] = pstrText[i++];
         }
     }
-    szOut[j] = '\0';
-    SafeCopy(szText, size, szOut);
+    strOut[j] = '\0';
+    SafeCopy(pstrText, uSize, strOut);
 }
 
 /* 归一化查询时间: 时间段须为 "YYYY-MM-DD HH:MM:SS" 完整格式 (config demo 190 已验证打通的格式)。
  * SDK接口内部裁剪: StartTime+EndTime 都非空时会清空 Date;
  * 服务端校验要求时间段必须含日期, 纯 "HH:MM:SS" 会被判 102。
- * Date 非空则作基准日期, 否则用 szToday; 时间为空补全天, 纯时间则拼上日期。
+ * Date 非空则作基准日期, 否则用 pstrToday; 时间为空补全天, 纯时间则拼上日期。
  * 特例: 只填了 Date 且未填任何时间时保留单日模式(服务端单日分支兼容性更好, 也可用于验证服务端版本)。 */
-static void NormalizeRecordQueryTime(NET_RecordFindCond_S& stFind, const char* szToday)
+static void NormalizeRecordQueryTime(NET_RecordFindCond_S& stFind, const char* pstrToday)
 {
-    if (stFind.szStartTime[0] == '\0' && stFind.szEndTime[0] == '\0' && stFind.szDate[0] != '\0') {
-        SanitizeTimeText(stFind.szDate, sizeof(stFind.szDate));
+    if (stFind.strStartTime[0] == '\0' && stFind.strEndTime[0] == '\0' && stFind.strDate[0] != '\0') {
+        SanitizeTimeText(stFind.strDate, sizeof(stFind.strDate));
         return;  /* 单日模式, 保持 Date 原样下发 */
     }
-    SanitizeTimeText(stFind.szDate, sizeof(stFind.szDate));
-    SanitizeTimeText(stFind.szStartTime, sizeof(stFind.szStartTime));
-    SanitizeTimeText(stFind.szEndTime, sizeof(stFind.szEndTime));
-    const char* szBase = (stFind.szDate[0] != '\0') ? stFind.szDate : szToday;
-    char szFull[80];
+    SanitizeTimeText(stFind.strDate, sizeof(stFind.strDate));
+    SanitizeTimeText(stFind.strStartTime, sizeof(stFind.strStartTime));
+    SanitizeTimeText(stFind.strEndTime, sizeof(stFind.strEndTime));
+    const char* pstrBase = (stFind.strDate[0] != '\0') ? stFind.strDate : pstrToday;
+    char strFull[80];
 
-    if (stFind.szStartTime[0] == '\0') {
-        snprintf(szFull, sizeof(szFull), "%s 00:00:00", szBase);
-    } else if (strlen(stFind.szStartTime) <= 8) {  /* 纯 "HH:MM:SS" */
-        snprintf(szFull, sizeof(szFull), "%s %s", szBase, stFind.szStartTime);
+    if (stFind.strStartTime[0] == '\0') {
+        snprintf(strFull, sizeof(strFull), "%s 00:00:00", pstrBase);
+    } else if (strlen(stFind.strStartTime) <= 8) {  /* 纯 "HH:MM:SS" */
+        snprintf(strFull, sizeof(strFull), "%s %s", pstrBase, stFind.strStartTime);
     } else {
-        SafeCopy(szFull, sizeof(szFull), stFind.szStartTime);
+        SafeCopy(strFull, sizeof(strFull), stFind.strStartTime);
     }
-    SafeCopy(stFind.szStartTime, sizeof(stFind.szStartTime), szFull);
+    SafeCopy(stFind.strStartTime, sizeof(stFind.strStartTime), strFull);
 
-    if (stFind.szEndTime[0] == '\0') {
-        snprintf(szFull, sizeof(szFull), "%s 23:59:59", szBase);
-    } else if (strlen(stFind.szEndTime) <= 8) {
-        snprintf(szFull, sizeof(szFull), "%s %s", szBase, stFind.szEndTime);
+    if (stFind.strEndTime[0] == '\0') {
+        snprintf(strFull, sizeof(strFull), "%s 23:59:59", pstrBase);
+    } else if (strlen(stFind.strEndTime) <= 8) {
+        snprintf(strFull, sizeof(strFull), "%s %s", pstrBase, stFind.strEndTime);
     } else {
-        SafeCopy(szFull, sizeof(szFull), stFind.szEndTime);
+        SafeCopy(strFull, sizeof(strFull), stFind.strEndTime);
     }
-    SafeCopy(stFind.szEndTime, sizeof(stFind.szEndTime), szFull);
+    SafeCopy(stFind.strEndTime, sizeof(stFind.strEndTime), strFull);
 
-    stFind.szDate[0] = '\0';  /* 条件互斥: 切换为完整时间段后清空 Date */
+    stFind.strDate[0] = '\0';  /* 条件互斥: 切换为完整时间段后清空 Date */
 }
 
 /** 35. 分页查询录像文件 (NET_clientQueryRecordFiles, 无48条上限) */
@@ -1338,18 +1800,18 @@ static void Test_QueryRecordFiles()
 
     if (g_bWebMode) {
         /* Web 模式: JSON key 为大写首字母(SDK映射), 时间段须为含日期的完整格式, 如
-         * {"Find":{"ChnId":0,"StartTime":"2026-09-18 00:00:00","EndTime":"2026-09-18 23:59:59"},"Page":{"CurPage":1}}
-         * 注意: 纯 "HH:MM:SS" 会被设备判 102; 结构体成员名(stFind/szDate等)会被 SDK 忽略 */
+         * {"Find":{"ChnId":0,"StartTime":"2026-10-15 00:00:00","EndTime":"2026-10-14 23:59:59"},"Page":{"CurPage":1}}
+         * 注意: 纯 "HH:MM:SS" 会被设备判 102; 结构体成员名(stFind/strDate等)会被 SDK 忽略 */
         ReadStructJson(stQuery);
-        if (stQuery.stFind.szDate[0] == '\0' && stQuery.stFind.szStartTime[0] == '\0' &&
-            stQuery.stFind.szEndTime[0] == '\0') {
+        if (stQuery.stFind.strDate[0] == '\0' && stQuery.stFind.strStartTime[0] == '\0' &&
+            stQuery.stFind.strEndTime[0] == '\0') {
             printf("[QueryRec] 提示: 未识别到查询条件(JSON key 应为 Find/ChnId/Date/StartTime/EndTime/Page/CurPage), 已回退当天全天\n");
         }
     } else {
         stQuery.stFind.nChnId = ReadInt("通道号(0=第一通道, 回车=-1设备级): ");
-        ReadStringDefault("日期(YYYY-MM-DD)", stQuery.stFind.szDate, sizeof(stQuery.stFind.szDate), dateBuf);
-        ReadStringDefault("开始时间(HH:MM:SS)", stQuery.stFind.szStartTime, sizeof(stQuery.stFind.szStartTime), "00:00:00");
-        ReadStringDefault("结束时间(HH:MM:SS)", stQuery.stFind.szEndTime, sizeof(stQuery.stFind.szEndTime), "23:59:59");
+        ReadStringDefault("日期(YYYY-MM-DD)", stQuery.stFind.strDate, sizeof(stQuery.stFind.strDate), dateBuf);
+        ReadStringDefault("开始时间(HH:MM:SS)", stQuery.stFind.strStartTime, sizeof(stQuery.stFind.strStartTime), "00:00:00");
+        ReadStringDefault("结束时间(HH:MM:SS)", stQuery.stFind.strEndTime, sizeof(stQuery.stFind.strEndTime), "23:59:59");
         stQuery.stPage.nCurPage = ReadInt("页码(从1开始, 默认1): ");
         if (stQuery.stPage.nCurPage <= 0) stQuery.stPage.nCurPage = 1;
     }
@@ -1363,8 +1825,8 @@ static void Test_QueryRecordFiles()
     stQuery.nResultCapacity = (INT32)(sizeof(astResults) / sizeof(astResults[0]));
 
     printf("[QueryRec] 调用 NET_clientQueryRecordFiles, channel=%d, range=[%s ~ %s], page=%d, size=%d\n",
-           stQuery.stFind.nChnId, stQuery.stFind.szStartTime,
-           stQuery.stFind.szEndTime,
+           stQuery.stFind.nChnId, stQuery.stFind.strStartTime,
+           stQuery.stFind.strEndTime,
            stQuery.stPage.nCurPage, stQuery.stPage.nPageSize);
 
     INT32 nRetBytes = 0;
@@ -1534,8 +1996,8 @@ static void Test_FullFlow()
     printf("[3] SDK版本...\n");
     {
         INT32 ver = NET_clientGetSdkVersion();
-        snprintf(buf, sizeof(buf), "[3] SDK版本: %d.%d.%d (0x%08X)",
-                 (ver >> 24) & 0xFF, (ver >> 16) & 0xFF, ver & 0xFFFF, ver);
+        snprintf(buf, sizeof(buf), "[3] SDK版本: %d.%d.%d.%d (0x%08X)",
+                 (ver >> 24) & 0xFF, (ver >> 16) & 0xFF, (ver >> 8) & 0xFF, ver & 0xFF, ver);
         results.push_back(buf);
         printf("    %s\n", buf);
     }
@@ -1549,9 +2011,9 @@ static void Test_FullFlow()
             snprintf(buf, sizeof(buf), "[7] 日志设置: 已设置(跳过)");
             printf("    已设置, 跳过\n");
         } else {
-            char szLogDir[64];
-            SafeCopy(szLogDir, sizeof(szLogDir), "/opt/course/log");
-            ret = NET_clientSetLogToFile(2, szLogDir, 10 * 1024 * 1024, 5);
+            char strLogDir[64];
+            SafeCopy(strLogDir, sizeof(strLogDir), "/opt/course/log");
+            ret = NET_clientSetLogToFile(2, strLogDir, 10 * 1024 * 1024, 5);
             if (ret) g_bLogInit = true;
             snprintf(buf, sizeof(buf), "[7] 日志设置: %s (level=2, dir=/opt/course/log)",
                      ret ? "成功" : "失败");
@@ -1576,10 +2038,10 @@ static void Test_FullFlow()
     {
         NET_DeviceLoginInfo_S loginInfo;
         memset(&loginInfo, 0, sizeof(loginInfo));
-        SafeCopy(loginInfo.szIPAddr, sizeof(loginInfo.szIPAddr), g_serverIp);
+        SafeCopy(loginInfo.strIPAddr, sizeof(loginInfo.strIPAddr), g_serverIp);
         loginInfo.uPort = g_serverPort;
-        SafeCopy(loginInfo.szUserName, sizeof(loginInfo.szUserName), g_username);
-        SafeCopy(loginInfo.szPassword, sizeof(loginInfo.szPassword), g_password);
+        SafeCopy(loginInfo.strUserName, sizeof(loginInfo.strUserName), g_username);
+        SafeCopy(loginInfo.strPassword, sizeof(loginInfo.strPassword), g_password);
         lpUser = NET_clientLogin(&loginInfo, &devInfoResult);
         if (!lpUser) {
             snprintf(buf, sizeof(buf), "[9] 登录: 失败! Error=%d, Msg=%s",
@@ -1666,7 +2128,7 @@ static void Test_FullFlow()
     }
     FLOW_ERR("RTSP地址");
 
-    /* 命令111: 查询通道名称(ch=0, 打印 szChannelName) */
+    /* 命令111: 查询通道名称(ch=0, 打印 strChannelName) */
     printf("[111] 查询通道名称...\n");
     {
         NET_ChannelList_S list;
@@ -1677,7 +2139,7 @@ static void Test_FullFlow()
             if (count > NET_MAX_CHANNEL_NUM) count = NET_MAX_CHANNEL_NUM;
             printf("通道数: %u\n", list.uChannelCount);
             for (UINT32 i = 0; i < count; i++) {
-                printf("  通道%u: %s\n", list.stChannels[i].uChannel, list.stChannels[i].szChannelName);
+                printf("  通道%u: %s\n", list.stChannels[i].uChannel, list.stChannels[i].strChannelName);
             }
             snprintf(buf, sizeof(buf), "[111] 查询通道名称: 成功");
         } else {
@@ -1833,37 +2295,144 @@ print_summary:
 
 /* ===================== 通用 Get/Set 配置测试模板 ===================== */
 
+/* 三个模板的统一输出约定:
+ *   1) 进入测试后先打印身份块(PrintTestIdentity: 测试接口 / 返回结构体 / GET与SET命令码),
+ *      排在所有输入提示之前, 便于只凭命令号定位接口
+ *   2) Get 完成后依次打印: 原始JSON → Mode提示(PrintModeHint) → 字段解读(PrintEventFieldGuide)
+ *   3) Set 流程为 先Get当前配置 → 可选JSON修改 → Set回写; 参数非法(Error=102)时补打合法范围提示
+ * 新增事件配置测试项只需按下面宏声明一行, 打印与解读由模板自动复用 */
 #define TEST_GENERIC_GET(T, name, cmd, chDefault)  Test_GenericGet<T>(name, cmd, chDefault, #T)
 #define TEST_GENERIC_SET(T, name, getCmd, setCmd, chDefault)  Test_GenericSet<T>(name, getCmd, setCmd, chDefault, #T)
 #define TEST_DIRECT_SET(T, name, cmd, chDefault)  Test_DirectSet<T>(name, cmd, chDefault, #T)
 
+/* URL Mode 选择适用判定: 以下事件的服务端 Get 已注册为 TemplatedGetSmart, 支持 GET 时在 URL
+ * 查询参数携带 Mode=0/1 指定读取方向(0=前智能/摄像机IPC配置, 1=NVR后智能/NVR本地配置);
+ * 移动侦测等未注册为 Smart 的事件不支持 URL Mode, 不在本表内 */
+static bool IsUrlModeEvent(const char* pstrStructName)
+{
+    static const char* kModeEvents[] = {
+        "NET_CrossLineAlarmInfo_S", "NET_IntrusionAlarmInfo_S", "NET_EnterRegionAlarmInfo_S",
+        "NET_LeaveRegionAlarmInfo_S", "NET_SceneChangeAlarmInfo_S", "NET_LoiteringAlarmInfo_S",
+        "NET_CrowdGatheringAlarmInfo_S", "NET_ParkingAlarmInfo_S", "NET_UnattendedObjectAlarmInfo_S",
+        "NET_ObjectRemovalAlarmInfo_S", "NET_GarbageOverflowCfg_S", "NET_GarbageExposureCfg_S",
+        "NET_PetRecognitionInfo_S", "NET_ClimbFenceInfo_S", "NET_AudioAnomalyAlarmInfo_S",
+        "NET_ManholeCoverAbnormalCfg_S", "NET_SleepOnDutyCfg_S", "NET_ElectricVehicleInElevatorCfg_S",
+        "NET_PersonFallDownCfg_S", "NET_ConstructionOccupyRoadCfg_S", "NET_CongestionCfg_S",
+        "NET_LicensePlateRecognitionCfg_S", "NET_HighAltitudeSeatbeltCfg_S", "NET_SafetyHelmetCfg_S",
+        "NET_PersonFallCfg_S", "NET_PhoneUsageCfg_S", "NET_SmokingCfg_S", "NET_OpenFlameCfg_S",
+        "NET_BareSoilCfg_S", "NET_HoleProtectionBarCfg_S", "NET_ReflectiveClothingCfg_S",
+        "NET_SmokeFireCfg_S", "NET_RoadPondingCfg_S", "NET_DimissionInfo_S",
+        "NET_NonmotorVehicleIntrusionInfo_S", "NET_OccupationEmergencyInfo_S",
+        "NET_PedestrianIntrusionInfo_S", "NET_IllegalLaneInfo_S", "NET_RetrogradeInfo_S",
+    };
+    for (size_t i = 0; i < sizeof(kModeEvents) / sizeof(kModeEvents[0]); ++i) {
+        if (strcmp(pstrStructName, kModeEvents[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* 智能模式(Mode)字段提示: 支持前后智能切换的事件说明 */
+static void PrintModeHint(const char* pstrStructName)
+{
+    if (strcmp(pstrStructName, "NET_MotionAlarmInfo_S") == 0) {
+        printf("提示: \"Mode\"字段 - 3=NVR后智能(NVR本地配置), 0=普通模式/1=专家模式(摄像机前智能)\n");
+        return;
+    }
+    if (IsUrlModeEvent(pstrStructName)) {
+        printf("提示: \"Mode\"字段 - 1=NVR后智能(NVR本地配置), 0=前智能(摄像机IPC配置), 缺省按前智能处理\n");
+    }
+}
+
+/* 区域/线段规则类事件参数范围提示: 全链路统一画布坐标，PointX/PointY、StartPos/EndPos
+ * 均为画布整数像素(0~1920/0~1080)，0~1归一化小数属非法入参，SDK服务端入参校验
+ * 直接返回Error=102(NET_E_INVALID_PARAM)，不会下发摄像机 */
+static void PrintParamRangeHint(const char* pstrStructName)
+{
+    /* region类(多边形区域规则)事件: 命令460行人闯入/离岗/非机动车入侵/应急车道占用 */
+    static const char* kRegionRuleEvents[] = {
+        "NET_DimissionInfo_S", "NET_NonmotorVehicleIntrusionInfo_S",
+        "NET_OccupationEmergencyInfo_S", "NET_PedestrianIntrusionInfo_S",
+    };
+    /* line类(线段规则)事件: 违规变道/逆行 */
+    static const char* kLineRuleEvents[] = {
+        "NET_IllegalLaneInfo_S", "NET_RetrogradeInfo_S",
+    };
+    for (size_t i = 0; i < sizeof(kRegionRuleEvents) / sizeof(kRegionRuleEvents[0]); ++i) {
+        if (strcmp(pstrStructName, kRegionRuleEvents[i]) == 0) {
+            printf("参数范围: Mode仅0/1; RuleCount仅0~4; PointCount仅0~32; PointX/PointY须为画布整数像素(0~1920/0~1080, 如192而非0.1);\n");
+            printf("          Sensitivity仅0~100。0~1归一化小数坐标会被SDK服务端判为非法入参直接返回Error=102\n");
+            return;
+        }
+    }
+    for (size_t i = 0; i < sizeof(kLineRuleEvents) / sizeof(kLineRuleEvents[0]); ++i) {
+        if (strcmp(pstrStructName, kLineRuleEvents[i]) == 0) {
+            printf("参数范围: Mode仅0/1; RuleCount仅0~4; StartPosX/StartPosY/EndPosX/EndPosY须为画布整数像素(0~1920/0~1080);\n");
+            printf("          CrossDirection仅1/2(1=由左至右,2=由右至左); 0=双向虽在SDK头NET_CROSS_DIRECTION_E中有定义，\n");
+            printf("          但NVR与摄像机两侧都没有\"双向\"配置项(属业务层不支持)，与Enable开关无关，一律判为非法入参;\n");
+            printf("          Sensitivity仅0~100。0~1归一化小数坐标、0或越界方向等非法入参会被SDK服务端直接返回Error=102，不会下发摄像机\n");
+            return;
+        }
+    }
+}
+
 /** 通用 Get 配置测试模板: 选择客户端 → 读取通道 → GetDevConfig → 打印 JSON */
 template <typename T>
-static void Test_GenericGet(const char* name, INT32 cmd, INT32 chDefault, const char* structName)
+static void Test_GenericGet(const char* pstrName, INT32 cmd, INT32 chDefault, const char* pstrStructName)
 {
-    int idx = SelectClient(name);
+    /* 身份块先于任何输入提示打印, 避免只看到命令号时还要回头对照菜单标题栏 */
+    PrintTestIdentity(pstrName, pstrStructName, cmd, 0);
+    int idx = SelectClient(pstrName);
     if (idx < 0) return;
-    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", name, idx+1); return; }
+    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", pstrName, idx+1); return; }
     /* chDefault<0 表示设备级命令, 无需通道号, 跳过输入等待 */
     INT32 nChannel = (chDefault < 0) ? chDefault : ReadChannelParam(chDefault);
     T cfg;
     memset(&cfg, 0, sizeof(cfg));
     INT32 nRetBytes = 0;
-    printf("发送参数: {\"channel\":%d,\"command\":%d} (GET请求无body)\n", nChannel, cmd);
-    BOOL ret = NET_clientGetDevConfig(g_lpUserID[idx], nChannel, cmd, &cfg, sizeof(cfg), &nRetBytes);
-    if (!ret) { PrintFailure(name); return; }
     char apiCall[128];
-    snprintf(apiCall, sizeof(apiCall), "NET_clientGetDevConfig【%d】", cmd);
-    PrintStructJson(name, apiCall, structName, cfg);
+    BOOL ret = FALSE;
+    if (chDefault >= 0 && IsUrlModeEvent(pstrStructName))
+    {
+        /* 前后智能事件: 先问 Mode(空行=不指定), 再发 GET。
+         * 旁路说明: NET_clientGetDevConfig 生成的 URL 固定, 无法附加查询参数;
+         * 这里用 SDK 内部命令执行器发送同一 GET(URL 追加 Mode=0/1), 模拟平台客户端
+         * 「GET + Mode 查询参数」的调用形态。Mode 仅 NVR 服务端使用, 共用库 ConfigQuery 保持原样 */
+        INT32 nMode = ReadModeParam(true);
+        std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(nChannel, cmd);
+        if (nMode >= 0)
+        {
+            url += "&Mode=" + std::to_string(nMode);
+        }
+        printf("发送参数: GET %s (Mode: %s)\n", url.c_str(),
+               nMode < 0 ? "不传, 服务端按本地存储模式路由" : (nMode == 0 ? "0=前智能" : "1=NVR后智能"));
+        ret = CCommandExecutor::instance()->ExecuteGet<T>(g_lpUserID[idx], url, &cfg, &nRetBytes) ? TRUE : FALSE;
+        snprintf(apiCall, sizeof(apiCall), "GET DevConfig + Mode查询参数【%d】", cmd);
+    }
+    else
+    {
+        printf("发送参数: {\"channel\":%d,\"command\":%d} (GET请求无body)\n", nChannel, cmd);
+        ret = NET_clientGetDevConfig(g_lpUserID[idx], nChannel, cmd, &cfg, sizeof(cfg), &nRetBytes);
+        snprintf(apiCall, sizeof(apiCall), "NET_clientGetDevConfig【%d】", cmd);
+    }
+    if (!ret) { PrintFailure(pstrName); return; }
+    PrintStructJson(pstrName, apiCall, pstrStructName, cfg);
+    /* 原始JSON之后紧跟提示与字段解读: 便于逐字段判读返回值
+     * (如 Mode=0 表示读的是摄像机IPC配置; 坐标全零表示规则尚未绘制线段) */
+    PrintModeHint(pstrStructName);
+    PrintEventFieldGuide(pstrStructName);
 }
 
 /** 通用 Set 配置测试模板: 先 Get 当前配置 → 可选 JSON 修改 → SetDevConfig */
 template <typename T>
-static void Test_GenericSet(const char* name, INT32 getCmd, INT32 setCmd, INT32 chDefault, const char* structName)
+static void Test_GenericSet(const char* pstrName, INT32 getCmd, INT32 setCmd, INT32 chDefault, const char* pstrStructName)
 {
-    int idx = SelectClient(name);
+    /* 身份块先于任何输入提示打印: 同时给出读(getCmd)与写(setCmd)两个命令码 */
+    PrintTestIdentity(pstrName, pstrStructName, getCmd, setCmd);
+    int idx = SelectClient(pstrName);
     if (idx < 0) return;
-    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", name, idx+1); return; }
+    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", pstrName, idx+1); return; }
     /* chDefault<0 表示设备级命令, 无需通道号, 跳过输入等待 */
     INT32 nChannel = (chDefault < 0) ? chDefault : ReadChannelParam(chDefault);
     T cfg;
@@ -1872,11 +2441,15 @@ static void Test_GenericSet(const char* name, INT32 getCmd, INT32 setCmd, INT32 
     char apiCall[128];
     snprintf(apiCall, sizeof(apiCall), "NET_clientGetDevConfig【%d】", getCmd);
     BOOL ret = NET_clientGetDevConfig(g_lpUserID[idx], nChannel, getCmd, &cfg, sizeof(cfg), &nRetBytes);
-    if (!ret) { PrintFailure(name); return; }
+    if (!ret) { PrintFailure(pstrName); return; }
     printf("当前配置:\n");
-    PrintStructJson(name, apiCall, structName, cfg);
+    PrintModeHint(pstrStructName);
+    PrintParamRangeHint(pstrStructName);
+    PrintStructJson(pstrName, apiCall, pstrStructName, cfg);
+    /* 紧跟当前配置打印字段解读, 便于核对摄像机现值是否符合预期(如坐标是否已绘制) */
+    PrintEventFieldGuide(pstrStructName);
     if (g_bWebMode) { ReadStructJson(cfg); }
-    else { printf("输入JSON修改(空行=原样写回):\n"); ReadStructJson(cfg); }
+    else { printf("输入JSON修改(空行=原样写回, 可加\"Mode\"键切换智能模式):\n"); ReadStructJson(cfg); }
     printf("发送JSON:\n%s\n", SDKConvert::to_string(cfg).c_str());
     snprintf(apiCall, sizeof(apiCall), "NET_clientSetDevConfig【%d】", setCmd);
     ret = NET_clientSetDevConfig(g_lpUserID[idx], nChannel, setCmd, &cfg, sizeof(cfg), &nRetBytes);
@@ -1885,7 +2458,12 @@ static void Test_GenericSet(const char* name, INT32 getCmd, INT32 setCmd, INT32 
         printf("接收JSON: {\"return\":0,\"message\":\"success\"}\n");
     } else {
         printf("接收JSON: {\"return\":%d,\"message\":\"%s\"}\n", NET_clientGetLastError(), NET_clientGetErrorMsg());
-        PrintFailure(name);
+        /* 参数非法(Error=102)时打印参数合法范围提示，便于定位是哪个字段输错 */
+        if (NET_clientGetLastError() == NET_E_INVALID_PARAM) {
+            PrintParamRangeHint(pstrStructName);
+            printf("定位: 服务端日志已指出具体越界字段及取值(NVR控制台关键字: 非法)，可据此核对上方发送的JSON\n");
+        }
+        PrintFailure(pstrName);
     }
 }
 
@@ -1894,11 +2472,13 @@ static void Test_GenericSet(const char* name, INT32 getCmd, INT32 setCmd, INT32 
  *  若复用 Test_GenericSet 先以单项结构 GET, 服务端会按 List 大结构填充 → 缓冲区太小(Error=12),
  *  且 GET 失败会提前 return, 导致永远到不了 JSON 输入提示。直写模板规避该问题并保证提示出现。 */
 template <typename T>
-static void Test_DirectSet(const char* name, INT32 setCmd, INT32 chDefault, const char* structName)
+static void Test_DirectSet(const char* pstrName, INT32 setCmd, INT32 chDefault, const char* pstrStructName)
 {
-    int idx = SelectClient(name);
+    /* 身份块先于任何输入提示打印: 直写无GET前置, 仅给出写入命令码 */
+    PrintTestIdentity(pstrName, pstrStructName, 0, setCmd);
+    int idx = SelectClient(pstrName);
     if (idx < 0) return;
-    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", name, idx+1); return; }
+    if (!g_lpUserID[idx]) { printf("[%s] 客户端%d未登录\n", pstrName, idx+1); return; }
     /* chDefault<0 表示设备级命令, 无需通道号, 跳过输入等待 */
     INT32 nChannel = (chDefault < 0) ? chDefault : ReadChannelParam(chDefault);
     T cfg;
@@ -1914,7 +2494,12 @@ static void Test_DirectSet(const char* name, INT32 setCmd, INT32 chDefault, cons
         printf("接收JSON: {\"return\":0,\"message\":\"success\"}\n");
     } else {
         printf("接收JSON: {\"return\":%d,\"message\":\"%s\"}\n", NET_clientGetLastError(), NET_clientGetErrorMsg());
-        PrintFailure(name);
+        /* 参数非法(Error=102)时打印参数合法范围提示，便于定位是哪个字段输错 */
+        if (NET_clientGetLastError() == NET_E_INVALID_PARAM) {
+            PrintParamRangeHint(pstrStructName);
+            printf("定位: 服务端日志已指出具体越界字段及取值(NVR控制台关键字: 非法)，可据此核对上方发送的JSON\n");
+        }
+        PrintFailure(pstrName);
     }
 }
 
@@ -2087,14 +2672,14 @@ static void NET_STDCALL DownloadProgressCallBack(UINT64 dwDownloadedBytes, UINT6
 }
 
 /* 解析时间输入: "HH:MM:SS" 或纯秒数(0~86399), 返回当天0点起的秒数, -1表示无效 */
-static INT32 ParseTimeToSeconds(const char* szText)
+static INT32 ParseTimeToSeconds(const char* pstrText)
 {
     int h = 0, m = 0, s = 0;
-    if (sscanf(szText, "%d:%d:%d", &h, &m, &s) == 3) {
+    if (sscanf(pstrText, "%d:%d:%d", &h, &m, &s) == 3) {
         if (h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return -1;
         return h * 3600 + m * 60 + s;
     }
-    int nSec = atoi(szText);
+    int nSec = atoi(pstrText);
     if (nSec <= 0 || nSec > 86399) return -1;
     return nSec;
 }
@@ -2109,17 +2694,17 @@ static void Test_DownloadRecord()
     INT32 nChannel = (INT32)ReadInt("通道号(用35查询结果的ChnId/设备在线IPC通道, 如9; 默认0): ");
     if (nChannel < 0) nChannel = 0;
 
-    char szDate[32] = "";
-    char szStart[32] = "";
-    char szEnd[32] = "";
-    char szSavePath[512] = "";
-    ReadString("日期(YYYY-MM-DD, 如2026-09-18): ", szDate, sizeof(szDate));
-    ReadString("开始时间(HH:MM:SS或秒): ", szStart, sizeof(szStart));
-    ReadString("结束时间(HH:MM:SS或秒, 例23:00:00): ", szEnd, sizeof(szEnd));
-    ReadStringDefault("保存路径(含文件名)", szSavePath, sizeof(szSavePath), "/tmp/download.mkv");
+    char strDate[32] = "";
+    char strStart[32] = "";
+    char strEnd[32] = "";
+    char strSavePath[512] = "";
+    ReadString("日期(YYYY-MM-DD, 如2026-09-18): ", strDate, sizeof(strDate));
+    ReadString("开始时间(HH:MM:SS或秒): ", strStart, sizeof(strStart));
+    ReadString("结束时间(HH:MM:SS或秒, 例23:00:00): ", strEnd, sizeof(strEnd));
+    ReadStringDefault("保存路径(含文件名)", strSavePath, sizeof(strSavePath), "/tmp/download.mkv");
 
-    INT32 nStartTime = ParseTimeToSeconds(szStart);
-    INT32 nEndTime = ParseTimeToSeconds(szEnd);
+    INT32 nStartTime = ParseTimeToSeconds(strStart);
+    INT32 nEndTime = ParseTimeToSeconds(strEnd);
     if (nStartTime < 0 || nEndTime < 0 || nEndTime <= nStartTime) {
         printf("[Download] 时间范围无效: 格式HH:MM:SS或秒数, 且结束时间必须晚于开始时间\n");
         return;
@@ -2127,13 +2712,13 @@ static void Test_DownloadRecord()
 
     DemoDownloadTask task;
     task.channelId = nChannel;
-    task.date = szDate;
-    task.savePath = szSavePath;
+    task.date = strDate;
+    task.savePath = strSavePath;
     int* pnLastPercent = new int(0);  /* 进度回调节流状态, 由监控线程回收 */
 
     LPVOID hTask = NULL;
-    if (!NET_clientStartDownloadRecordFile(g_lpUserID[idx], nChannel, szDate, nStartTime, nEndTime,
-                                           szSavePath, DownloadProgressCallBack, pnLastPercent, &hTask)) {
+    if (!NET_clientStartDownloadRecordFile(g_lpUserID[idx], nChannel, strDate, nStartTime, nEndTime,
+                                           strSavePath, DownloadProgressCallBack, pnLastPercent, &hTask)) {
         delete pnLastPercent;
         PrintFailure("[Download] 异步下载启动");
         return;
@@ -2146,10 +2731,10 @@ static void Test_DownloadRecord()
         g_downloadTasks.push_back(task);
     }
     printf("[Download] 异步任务已启动: 下载#%d (channel=%d, %s [%d~%d秒], save=%s)\n",
-           task.id, nChannel, szDate, nStartTime, nEndTime, szSavePath);
+           task.id, nChannel, strDate, nStartTime, nEndTime, strSavePath);
     printf("[Download] 本命令只负责启动; 输入 221 查看进度, 222 停止最近任务。\n");
     printf("[Download] StartJSON: {\"taskId\":%d,\"channel\":%d,\"date\":\"%s\",\"startTime\":%d,\"endTime\":%d,\"savePath\":\"%s\",\"status\":\"STARTED\"}\n",
-           task.id, nChannel, szDate, nStartTime, nEndTime, szSavePath);
+           task.id, nChannel, strDate, nStartTime, nEndTime, strSavePath);
 
     /* 监控线程: 独占等待该句柄结束后回收SDK资源 (与 config demo 192 一致) */
     const int demoTaskId = task.id;
@@ -2218,15 +2803,15 @@ static void Test_ListDownloadTasks()
             printf("[Download] 下载#%d: 句柄查询失败(可能已结束待回收)\n", task.id);
         }
         /* 收集 JSON 片段, 最后统一输出 */
-        char szItem[512];
-        snprintf(szItem, sizeof(szItem),
+        char strItem[512];
+        snprintf(strItem, sizeof(strItem),
                  "%s{\"taskId\":%d,\"queryOk\":%s,\"status\":%d,\"statusName\":\"%s\",\"percent\":%llu,\"downloaded\":%llu,\"totalBytes\":%llu,\"channel\":%d,\"date\":\"%s\",\"savePath\":\"%s\"}",
                  (i ? "," : ""), task.id, bQueryOk ? "true" : "false", status,
                  DemoDownloadStatusName(status),
                  (unsigned long long)percent,
                  (unsigned long long)downloaded, (unsigned long long)total,
                  task.channelId, task.date.c_str(), task.savePath.c_str());
-        strJson += szItem;
+        strJson += strItem;
     }
     printf("[Download] TasksJSON: [%s]\n", strJson.c_str());
 }
@@ -2273,7 +2858,7 @@ static void Test_CapturePicture()
     stInfo.nStreamType = NET_CUSTOM_STREAM_MAIN;
     stInfo.nPicFormat = NET_CAPTURE_PICTURE_FORMAT_JPEG;
     stInfo.nOutputType = NET_CAPTURE_OUTPUT_MEMORY;
-    SafeCopy(stInfo.szFilePath, sizeof(stInfo.szFilePath), "/tmp/sdk_capture.jpg");
+    SafeCopy(stInfo.strFilePath, sizeof(stInfo.strFilePath), "/tmp/sdk_capture.jpg");
 
     INT32 dwBytesReturned = 0;
     printf("[Capture] 调用 NET_clientGetDevConfig 抓图, channel=%d, JPEG, 内存返回...\n", nChannel);
@@ -2540,7 +3125,7 @@ static void Test_ResetDefault()
     if (!ret) PrintFailure("[Reset]");
 }
 
-/** 111. 查询通道名称 (复用 NET_GET_CHANNEL_INFO=300, 读 szChannelName) */
+/** 111. 查询通道名称 (复用 NET_GET_CHANNEL_INFO=300, 读 strChannelName) */
 static void Test_GetChannelName()
 {
     int idx = SelectClient("查询通道名称");
@@ -2559,7 +3144,7 @@ static void Test_GetChannelName()
     UINT32 count = list.uChannelCount;
     if (count > NET_MAX_CHANNEL_NUM) count = NET_MAX_CHANNEL_NUM;
     for (UINT32 i = 0; i < count; i++) {
-        printf("  通道%u: %s\n", list.stChannels[i].uChannel, list.stChannels[i].szChannelName);
+        printf("  通道%u: %s\n", list.stChannels[i].uChannel, list.stChannels[i].strChannelName);
     }
 }
 
@@ -2588,7 +3173,7 @@ static void Test_SetChannelName()
     if (count > NET_MAX_CHANNEL_NUM) count = NET_MAX_CHANNEL_NUM;
     for (UINT32 i = 0; i < count; i++) {
         if ((INT32)pList->stChannels[i].uChannel == nChannel) {
-            SafeCopy(info.szChannelName, sizeof(info.szChannelName), pList->stChannels[i].szChannelName);
+            SafeCopy(info.strChannelName, sizeof(info.strChannelName), pList->stChannels[i].strChannelName);
             break;
         }
     }
@@ -2601,8 +3186,8 @@ static void Test_SetChannelName()
         ReadStructJson(info);
     } else {
         char name[64];
-        ReadStringDefault("通道名称", name, sizeof(name), info.szChannelName);
-        SafeCopy(info.szChannelName, sizeof(info.szChannelName), name);
+        ReadStringDefault("通道名称", name, sizeof(name), info.strChannelName);
+        SafeCopy(info.strChannelName, sizeof(info.strChannelName), name);
     }
 
     printf("测试接口：Test_SetChannelName\n");
@@ -2872,7 +3457,7 @@ static void Test_SetReflectiveClothing() { TEST_GENERIC_SET(NET_ReflectiveClothi
 /* 宠物识别 (445/446) */
 static void Test_GetPetRecognition() { TEST_GENERIC_GET(NET_PetRecognitionInfo_S, "GetPetRecognition", NET_GET_PET_RECOGNITION_INFO, 0); }
 static void Test_SetPetRecognition() { TEST_GENERIC_SET(NET_PetRecognitionInfo_S, "SetPetRecognition", NET_GET_PET_RECOGNITION_INFO, NET_SET_PET_RECOGNITION_INFO, 0); }
-/* 翻越围栏 (447/448) */
+/* 翻越围栏 (447/448): GET 与其它前后智能事件一致, 由通用模板询问 通道号 + Mode(Mode 随 URL 查询参数携带) */
 static void Test_GetClimbFence() { TEST_GENERIC_GET(NET_ClimbFenceInfo_S, "GetClimbFence", NET_GET_CLIMB_FENCE_INFO, 0); }
 static void Test_SetClimbFence() { TEST_GENERIC_SET(NET_ClimbFenceInfo_S, "SetClimbFence", NET_GET_CLIMB_FENCE_INFO, NET_SET_CLIMB_FENCE_INFO, 0); }
 /* 离岗 (449/450) */
@@ -2924,12 +3509,30 @@ static void Test_GetUpgradeStatus() { TEST_GENERIC_GET(NET_UpgradeStatus_S, "Get
 static void Test_SetUpgrade() { TEST_DIRECT_SET(NET_UpgradeInfo_S, "SetUpgrade", NET_SET_UPGRADE, -1); }
 static void Test_GetUpgradeVersion() { TEST_GENERIC_GET(NET_UpgradeVersion_S, "GetUpgradeVersion", NET_GET_UPGRADEVERSION, -1); }
 
-/* ===================== 预留接口(客户端暂未实现发送) (212-220) ===================== */
-/* 这些接口 NVR 端已注册回调(真实或预留 stub), 但 SDK 客户端未暴露对应 API,
- * 无法经网页发送, 此处仅作按钮占位与说明。 */
-static void Test_NotSupported(const char* name, INT32 nvrCmd)
+/* ===================== 解锁对讲(213-216)与声光报警(220) ===================== */
+/** 213. 对讲状态设置 (NET_STATE_TALKBACK=400) */
+static void Test_SetTalkbackState() { TEST_DIRECT_SET(NET_TalkbackStateInfo_S, "SetTalkbackState", NET_STATE_TALKBACK, 0); }
+/** 214. 设置对讲输出 (NET_TO_STREAM_TALKBACK=401) */
+static void Test_SetTalkbackOutput() { TEST_DIRECT_SET(NET_TalkbackStreamInfo_S, "SetTalkbackOutput", NET_TO_STREAM_TALKBACK, 0); }
+/** 215. 获取对讲源 (NET_FROM_STREAM_TALKBACK=402) */
+static void Test_GetTalkbackSource() { TEST_GENERIC_GET(NET_TalkbackStreamInfo_S, "GetTalkbackSource", NET_FROM_STREAM_TALKBACK, 0); }
+/** 216. 回放对讲 (NET_REPLAY_TALKBACK=403) */
+static void Test_ReplayTalkback() { TEST_DIRECT_SET(NET_ReplayTalkbackInfo_S, "ReplayTalkback", NET_REPLAY_TALKBACK, 0); }
+/** 220. 声光报警联动 (NET_TRIGGER_SOUND_LIGHT_ALARM=574) */
+static void Test_TriggerSoundLightAlarm() { TEST_DIRECT_SET(NET_SoundLightAlarmTrigger_S, "TriggerSoundLightAlarm", NET_TRIGGER_SOUND_LIGHT_ALARM, 0); }
+
+/* ===================== 扩展接口 5.2 (224-228) ===================== */
+static void Test_GetSmokingCfg() { TEST_GENERIC_GET(NET_SmokingCfg_S, "GetSmokingCfg", NET_GET_SMOKING_CFG, 0); }
+static void Test_SetSmokingCfg() { TEST_GENERIC_SET(NET_SmokingCfg_S, "SetSmokingCfg", NET_GET_SMOKING_CFG, NET_SET_SMOKING_CFG, 0); }
+static void Test_ForceKeyFrame() { TEST_GENERIC_GET(NET_ForceKeyFrameInfo_S, "ForceKeyFrame", NET_FORCE_KEY_FRAME, 0); }
+static void Test_ControlRecord() { TEST_DIRECT_SET(NET_RecordInfo_S, "ControlRecord", NET_CONTROL_RECORD_INFO, 0); }
+static void Test_ResetPeopleFlow() { TEST_DIRECT_SET(NET_PeopleFlowStatisticsCfg_S, "ResetPeopleFlow", NET_RESET_PEOPLE_FLOW_STATISTICS, 0); }
+
+/* ===================== 预留接口(212/217/219) ===================== */
+/* 这些接口 NVR 端未注册回调或客户端无对应枚举, 仅作占位说明。 */
+static void Test_NotSupported(const char* pstrName, INT32 nvrCmd)
 {
-    printf("测试接口：%s\n", name);
+    printf("测试接口：%s\n", pstrName);
     printf("⚠ SDK客户端未提供此命令的发送接口 (NVR端已注册回调 cmd=%d)\n", nvrCmd);
     printf("   需先在 SDK 客户端补充对应 API (如 NET_clientXXX), 方可经网页发送。\n");
 }
@@ -2939,7 +3542,7 @@ static void PrintMenu()
 {
     printf("\n");
     printf("====================================================================================================\n");
-    printf("                              SDK 客户端接口测试菜单 (%d项)\n", 218);
+    printf("                              SDK 客户端接口测试菜单 (%d项)\n", 223);
     printf("====================================================================================================\n");
 
     printf("--- 基础与SDK ---\n");
@@ -2974,11 +3577,12 @@ static void PrintMenu()
     printf("--- 预览与抓图 ---\n");
     printf(" 71.预览信息查询    72.预览信息设置    33.录像帧流        73.抓图计划查询    74.抓图计划设置\n");
     printf(" 75.抓图参数查询    76.抓图参数设置    36.流编码查询      37.流编码设置      218.抓图(JPEG)\n");
+    printf("226.强制I帧\n");
 
     printf("--- 录像与回放 ---\n");
-    printf(" 25.录像状态       30.录像时间段      61.录像计划查询    62.录像计划设置    63.录像高级参数查询\n");
-    printf(" 64.录像高级参数设置 67.查找录像文件   68.下载录像文件    31.回放地址        32.回放控制\n");
-    printf("217.查询录像文件   219.获取录像文件地址\n");
+    printf(" 25.录像状态       30.录像时间段      67.查找录像文件    61.录像计划查询    62.录像计划设置\n");
+    printf(" 63.录像高级参数查询 64.录像高级参数设置 68.下载录像文件    32.回放控制\n");
+    printf("221.下载任务进度  222.停止下载任务  227.手动录像/停止\n");
 
     printf("--- IPC相关参数 ---\n");
     printf(" 87.曝光查询        88.曝光设置        89.日夜转换查询    90.日夜转换设置    91.背光查询\n");
@@ -2993,10 +3597,12 @@ static void PrintMenu()
     printf("122.移动侦测查询  123.移动侦测设置  124.遮挡查询      125.遮挡设置      126.越界查询\n");
     printf("127.越界设置      128.入侵查询      129.入侵设置      130.进入区域查询  131.进入区域设置\n");
     printf("132.离开区域查询  133.离开区域设置  134.徘徊查询      135.徘徊设置      136.场景变更查询\n");
+    printf("注: 122~133五类事件支持智能模式切换 - 移动侦测\"Mode\":3=NVR后智能(0普通/1专家=前智能), 越界/入侵/进入/离开区域\"Mode\":1=NVR后智能(0=前智能IPC)\n");
     printf("137.场景变更设置  138.人员聚集查询  139.人员聚集设置  140.停车查询      141.停车设置\n");
     printf("142.物品遗留查询  143.物品遗留设置  144.物品拿取查询  145.物品拿取设置\n");
     printf(" 77.人脸抓拍查询    78.人脸抓拍设置    79.人脸比对设置    80.人流统计查询     81.人流统计设置\n");
     printf(" 82.人员密度查询    83.人员密度设置\n");
+    printf("228.人流统计清零\n");
 
     printf("--- 扩展AI事件配置 ---\n");
     printf("147.垃圾满溢查询  148.垃圾满溢设置  149.井盖异常查询  150.井盖异常设置  151.睡岗查询\n");
@@ -3020,6 +3626,9 @@ static void PrintMenu()
     printf("115.建立透明通道   116.断开透明通道   117.发送通道数据   118.查询串口参数   119.发送串口数据\n");
     printf("120.直接发送232    121.直接发送串口   58.日志服务器查询  59.日志服务器设置  60.测试日志服务器\n");
     printf(" 65.查找日志        66.导出日志       55.安全服务查询    56.安全服务设置    57.SSH倒计时\n");
+
+    printf("--- 扩展AI事件配置 (续) ---\n");
+    printf("224.抽烟识别查询  225.抽烟识别设置\n");
 
     printf("====================================================================================================\n");
 }
@@ -3058,7 +3667,6 @@ static void RunTest(int cmd)
     case 28: Test_GetNtpConfig(); break;
     case 29: Test_SetNtpConfig(); break;
     case 30: Test_GetReplayRecordList(); break;
-    case 31: Test_GetReplayUrl(); break;
     case 32: Test_ControlReplay(); break;
     case 33: Test_RecordFrameStream(); break;
     case 35: Test_QueryRecordFiles(); break;
@@ -3241,17 +3849,23 @@ static void RunTest(int cmd)
     case 211: Test_ControlPresetBit(); break;
     /* 预留接口(客户端暂未实现发送) (212-220) */
     case 212: Test_NotSupported("外部设备控制", 530); break;
-    case 213: Test_NotSupported("对讲状态设置", 400); break;
-    case 214: Test_NotSupported("设置对讲输出", 401); break;
-    case 215: Test_NotSupported("获取对讲源", 402); break;
-    case 216: Test_NotSupported("回放对讲", 403); break;
+    case 213: Test_SetTalkbackState(); break;
+    case 214: Test_SetTalkbackOutput(); break;
+    case 215: Test_GetTalkbackSource(); break;
+    case 216: Test_ReplayTalkback(); break;
     case 217: Test_NotSupported("查询录像文件", 0); break;
     case 218: Test_CapturePicture(); break;
     case 219: Test_NotSupported("获取录像文件地址", 0); break;
-    case 220: Test_NotSupported("声光报警联动", 574); break;
+    case 220: Test_TriggerSoundLightAlarm(); break;
     case 221: Test_ListDownloadTasks(); break;
     case 222: Test_CancelDownloadTask(); break;
     case 223: Test_GetAudioAnomalyCurrentDb(); break;
+    /* 扩展接口 5.2 (224-228) */
+    case 224: Test_GetSmokingCfg(); break;
+    case 225: Test_SetSmokingCfg(); break;
+    case 226: Test_ForceKeyFrame(); break;
+    case 227: Test_ControlRecord(); break;
+    case 228: Test_ResetPeopleFlow(); break;
     default: printf("无效选项\n"); break;
     }
 }

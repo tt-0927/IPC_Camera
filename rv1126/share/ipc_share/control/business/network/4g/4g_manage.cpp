@@ -202,6 +202,17 @@ static bool hasDefaultRoute(const std::string& interface_name) {
     }
     return false;
 }
+
+bool FourGManager::has4GInternetAccess() const {
+    return m_config.enabled && m_4gDataConnected.load() &&
+           checkInternetByInterface("usb0");
+}
+
+bool FourGManager::hasUsableInternetAccess() {
+    if (has4GInternetAccess()) return true;
+    return isWiredConnected() && checkInternetByInterface("eth0");
+}
+
 // ==========================================
 // 自动识别逻辑实现
 // ==========================================

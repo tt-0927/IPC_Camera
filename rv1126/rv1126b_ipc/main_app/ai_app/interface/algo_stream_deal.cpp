@@ -188,7 +188,7 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
             {stAlgoConfig.nEnSafetyHelmet || stAlgoConfig.nEnReflectiveClothing || stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil, m_pGroup1Algo},
             /* penson(人)、Car(机动车)、NonCar(非机动车) */
             {stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
-                 stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown ||
+                 stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnPersonFallDown ||
                  stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator ||
                  stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
                  stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
@@ -223,12 +223,16 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
             {stAlgoConfig.nChannelOccupation, m_pChannelOccupationAlgo},
             /* 门禁异常通行检测 */
             {stAlgoConfig.nAccessControlAbnormalPassage, m_pAccessControlPassageAlgo},
-            /* 人车非业务检测（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范） */
+            /* 人车非业务检测（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范/人员聚集） */
             {stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
                 stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
                 stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
-                stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding || stAlgoConfig.nKitchenClothingCompliance,
-             m_pPMNMAlgoDetect},
+                stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding ||
+                stAlgoConfig.nKitchenClothingCompliance ||
+                stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty ||
+                stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip ||
+                stAlgoConfig.nEnCrowdGathering,
+            m_pPMNMAlgoDetect},
             /* 消防设施异常检测 */
             {stAlgoConfig.nEnFireEquipmentAbnormal, m_pFireEquipmentAlgo},
             /* 打架斗殴检测 */
@@ -332,7 +336,7 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
     bIsNew += manageSingleAlgorithm(m_pGroup2AndGroup4Algo,
                                     stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
                                         stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion ||
-                                        stAlgoConfig.nEnCrowdGathering || stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnEmergencyLaneOccupancy ||
+                                        stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnEmergencyLaneOccupancy ||
                                         stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator || stAlgoConfig.nEnReverseDirection ||
                                         stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
                                         stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
@@ -401,13 +405,16 @@ void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stA
         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAccessControlPassageDetect>());
     });
 
-    /* 人车非业务检测算法（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范） */
+    /* 人车非业务检测算法（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范/抽烟/睡岗/玩手机/摔倒/人员聚集） */
     bIsNew += manageSingleAlgorithm(m_pPMNMAlgoDetect,
                                     stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
                                         stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
                                         stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
                                         stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding ||
-                                        stAlgoConfig.nKitchenClothingCompliance,
+                                        stAlgoConfig.nKitchenClothingCompliance ||
+                                        stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty ||
+                                        stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip ||
+                                        stAlgoConfig.nEnCrowdGathering,
                                     []() {
                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPMNMAlgoDetect>());
                                     });

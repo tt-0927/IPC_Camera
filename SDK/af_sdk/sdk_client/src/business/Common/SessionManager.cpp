@@ -45,13 +45,13 @@ CSessionManager::~CSessionManager()
  * @author tianl (tianl@kfb.cn)
  * @brief 登录设备
  * @param [in] host 设备IP地址
- * @param [in] port 设备端口号
+ * @param [in] nPort 设备端口号
  * @param [in] user 用户名
  * @param [in] pass 密码
  * @return 成功返回用户句柄，失败返回NULL
  * @details 创建用户会话，连接设备并登录，启动心跳线程，将会话存入管理列表
  */
-LPUSER_HANDLE CSessionManager::Login(const std::string& host, int port,
+LPUSER_HANDLE CSessionManager::Login(const std::string& host, int nPort,
                          const std::string& user, const std::string& pass)
 {
     LPUSER_HANDLE hUser = GenerateHandle();
@@ -59,7 +59,7 @@ LPUSER_HANDLE CSessionManager::Login(const std::string& host, int port,
 	{
         this->OnSessionLost(h);
     };
-    auto session = std::make_shared<CUserSession>(hUser, host, port, user, pass,
+    auto session = std::make_shared<CUserSession>(hUser, host, nPort, user, pass,
 												m_nHeartbeatInterval, m_nMaxRetry,m_nConnectionTimeout,m_nReceiveTimeout,lostCallback);
     if (session->ConnectAndLogin())
 	{
@@ -67,12 +67,12 @@ LPUSER_HANDLE CSessionManager::Login(const std::string& host, int port,
         std::lock_guard<std::mutex> lock(m_stDeviceMapMutex);
         m_stSessions[hUser] = session;
 
-		NETSDK_LOG_MESSAGE_INFO("LogIn sucessful! Device: %s:%d UserHand: %p", host.c_str(),port, hUser);
+		NETSDK_LOG_MESSAGE_INFO("LogIn sucessful! Device: %s:%d UserHand: %p", host.c_str(),nPort, hUser);
 
         return hUser;
     }
 
-	NETSDK_LOG_MESSAGE_INFO("LogIn  ERROR Device: %s:%d", host.c_str(),port);
+	NETSDK_LOG_MESSAGE_INFO("LogIn  ERROR Device: %s:%d", host.c_str(),nPort);
     return NULL;
 }
 
@@ -129,8 +129,8 @@ int CSessionManager::GenerateUserId()
  */
 LPUSER_HANDLE CSessionManager::GenerateHandle()
 {
-	int id = m_nNextUserId.fetch_add(1);
-	return (LPUSER_HANDLE)(intptr_t)id;
+	int nId = m_nNextUserId.fetch_add(1);
+	return (LPUSER_HANDLE)(intptr_t)nId;
 }
 /**
  * @author tianl (tianl@kfb.cn)
@@ -156,25 +156,25 @@ std::shared_ptr<CUserSession> CSessionManager::GetSession(LPUSER_HANDLE pHandle)
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 设置全局接收超时时间
- * @param [in] timeoutSec 超时时间（秒）
+ * @param [in] nTimeoutSec 超时时间（秒）
  */
-void CSessionManager::SetGlobalRevTimeout(int timeoutSec)
+void CSessionManager::SetGlobalRevTimeout(int nTimeoutSec)
 {
-    m_nReceiveTimeout = timeoutSec;
+    m_nReceiveTimeout = nTimeoutSec;
 }
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 设置全局连接参数
- * @param [in] waitTime 等待时间（秒）
- * @param [in] tryTimes 尝试次数
+ * @param [in] nWaitTime 等待时间（秒）
+ * @param [in] nTryTimes 尝试次数
  * @details 设置心跳间隔、最大重试次数和连接超时时间
  */
-void CSessionManager::SetGlobalConnectTime(int waitTime, int tryTimes)
+void CSessionManager::SetGlobalConnectTime(int nWaitTime, int nTryTimes)
 {
-    m_nHeartbeatInterval = waitTime;
-    m_nMaxRetry = tryTimes;
-    m_nConnectionTimeout = waitTime;  /* 同时设置连接超时 */
+    m_nHeartbeatInterval = nWaitTime;
+    m_nMaxRetry = nTryTimes;
+    m_nConnectionTimeout = nWaitTime;  /* 同时设置连接超时 */
 }
 
 /**
@@ -193,16 +193,16 @@ void CSessionManager::SetExceptionCallBack(NET_ExceptionCallBack_PF cb, LPVOID p
 /**
  * @brief 触发异常回调
  * @param [in] pHandle 用户登录句柄
- * @param [in] dwType 异常类型
+ * @param [in] nType 异常类型
  * @param [in] lpExpHandle 异常相关句柄
  */
-void CSessionManager::FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 dwType, LPVOID lpExpHandle)
+void CSessionManager::FireExceptionCallback(LPUSER_HANDLE pHandle, INT32 nType, LPVOID lpExpHandle)
 {
     std::lock_guard<std::mutex> lock(m_stExceptionCbMutex);
     if (m_cbException)
     {
-        NETSDK_LOG_MESSAGE_DEBUG("[SessionManager] Firing exception callback: handle=%p, type=%d", pHandle, dwType);
-        m_cbException(pHandle, dwType, lpExpHandle, m_pExceptionUser);
+        NETSDK_LOG_MESSAGE_DEBUG("[SessionManager] Firing exception callback: handle=%p, type=%d", pHandle, nType);
+        m_cbException(pHandle, nType, lpExpHandle, m_pExceptionUser);
     }
 }
 

@@ -51,16 +51,16 @@ struct VoiceComParamFrame_S {
  * @author tianl (tianl@kfb.cn)
  * @brief 检查音频数据是否包含ADTS头
  * @details ADTS头以0xFF 0xF0开头，用于识别AAC音频帧
- * @param data 音频数据指针
- * @param size 音频数据大小（字节）
+ * @param pData 音频数据指针
+ * @param uSize 音频数据大小（字节）
  * @return true表示包含ADTS头，false表示不包含
  */
-static bool has_adts_header(const void* data, size_t size) {
-    if (data == nullptr || size < 2) {
+static bool has_adts_header(const void* pData, size_t uSize) {
+    if (pData == nullptr || uSize < 2) {
         return false;
     }
 
-    const auto* p = static_cast<const unsigned char*>(data);
+    const auto* p = static_cast<const unsigned char*>(pData);
     return p[0] == 0xFF && (p[1] & 0xF0) == 0xF0;
 }
 
@@ -68,32 +68,32 @@ static bool has_adts_header(const void* data, size_t size) {
  * @author tianl (tianl@kfb.cn)
  * @brief 格式化数据头部为十六进制字符串
  * @details 最多显示前16字节的十六进制值，用于调试打印
- * @param data 数据指针
- * @param size 数据大小（字节）
- * @param output 输出缓冲区
- * @param outputSize 输出缓冲区大小
+ * @param pData 数据指针
+ * @param uSize 数据大小（字节）
+ * @param pstrOutput 输出缓冲区
+ * @param uOutputSize 输出缓冲区大小
  */
-static void format_head_hex(const void* data, size_t size, char* output, size_t outputSize) {
-    if (output == nullptr || outputSize == 0) {
+static void format_head_hex(const void* pData, size_t uSize, char* pstrOutput, size_t uOutputSize) {
+    if (pstrOutput == nullptr || uOutputSize == 0) {
         return;
     }
 
-    output[0] = '\0';
-    if (data == nullptr || size == 0) {
+    pstrOutput[0] = '\0';
+    if (pData == nullptr || uSize == 0) {
         return;
     }
 
-    const auto* p = static_cast<const unsigned char*>(data);
-    const size_t dumpSize = size < 16 ? size : 16;
-    size_t used = 0;
-    for (size_t i = 0; i < dumpSize && used < outputSize; ++i) {
-        int written = std::snprintf(output + used, outputSize - used,
+    const auto* p = static_cast<const unsigned char*>(pData);
+    const size_t uDumpSize = uSize < 16 ? uSize : 16;
+    size_t uUsed = 0;
+    for (size_t i = 0; i < uDumpSize && uUsed < uOutputSize; ++i) {
+        int nWritten = std::snprintf(pstrOutput + uUsed, uOutputSize - uUsed,
                                     (i == 0) ? "%02X" : " %02X", p[i]);
-        if (written <= 0) {
+        if (nWritten <= 0) {
             break;
         }
-        used += static_cast<size_t>(written);
-        if (used >= outputSize) {
+        uUsed += static_cast<size_t>(nWritten);
+        if (uUsed >= uOutputSize) {
             break;
         }
     }
@@ -106,18 +106,18 @@ static void format_head_hex(const void* data, size_t size, char* output, size_t 
  * @brief 精确接收指定长度的数据
  * @details 循环调用recv直到接收完指定长度或出错
  * @param fd socket文件描述符
- * @param data 接收缓冲区指针
- * @param size 需要接收的字节数
+ * @param pstrData 接收缓冲区指针
+ * @param uSize 需要接收的字节数
  * @return true表示成功接收全部数据，false表示失败
  */
-static bool recv_exact(socket_fd_t fd, char* data, size_t size) {
-    size_t received = 0;
-    while (received < size) {
-        ssize_t n = recv(fd, data + received, static_cast<int>(size - received), 0);
+static bool recv_exact(socket_fd_t fd, char* pstrData, size_t uSize) {
+    size_t uReceived = 0;
+    while (uReceived < uSize) {
+        ssize_t n = recv(fd, pstrData + uReceived, static_cast<int>(uSize - uReceived), 0);
         if (n <= 0) {
             return false;
         }
-        received += static_cast<size_t>(n);
+        uReceived += static_cast<size_t>(n);
     }
     return true;
 }
@@ -148,14 +148,14 @@ CVoiceComStream::~CVoiceComStream() { stop(); }
  *          5. 发送音频参数协商帧（VCP1）
  *          6. 启动接收线程
  * @param host 设备IP地址
- * @param port 设备音频端口号
- * @param audio_param 音频参数（采样率、通道数、编码格式等）
+ * @param nPort 设备音频端口号
+ * @param stAudioParam 音频参数（采样率、通道数、编码格式等）
  * @param callback 音频数据回调函数，用于接收设备发送的音频数据
  * @return true表示成功，false表示失败
  */
 bool CVoiceComStream::start(const std::string& host,
-                           int port,
-                           const NET_VoiceComAudioParam_S& audio_param,
+                           int nPort,
+                           const NET_VoiceComAudioParam_S& stAudioParam,
                            VoiceComCallback callback) {
     if (m_bRunning) {
         NETSDK_LOG_MESSAGE_WARN("CVoiceComStream: already running");
@@ -177,7 +177,7 @@ bool CVoiceComStream::start(const std::string& host,
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
+    addr.sin_port = htons(static_cast<uint16_t>(nPort));
     if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
         NETSDK_LOG_MESSAGE_ERROR("CVoiceComStream: invalid host %s", host.c_str());
         NETSDK_SOCKET_CLOSE(m_nSocket);
@@ -187,18 +187,18 @@ bool CVoiceComStream::start(const std::string& host,
 
     if (connect(m_nSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
         NETSDK_LOG_MESSAGE_ERROR("CVoiceComStream: connect %s:%d failed, errno=%d",
-                       host.c_str(), port, NETSDK_SOCKET_GET_ERROR());
+                       host.c_str(), nPort, NETSDK_SOCKET_GET_ERROR());
         NETSDK_SOCKET_CLOSE(m_nSocket);
         m_nSocket = INVALID_SOCKET_FD;
         return false;
     }
 
-    int tcp_no_delay = 1;
-    if (setsockopt(m_nSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
+    int nTcpNoDelay = 1;
+    if (setsockopt(m_nSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&nTcpNoDelay), sizeof(nTcpNoDelay)) != 0) {
         NETSDK_LOG_MESSAGE_WARN("CVoiceComStream: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
     }
 
-    if (!send_audio_param(audio_param)) {
+    if (!send_audio_param(stAudioParam)) {
         NETSDK_LOG_MESSAGE_ERROR("CVoiceComStream: send audio param failed");
         NETSDK_SOCKET_CLOSE(m_nSocket);
         m_nSocket = INVALID_SOCKET_FD;
@@ -209,7 +209,7 @@ bool CVoiceComStream::start(const std::string& host,
     m_bRunning = true;
     m_stReceiveThread = std::thread(&CVoiceComStream::recv_loop, this);
 
-    NETSDK_LOG_MESSAGE_INFO("CVoiceComStream: connected to %s:%d", host.c_str(), port);
+    NETSDK_LOG_MESSAGE_INFO("CVoiceComStream: connected to %s:%d", host.c_str(), nPort);
     return true;
 }
 
@@ -217,13 +217,13 @@ bool CVoiceComStream::start(const std::string& host,
  * @author tianl (tianl@kfb.cn)
  * @brief 发送音频参数协商帧
  * @details 将音频参数封装为VCP1帧格式，包含魔数和参数数据
- * @param audio_param 音频参数结构体
+ * @param stAudioParam 音频参数结构体
  * @return true表示成功，false表示失败
  */
-bool CVoiceComStream::send_audio_param(const NET_VoiceComAudioParam_S& audio_param) {
+bool CVoiceComStream::send_audio_param(const NET_VoiceComAudioParam_S& stAudioParam) {
     VoiceComParamFrame_S frame{};
     frame.magic = htonl(kVoiceComParamMagic);
-    frame.audio_param = audio_param;
+    frame.audio_param = stAudioParam;
     return send_frame(reinterpret_cast<const char*>(&frame), sizeof(frame));
 }
 
@@ -231,32 +231,32 @@ bool CVoiceComStream::send_audio_param(const NET_VoiceComAudioParam_S& audio_par
  * @author tianl (tianl@kfb.cn)
  * @brief 发送一帧数据（带长度头）
  * @details 帧格式：[2字节长度（大端）][音频负载]，首帧负载为VCP1参数帧
- * @param data 帧数据指针
- * @param size 帧数据大小（字节）
+ * @param pstrData 帧数据指针
+ * @param uSize 帧数据大小（字节）
  * @return true表示成功，false表示失败
  */
-bool CVoiceComStream::send_frame(const char* data, size_t size) {
-    if (m_nSocket == INVALID_SOCKET_FD || data == nullptr || size == 0 || size > 0xFFFFu) {
+bool CVoiceComStream::send_frame(const char* pstrData, size_t uSize) {
+    if (m_nSocket == INVALID_SOCKET_FD || pstrData == nullptr || uSize == 0 || uSize > 0xFFFFu) {
         return false;
     }
 
-    uint16_t len_be = htons(static_cast<uint16_t>(size));
-    std::vector<char> frame(sizeof(len_be) + size);
-    std::memcpy(frame.data(), &len_be, sizeof(len_be));
-    std::memcpy(frame.data() + sizeof(len_be), data, size);
+    uint16_t uLenBe = htons(static_cast<uint16_t>(uSize));
+    std::vector<char> frame(sizeof(uLenBe) + uSize);
+    std::memcpy(frame.data(), &uLenBe, sizeof(uLenBe));
+    std::memcpy(frame.data() + sizeof(uLenBe), pstrData, uSize);
 
 #ifdef _WIN32
-    int send_flags = 0;
+    int nSendFlags = 0;
 #else
-    int send_flags = MSG_NOSIGNAL;
+    int nSendFlags = MSG_NOSIGNAL;
 #endif
 
     std::lock_guard<std::mutex> lock(m_stSendMutex);
-    size_t sent = 0;
-    while (sent < frame.size()) {
-        ssize_t n = ::send(m_nSocket, frame.data() + sent, static_cast<int>(frame.size() - sent), send_flags);
+    size_t uSent = 0;
+    while (uSent < frame.size()) {
+        ssize_t n = ::send(m_nSocket, frame.data() + uSent, static_cast<int>(frame.size() - uSent), nSendFlags);
         if (n <= 0) return false;
-        sent += static_cast<size_t>(n);
+        uSent += static_cast<size_t>(n);
     }
     return true;
 }
@@ -264,29 +264,29 @@ bool CVoiceComStream::send_frame(const char* data, size_t size) {
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 发送音频数据到设备
- * @param data 音频数据指针
- * @param size 音频数据大小（字节）
+ * @param pstrData 音频数据指针
+ * @param uSize 音频数据大小（字节）
  * @return true表示成功，false表示失败
  */
-bool CVoiceComStream::send(const char* data, size_t size) {
-    if (!m_bRunning || data == nullptr || size == 0) {
+bool CVoiceComStream::send(const char* pstrData, size_t uSize) {
+    if (!m_bRunning || pstrData == nullptr || uSize == 0) {
         return false;
     }
 
 #ifdef VOICECOM_DEBUG_PRINT
-    const uint64_t frame_count = ++m_uSentFrameCount;
-    if (frame_count <= 10 || (frame_count % 100) == 0) {
-        char head_hex[64];
-        format_head_hex(data, size, head_hex, sizeof(head_hex));
+    const uint64_t uFrameCount = ++m_uSentFrameCount;
+    if (uFrameCount <= 10 || (uFrameCount % 100) == 0) {
+        char strHeadHex[64];
+        format_head_hex(pstrData, uSize, strHeadHex, sizeof(strHeadHex));
         NETSDK_LOG_MESSAGE_INFO("CVoiceComStream: send audio frame=%llu bytes=%zu has_adts=%d head=%s",
-                      static_cast<unsigned long long>(frame_count),
-                      size,
-                      has_adts_header(data, size) ? 1 : 0,
-                      head_hex);
+                      static_cast<unsigned long long>(uFrameCount),
+                      uSize,
+                      has_adts_header(pstrData, uSize) ? 1 : 0,
+                      strHeadHex);
     }
 #endif
 
-    return send_frame(data, size);
+    return send_frame(pstrData, uSize);
 }
 
 /**
@@ -321,42 +321,42 @@ void CVoiceComStream::stop() {
  *          3. 通过回调函数转发给上层
  */
 void CVoiceComStream::recv_loop() {
-    char header[2];
-    char buffer[4096];
+    char strHeader[2];
+    char strBuffer[4096];
 
     while (m_bRunning) {
         /* 读帧头: 2字节长度（大端） */
-        if (!recv_exact(m_nSocket, header, sizeof(header))) {
+        if (!recv_exact(m_nSocket, strHeader, sizeof(strHeader))) {
             if (m_bRunning) {
                 NETSDK_LOG_MESSAGE_WARN("CVoiceComStream: recv header failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             break;
         }
 
-        uint16_t len_be;
-        std::memcpy(&len_be, header, sizeof(len_be));
-        size_t frame_len = ntohs(len_be);
+        uint16_t uLenBe;
+        std::memcpy(&uLenBe, strHeader, sizeof(uLenBe));
+        size_t uFrameLen = ntohs(uLenBe);
 
-        if (frame_len == 0 || frame_len > sizeof(buffer)) {
-            NETSDK_LOG_MESSAGE_WARN("CVoiceComStream: invalid frame len %zu", frame_len);
+        if (uFrameLen == 0 || uFrameLen > sizeof(strBuffer)) {
+            NETSDK_LOG_MESSAGE_WARN("CVoiceComStream: invalid frame len %zu", uFrameLen);
             continue;
         }
 
         /* 读帧数据 */
-        if (recv_exact(m_nSocket, buffer, frame_len) && m_fnCallback) {
+        if (recv_exact(m_nSocket, strBuffer, uFrameLen) && m_fnCallback) {
 #ifdef VOICECOM_DEBUG_PRINT
-            const uint64_t frame_count = ++m_uReceivedFrameCount;
-            if (frame_count <= 10 || (frame_count % 100) == 0) {
-                char head_hex[64];
-                format_head_hex(buffer, frame_len, head_hex, sizeof(head_hex));
+            const uint64_t uFrameCount = ++m_uReceivedFrameCount;
+            if (uFrameCount <= 10 || (uFrameCount % 100) == 0) {
+                char strHeadHex[64];
+                format_head_hex(strBuffer, uFrameLen, strHeadHex, sizeof(strHeadHex));
                 NETSDK_LOG_MESSAGE_INFO("CVoiceComStream: recv audio frame=%llu bytes=%zu has_adts=%d head=%s",
-                              static_cast<unsigned long long>(frame_count),
-                              frame_len,
-                              has_adts_header(buffer, frame_len) ? 1 : 0,
-                              head_hex);
+                              static_cast<unsigned long long>(uFrameCount),
+                              uFrameLen,
+                              has_adts_header(strBuffer, uFrameLen) ? 1 : 0,
+                              strHeadHex);
             }
 #endif
-            m_fnCallback(buffer, frame_len);
+            m_fnCallback(strBuffer, uFrameLen);
         }
     }
 }

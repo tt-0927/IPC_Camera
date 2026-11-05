@@ -49,17 +49,17 @@ struct CommandRequest_S
     size_t binSize = 0;
 
     /* 构造函数简化使用 */
-    CommandRequest_S(const std::string& m, const std::string& u) : method(m), url(u) {}
+    CommandRequest_S(const std::string& strMethod, const std::string& strUrl) : method(strMethod), url(strUrl) {}
     CommandRequest_S() = default;
 };
 
 class CUserSession : public std::enable_shared_from_this<CUserSession>
 {
 public:
-    CUserSession(LPUSER_HANDLE userHand,  const std::string& host, int port,
+    CUserSession(LPUSER_HANDLE userHand,  const std::string& host, int nPort,
                  const std::string& user, const std::string& pass,
-                 int hbInterval, int maxRetry,
-                 int connectTimeout, int receiveTimeout,
+                 int nHbInterval, int nMaxRetry,
+                 int nConnectTimeout, int nReceiveTimeout,
                  OnSessionLostCallback callback);
     ~CUserSession();
 
@@ -103,17 +103,17 @@ public:
  * @author tianl (tianl@kfb.cn)
      * @brief 设置报警回调函数
      * @param [in] cb 报警回调函数指针
-     * @param [in] userData 用户数据
+     * @param [in] pUserData 用户数据
      */
-    void SetAlarmCallback(NET_AlarmCallBack cb, void* userData);
+    void SetAlarmCallback(NET_AlarmCallBack cb, void* pUserData);
 
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 设置通道状态回调函数
      * @param [in] cb 通道状态回调函数指针
-     * @param [in] userData 用户数据
+     * @param [in] pUserData 用户数据
      */
-    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* userData);
+    void SetChannelStatusCallback(NET_ChannelStatusCallBack cb, void* pUserData);
 
     /**
  * @author tianl (tianl@kfb.cn)

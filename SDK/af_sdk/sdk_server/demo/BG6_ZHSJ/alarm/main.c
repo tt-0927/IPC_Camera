@@ -489,31 +489,31 @@ int main(int argc, char* argv[])
     AddRegisterCb();
 
     // 获取端口号（从命令行参数或使用默认值）
-    UINT32 dwPort = SDKSERVER_PORT;
+    UINT32 uPort = SDKSERVER_PORT;
     if (argc > 1)
     {
-        dwPort = (UINT32)atoi(argv[1]);
+        uPort = (UINT32)atoi(argv[1]);
     }
 
     // 获取用户名和密码（可选）
-    CHAR szUserName[NET_LEN_132] = "admin";
-    CHAR szPassword[NET_LEN_132] = "Admin@123456";
+    CHAR strUserName[NET_LEN_132] = "admin";
+    CHAR strPassword[NET_LEN_132] = "Admin@123456";
 
     if (argc > 2)
     {
-        strncpy(szUserName, argv[2], NET_LEN_132 - 1);
-        szUserName[NET_LEN_132 - 1] = '\0';
+        strncpy(strUserName, argv[2], NET_LEN_132 - 1);
+        strUserName[NET_LEN_132 - 1] = '\0';
     }
 
     if (argc > 3)
     {
-        strncpy(szPassword, argv[3], NET_LEN_132 - 1);
-        szPassword[NET_LEN_132 - 1] = '\0';
+        strncpy(strPassword, argv[3], NET_LEN_132 - 1);
+        strPassword[NET_LEN_132 - 1] = '\0';
     }
 
     // 初始化SDK服务器
-    printf("[Demo] Initializing SDK Server on port %u...\n", dwPort);
-    if (!NET_serverInit(dwPort, szUserName, szPassword, NULL))
+    printf("[Demo] Initializing SDK Server on port %u...\n", uPort);
+    if (!NET_serverInit(uPort, strUserName, strPassword, NULL))
     {
         printf("[Demo] Failed to initialize SDK Server!\n");
         return -1;

@@ -44,8 +44,8 @@ inline std::string UrlDecode(const std::string& value)
             std::isxdigit((unsigned char)value[i + 1]) &&
             std::isxdigit((unsigned char)value[i + 2]))
         {
-            char hex[3] = {value[i + 1], value[i + 2], '\0'};
-            out.push_back((char)std::strtol(hex, NULL, 16));
+            char strHex[3] = {value[i + 1], value[i + 2], '\0'};
+            out.push_back((char)std::strtol(strHex, NULL, 16));
             i += 2;
             continue;
         }
@@ -64,30 +64,30 @@ inline std::string UrlDecode(const std::string& value)
  * @param defaultVal 默认值（未找到或解析失败时返回）
  * @return 解析到的整数值，未找到或解析失败则返回默认值
  */
-inline int ParseIntParam(const std::string& url_param, const std::string& key, int defaultVal = 0)
+inline int ParseIntParam(const std::string& url_param, const std::string& key, int nDefaultVal = 0)
 {
     std::string searchKey = key + "=";
-    size_t pos = url_param.find(searchKey);
-    if (pos == std::string::npos)
+    size_t uPos = url_param.find(searchKey);
+    if (uPos == std::string::npos)
     {
-        return defaultVal;
+        return nDefaultVal;
     }
 
-    size_t valueStart = pos + searchKey.length();
-    size_t valueEnd = url_param.find('&', valueStart);
-    if (valueEnd == std::string::npos)
+    size_t uValueStart = uPos + searchKey.length();
+    size_t uValueEnd = url_param.find('&', uValueStart);
+    if (uValueEnd == std::string::npos)
     {
-        valueEnd = url_param.length();
+        uValueEnd = url_param.length();
     }
 
-    std::string valueStr = url_param.substr(valueStart, valueEnd - valueStart);
+    std::string valueStr = url_param.substr(uValueStart, uValueEnd - uValueStart);
     try
     {
         return std::stoi(valueStr);
     }
     catch (...)
     {
-        return defaultVal;
+        return nDefaultVal;
     }
 }
 
@@ -103,20 +103,20 @@ inline int ParseIntParam(const std::string& url_param, const std::string& key, i
 inline std::string ParseStringParam(const std::string& url_param, const std::string& key, const std::string& defaultVal = "")
 {
     std::string searchKey = key + "=";
-    size_t pos = url_param.find(searchKey);
-    if (pos == std::string::npos)
+    size_t uPos = url_param.find(searchKey);
+    if (uPos == std::string::npos)
     {
         return defaultVal;
     }
 
-    size_t valueStart = pos + searchKey.length();
-    size_t valueEnd = url_param.find('&', valueStart);
-    if (valueEnd == std::string::npos)
+    size_t uValueStart = uPos + searchKey.length();
+    size_t uValueEnd = url_param.find('&', uValueStart);
+    if (uValueEnd == std::string::npos)
     {
-        valueEnd = url_param.length();
+        uValueEnd = url_param.length();
     }
 
-    return UrlDecode(url_param.substr(valueStart, valueEnd - valueStart));
+    return UrlDecode(url_param.substr(uValueStart, uValueEnd - uValueStart));
 }
 
 #endif /* SDK_SERVER_BUSINESS_URL_PARAM_UTILS_H */

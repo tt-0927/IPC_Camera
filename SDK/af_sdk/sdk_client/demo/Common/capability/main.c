@@ -226,7 +226,7 @@ void PrintVideoEncodeCap(const NET_VideoEncodeCap_S* pCap)
         for (int j = 0; j < pStream->uEncodeAbilityNum && j < NET_VIDEO_ENCODE_TYPE_MAX; j++)
         {
             const NET_VideoEncodeAbility_S* pAbility = &pStream->astEncodeAbility[j];
-            printf("    [编码能力 %d] Codec=%s(%d)\n", j, pAbility->szVideoCodec, pAbility->enVideoCodec);
+            printf("    [编码能力 %d] Codec=%s(%d)\n", j, pAbility->strVideoCodec, pAbility->enVideoCodec);
             printf("      支持调整复杂度: %d\n", pAbility->nSupportAdjustComplexity);
             PrintEncodeComplexityList("      ", pAbility);
             printf("      默认复杂度: %u\n", pAbility->nDefaultComplexity);
@@ -717,9 +717,9 @@ int main(int argc, char* argv[])
     memset(&struDeviceInfo, 0, sizeof(NET_DeviceInfo_S));
 
     struLoginInfo.uPort = g_serverPort;
-    strncpy(struLoginInfo.szIPAddr, g_serverIp, sizeof(struLoginInfo.szIPAddr) - 1);
-    strncpy(struLoginInfo.szUserName, g_username, sizeof(struLoginInfo.szUserName) - 1);
-    strncpy(struLoginInfo.szPassword, g_password, sizeof(struLoginInfo.szPassword) - 1);
+    strncpy(struLoginInfo.strIPAddr, g_serverIp, sizeof(struLoginInfo.strIPAddr) - 1);
+    strncpy(struLoginInfo.strUserName, g_username, sizeof(struLoginInfo.strUserName) - 1);
+    strncpy(struLoginInfo.strPassword, g_password, sizeof(struLoginInfo.strPassword) - 1);
 
     printf("[Client] Logging in to %s:%d, username=%s...\n",
            g_serverIp,

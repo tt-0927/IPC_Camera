@@ -136,7 +136,7 @@ static void FillDemoResolution(pNET_VideoResolution_S pResolution,
     }
 
     memset(pResolution, 0, sizeof(NET_VideoResolution_S));
-    snprintf(pResolution->szName, sizeof(pResolution->szName), "%d*%d", width, height);
+    snprintf(pResolution->strName, sizeof(pResolution->strName), "%d*%d", width, height);
     if (frameRateMin > frameRateMax)
     {
         FLOAT tmp = frameRateMin;
@@ -180,7 +180,7 @@ static void FillDemoEncodeAbility(pNET_VideoEncodeAbility_S pAbility,
     }
 
     memset(pAbility, 0, sizeof(NET_VideoEncodeAbility_S));
-    CopyString(pAbility->szVideoCodec, sizeof(pAbility->szVideoCodec), pCodec);
+    CopyString(pAbility->strVideoCodec, sizeof(pAbility->strVideoCodec), pCodec);
     pAbility->enVideoCodec = enVideoCodec;
     pAbility->nSupportAdjustComplexity = supportAdjustComplexity;
     pAbility->nEncodeComplexityNum = complexityNum;
@@ -207,14 +207,14 @@ static void FillDemoEncodeAbility(pNET_VideoEncodeAbility_S pAbility,
  * @brief 视频编码能力集回调实现
  * @note 模拟填充2个码流(主/子码流)的能力集数据
  */
-NET_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap)
+NET_COMMON_ECODE_E MyVideoEncodeCb(INT32 nChannelID, pNET_VideoEncodeCap_S pCap)
 {
     if (!pCap)
     {
         return NET_E_INVALID_PARAM;
     }
 
-    printf("[Server] GetVideoEncodeCap callback, channelID=%d\n", dwChannelID);
+    printf("[Server] GetVideoEncodeCap callback, channelID=%d\n", nChannelID);
 
     memset(pCap, 0, sizeof(NET_VideoEncodeCap_S));
 
@@ -361,14 +361,14 @@ NET_COMMON_ECODE_E MyVideoEncodeCb(INT32 dwChannelID, pNET_VideoEncodeCap_S pCap
  * @brief 音频编码能力集回调实现
  * @note 模拟填充音频编码能力集的能力集数据
  */
-NET_COMMON_ECODE_E MyAudioEncodeCb(INT32 dwChannelID, pNET_AudioCap_S pCap)
+NET_COMMON_ECODE_E MyAudioEncodeCb(INT32 nChannelID, pNET_AudioCap_S pCap)
 {
     if (!pCap)
     {
         return NET_E_INVALID_PARAM;
     }
 
-    printf("[Server] GetAudioEncodeCap callback, channelID=%d\n", dwChannelID);
+    printf("[Server] GetAudioEncodeCap callback, channelID=%d\n", nChannelID);
 
     memset(pCap, 0, sizeof(NET_AudioCap_S));
 
@@ -595,14 +595,14 @@ static void PrintDemoOsdCap(const NET_OsdCap_S* pCap)
 /**
  * @brief OSD能力集回调实现
  */
-NET_COMMON_ECODE_E MyOsdCapCb(INT32 dwChannelID, pNET_OsdCap_S pCap)
+NET_COMMON_ECODE_E MyOsdCapCb(INT32 nChannelID, pNET_OsdCap_S pCap)
 {
     if (!pCap)
     {
         return NET_E_INVALID_PARAM;
     }
 
-    printf("[Server] GetOsdCap callback, channelID=%d\n", dwChannelID);
+    printf("[Server] GetOsdCap callback, channelID=%d\n", nChannelID);
 
     FillDemoOsdCap(pCap);
     PrintDemoOsdCap(pCap);

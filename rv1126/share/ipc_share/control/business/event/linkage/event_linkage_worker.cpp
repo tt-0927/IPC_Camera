@@ -335,6 +335,12 @@ bool EventLinkageWorker::is_task_expired(const LinkageTask_S &stTask) const
 
 bool EventLinkageWorker::handle_running_task_conflict(const LinkageTask_S &stTask)
 {
+    /* 邮件任务统一交由邮件模块排队聚合发送，不参与单飞抢占与丢弃 */
+    if (stTask.enLinkageType == LinkageType_E::EMAIL)
+    {
+        return true;
+    }
+
     if (stTask.enLinkageType == LinkageType_E::SOUND)
     {
         dlog_info("声音联动正在播报，丢弃新任务 - 事件: %s, 优先级: %d",

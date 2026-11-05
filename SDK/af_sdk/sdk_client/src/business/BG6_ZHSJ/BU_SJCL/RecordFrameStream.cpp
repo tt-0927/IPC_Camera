@@ -22,38 +22,38 @@ namespace {
 /**
  * @brief 精确接收指定字节数的数据
  * @param fd socket文件描述符
- * @param data 接收数据缓冲区
- * @param size 需要接收的字节数
+ * @param pstrData 接收数据缓冲区
+ * @param uSize 需要接收的字节数
  * @return true表示成功接收指定字节数，false表示接收失败或连接断开
  */
-bool recv_exact(socket_fd_t fd, char* data, size_t size) {
-    size_t received = 0;
-    while (received < size) {
-        ssize_t n = recv(fd, data + received, static_cast<int>(size - received), 0);
+bool recv_exact(socket_fd_t fd, char* pstrData, size_t uSize) {
+    size_t uReceived = 0;
+    while (uReceived < uSize) {
+        ssize_t n = recv(fd, pstrData + uReceived, static_cast<int>(uSize - uReceived), 0);
         if (n <= 0) {
             return false;
         }
-        received += static_cast<size_t>(n);
+        uReceived += static_cast<size_t>(n);
     }
     return true;
 }
 
 /**
  * @brief 将大端序16位整数转换为主机字节序
- * @param value 大端序16位整数
+ * @param uValue 大端序16位整数
  * @return 主机字节序16位整数
  */
-uint16_t from_be16(uint16_t value) {
-    return ntohs(value);
+uint16_t from_be16(uint16_t uValue) {
+    return ntohs(uValue);
 }
 
 /**
  * @brief 将大端序32位整数转换为主机字节序
- * @param value 大端序32位整数
+ * @param uValue 大端序32位整数
  * @return 主机字节序32位整数
  */
-uint32_t from_be32(uint32_t value) {
-    return ntohl(value);
+uint32_t from_be32(uint32_t uValue) {
+    return ntohl(uValue);
 }
 
 } // namespace
@@ -74,20 +74,20 @@ CRecordFrameStream::~CRecordFrameStream() { stop(); }
  * @details 创建TCP socket，设置超时时间，连接设备，开启TCP_NODELAY，
  *          启动接收线程循环接收录像帧数据
  * @param host 设备IP地址
- * @param port 设备录像帧端口号
- * @param stream_id 流ID，标识当前播放会话
+ * @param nPort 设备录像帧端口号
+ * @param strStreamId 流ID，标识当前播放会话
  * @param callback 帧数据回调函数，用于接收设备发送的录像帧数据
  * @return true表示成功，false表示失败
  */
 bool CRecordFrameStream::start(const std::string& host,
-                              int port,
-                              const std::string& stream_id,
+                              int nPort,
+                              const std::string& strStreamId,
                               RecordFrameCallback callback) {
     if (m_bRunning) {
         NETSDK_LOG_MESSAGE_WARN("RecordFrameStream: already running");
         return false;
     }
-    if (host.empty() || port <= 0 || port > 65535 || stream_id.empty()) {
+    if (host.empty() || nPort <= 0 || nPort > 65535 || strStreamId.empty()) {
         return false;
     }
 
@@ -105,7 +105,7 @@ bool CRecordFrameStream::start(const std::string& host,
 
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(static_cast<uint16_t>(port));
+    addr.sin_port = htons(static_cast<uint16_t>(nPort));
     if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
         NETSDK_LOG_MESSAGE_ERROR("RecordFrameStream: invalid host %s", host.c_str());
         NETSDK_SOCKET_CLOSE(m_nSocket);
@@ -114,23 +114,23 @@ bool CRecordFrameStream::start(const std::string& host,
     }
 
     if (connect(m_nSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        NETSDK_LOG_MESSAGE_ERROR("RecordFrameStream: connect %s:%d failed, errno=%d", host.c_str(), port, NETSDK_SOCKET_GET_ERROR());
+        NETSDK_LOG_MESSAGE_ERROR("RecordFrameStream: connect %s:%d failed, errno=%d", host.c_str(), nPort, NETSDK_SOCKET_GET_ERROR());
         NETSDK_SOCKET_CLOSE(m_nSocket);
         m_nSocket = INVALID_SOCKET_FD;
         return false;
     }
 
-    int tcp_no_delay = 1;
-    if (setsockopt(m_nSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&tcp_no_delay), sizeof(tcp_no_delay)) != 0) {
+    int nTcpNoDelay = 1;
+    if (setsockopt(m_nSocket, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&nTcpNoDelay), sizeof(nTcpNoDelay)) != 0) {
         NETSDK_LOG_MESSAGE_WARN("RecordFrameStream: set TCP_NODELAY failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
     }
 
-    m_strStreamId = stream_id;
+    m_strStreamId = strStreamId;
     m_fnCallback = std::move(callback);
     m_bRunning = true;
     m_stReceiveThread = std::thread(&CRecordFrameStream::recv_loop, this);
 
-    NETSDK_LOG_MESSAGE_INFO("RecordFrameStream: connected to %s:%d, stream_id=%s", host.c_str(), port, stream_id.c_str());
+    NETSDK_LOG_MESSAGE_INFO("RecordFrameStream: connected to %s:%d, stream_id=%s", host.c_str(), nPort, strStreamId.c_str());
     return true;
 }
 
@@ -177,45 +177,45 @@ void CRecordFrameStream::recv_loop() {
             break;
         }
 
-        const uint32_t payload_len = from_be32(header.uPayloadLen);
-        if (payload_len > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
-            NETSDK_LOG_MESSAGE_WARN("RecordFrameStream: invalid payload len %u", payload_len);
+        const uint32_t uPayloadLen = from_be32(header.uPayloadLen);
+        if (uPayloadLen > NET_RECORD_FRAME_MAX_PAYLOAD_SIZE) {
+            NETSDK_LOG_MESSAGE_WARN("RecordFrameStream: invalid payload len %u", uPayloadLen);
             break;
         }
 
-        std::vector<char> payload(payload_len);
-        if (payload_len > 0 && !recv_exact(m_nSocket, payload.data(), payload_len)) {
+        std::vector<char> payload(uPayloadLen);
+        if (uPayloadLen > 0 && !recv_exact(m_nSocket, payload.data(), uPayloadLen)) {
             if (m_bRunning) {
                 NETSDK_LOG_MESSAGE_WARN("RecordFrameStream: recv payload failed, errno=%d", NETSDK_SOCKET_GET_ERROR());
             }
             break;
         }
 
-        NET_RecordFrameInfo_S frame_info{};
-        frame_info.uSize = sizeof(frame_info);
-        frame_info.uSeq = from_be16(header.wSeq);
-        frame_info.uTimestamp = from_be32(header.uTimestamp);
-        frame_info.uPayloadLen = payload_len;
-        frame_info.uFlags = from_be32(header.uFlags);
+        NET_RecordFrameInfo_S stFrameInfo{};
+        stFrameInfo.uSize = sizeof(stFrameInfo);
+        stFrameInfo.uSeq = from_be16(header.wSeq);
+        stFrameInfo.uTimestamp = from_be32(header.uTimestamp);
+        stFrameInfo.uPayloadLen = uPayloadLen;
+        stFrameInfo.uFlags = from_be32(header.uFlags);
         switch (header.byPayloadType) {
             case NET_RECORD_FRAME_PAYLOAD_TYPE_AUDIO:
-                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_AUDIO;
+                stFrameInfo.uMediaType = NET_RECORD_FRAME_MEDIA_AUDIO;
                 break;
             case NET_RECORD_FRAME_PAYLOAD_TYPE_END:
-                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_END;
-                frame_info.uFlags |= NET_RECORD_FRAME_FLAG_STREAM_END;
+                stFrameInfo.uMediaType = NET_RECORD_FRAME_MEDIA_END;
+                stFrameInfo.uFlags |= NET_RECORD_FRAME_FLAG_STREAM_END;
                 break;
             case NET_RECORD_FRAME_PAYLOAD_TYPE_VIDEO:
             default:
-                frame_info.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
+                stFrameInfo.uMediaType = NET_RECORD_FRAME_MEDIA_VIDEO;
                 break;
         }
 
         if (m_fnCallback) {
-            m_fnCallback(frame_info, payload_len > 0 ? payload.data() : nullptr, payload_len);
+            m_fnCallback(stFrameInfo, uPayloadLen > 0 ? payload.data() : nullptr, uPayloadLen);
         }
 
-        if ((frame_info.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0) {
+        if ((stFrameInfo.uFlags & NET_RECORD_FRAME_FLAG_STREAM_END) != 0) {
             break;
         }
     }

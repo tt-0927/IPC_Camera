@@ -43,6 +43,11 @@
 #include "upgrade_client.h"
 #include "gb28181.hpp"
 #include "onvif_server.h"
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+#include "classroom_task.h"
+#endif
+
 #if CAP_LOCAL_STORAGE
 #include "record_server.h"
 #endif
@@ -69,6 +74,7 @@
 #endif
 #include "wifi_manage.h"
 #include "production_test_task.h"
+#include "web_feature_task.h"
 #include "4g_manage.h"
 #include "hostapd_manager.h"
 #ifdef ENABLE_AI_STUDENT
@@ -772,6 +778,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 系统配置相关 */
     pTaskManage->bind<Task::WebPlugin::GetParam>(AC_GET_WEB_PLUGIN_PARAM);
     pTaskManage->bind<Task::WebPlugin::SetParam>(AC_SET_WEB_PLUGIN_PARAM);
+    pTaskManage->bind<Task::WebFeature::GetFeatureConfig>(AC_GET_WEB_FEATURE_CONFIG);
     pTaskManage->bind<Task::System::GetDeviceInfo>(AC_GET_DEVICE_INFO);
     pTaskManage->bind<Task::System::SetDeviceInfo>(AC_SET_DEVICE_INFO);
     pTaskManage->bind<Task::System::GetTimeInfo>(AC_GET_TIME_INFO);
@@ -841,8 +848,10 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::SetSnmpInfo>(AC_SET_SNMP_INFO);
     pTaskManage->bind<Task::Network::GetEamilInfo>(AC_GET_EAMIL_INFO);
     pTaskManage->bind<Task::Network::SetEamilInfo>(AC_SET_EAMIL_INFO);
+#if !LANG_OVERSEAS_EN /* 外贸英文通用版屏蔽平台接入 */
     pTaskManage->bind<Task::Network::GetGb28181Info>(AC_GET_GB28181_INFO);
     pTaskManage->bind<Task::Network::SetGb28181Info>(AC_SET_GB28181_INFO);
+#endif
     // pTaskManage->bind<Task::Network::GetOhterSeniorInfo>(AC_GET_OHTER_SENIOR_INFO);
     pTaskManage->bind<Task::Network::SetOhterSeniorInfo>(AC_SET_OHTER_SENIOR_INFO);
     pTaskManage->bind<Task::Network::GetIntegrationProtoInfo>(AC_GET_INTEGRATION_PROTO_INFO);
@@ -874,7 +883,7 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Network::SetBonjourInfo>(AC_SET_BONJOUR_INFO);
 
     /* 国标证书管理 */
-#if CAP_GB35114
+#if CAP_GB35114 && !LANG_OVERSEAS_EN /* 外贸英文通用版屏蔽国标证书 */
     pTaskManage->bind<Task::Network::GmCreateCertRequestFile>(AC_GM_CREATE_CERT_REQUEST_FILE);
     pTaskManage->bind<Task::Network::GmUploadCaCert>(AC_GM_UPLOAD_CA_CERT);
     pTaskManage->bind<Task::Network::GmUploadPlatformCert>(AC_GM_UPLOAD_PLATFORM_CERT);
@@ -912,6 +921,9 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     #endif
     #if CAP_BLUETOOTH
     pTaskManage->bind<Task::Network::ReleaseBleProvisioning>(AC_RELEASE_BLE_PROVISIONING);
+    pTaskManage->bind<Task::Network::CancelBleProvisioning>(AC_CANCEL_BLE_PROVISIONING);
+    pTaskManage->bind<Task::Network::CommitBleProvisioning>(AC_COMMIT_BLE_PROVISIONING);
+    pTaskManage->bind<Task::Network::GetBleConnectionInfo>(AC_GET_BLE_CONNECTION_INFO);
     #endif
     #if CAP_GARBAGE_STATION_PLATFORM
     /* 平台管理 */
@@ -1377,7 +1389,70 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     /* 鼠患识别 */
     pTaskManage->bind<Task::Event::GetMouseDetectionInfo>(AC_GET_MOUSE_DETECTION_INFO);
     pTaskManage->bind<Task::Event::SetMouseDetectionInfo>(AC_SET_MOUSE_DETECTION_INFO);
-    #endif
+#endif
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    /* 课堂 AI 分析配置下发*/
+    /* 摄像机类型 */
+    pTaskManage->bind<Task::Classroom::GetDeviceRole>(AC_CLASSROOM_GET_DEVICE_ROLE);
+    pTaskManage->bind<Task::Classroom::SetDeviceRole>(AC_CLASSROOM_SET_DEVICE_ROLE);
+    /* 学生行为 */
+    pTaskManage->bind<Task::Classroom::GetStuStand>(AC_CLASSROOM_GET_STU_STAND);
+    pTaskManage->bind<Task::Classroom::SetStuStand>(AC_CLASSROOM_SET_STU_STAND);
+    pTaskManage->bind<Task::Classroom::GetStuRaiseHand>(AC_CLASSROOM_GET_STU_RAISE_HAND);
+    pTaskManage->bind<Task::Classroom::SetStuRaiseHand>(AC_CLASSROOM_SET_STU_RAISE_HAND);
+    pTaskManage->bind<Task::Classroom::GetStuHeadUp>(AC_CLASSROOM_GET_STU_HEAD_UP);
+    pTaskManage->bind<Task::Classroom::SetStuHeadUp>(AC_CLASSROOM_SET_STU_HEAD_UP);
+    pTaskManage->bind<Task::Classroom::GetStuHeadDown>(AC_CLASSROOM_GET_STU_HEAD_DOWN);
+    pTaskManage->bind<Task::Classroom::SetStuHeadDown>(AC_CLASSROOM_SET_STU_HEAD_DOWN);
+    pTaskManage->bind<Task::Classroom::GetStuTurnBack>(AC_CLASSROOM_GET_STU_TURN_BACK);
+    pTaskManage->bind<Task::Classroom::SetStuTurnBack>(AC_CLASSROOM_SET_STU_TURN_BACK);
+    pTaskManage->bind<Task::Classroom::GetStuPhone>(AC_CLASSROOM_GET_STU_PHONE);
+    pTaskManage->bind<Task::Classroom::SetStuPhone>(AC_CLASSROOM_SET_STU_PHONE);
+    pTaskManage->bind<Task::Classroom::GetStuListen>(AC_CLASSROOM_GET_STU_LISTEN);
+    pTaskManage->bind<Task::Classroom::SetStuListen>(AC_CLASSROOM_SET_STU_LISTEN);
+    pTaskManage->bind<Task::Classroom::GetStuReading>(AC_CLASSROOM_GET_STU_READING);
+    pTaskManage->bind<Task::Classroom::SetStuReading>(AC_CLASSROOM_SET_STU_READING);
+    pTaskManage->bind<Task::Classroom::GetStuDiscuss>(AC_CLASSROOM_GET_STU_DISCUSS);
+    pTaskManage->bind<Task::Classroom::SetStuDiscuss>(AC_CLASSROOM_SET_STU_DISCUSS);
+    pTaskManage->bind<Task::Classroom::GetStuExpression>(AC_CLASSROOM_GET_STU_EXPRESSION);
+    pTaskManage->bind<Task::Classroom::SetStuExpression>(AC_CLASSROOM_SET_STU_EXPRESSION);
+    /* 考勤/人脸 */
+    pTaskManage->bind<Task::Classroom::GetAttendance>(AC_CLASSROOM_GET_ATTENDANCE);
+    pTaskManage->bind<Task::Classroom::SetAttendance>(AC_CLASSROOM_SET_ATTENDANCE);
+    pTaskManage->bind<Task::Classroom::GetFaceDetect>(AC_CLASSROOM_GET_FACE_DETECT);
+    pTaskManage->bind<Task::Classroom::SetFaceDetect>(AC_CLASSROOM_SET_FACE_DETECT);
+    /* 教师行为 */
+    pTaskManage->bind<Task::Classroom::GetTeaGuiding>(AC_CLASSROOM_GET_TEA_GUIDING);
+    pTaskManage->bind<Task::Classroom::SetTeaGuiding>(AC_CLASSROOM_SET_TEA_GUIDING);
+    pTaskManage->bind<Task::Classroom::GetTeaInteract>(AC_CLASSROOM_GET_TEA_INTERACT);
+    pTaskManage->bind<Task::Classroom::SetTeaInteract>(AC_CLASSROOM_SET_TEA_INTERACT);
+    pTaskManage->bind<Task::Classroom::GetTeaPatrol>(AC_CLASSROOM_GET_TEA_PATROL);
+    pTaskManage->bind<Task::Classroom::SetTeaPatrol>(AC_CLASSROOM_SET_TEA_PATROL);
+    pTaskManage->bind<Task::Classroom::GetTeaStand>(AC_CLASSROOM_GET_TEA_STAND);
+    pTaskManage->bind<Task::Classroom::SetTeaStand>(AC_CLASSROOM_SET_TEA_STAND);
+    pTaskManage->bind<Task::Classroom::GetTeaHeadUp>(AC_CLASSROOM_GET_TEA_HEAD_UP);
+    pTaskManage->bind<Task::Classroom::SetTeaHeadUp>(AC_CLASSROOM_SET_TEA_HEAD_UP);
+    pTaskManage->bind<Task::Classroom::GetTeaHeadDown>(AC_CLASSROOM_GET_TEA_HEAD_DOWN);
+    pTaskManage->bind<Task::Classroom::SetTeaHeadDown>(AC_CLASSROOM_SET_TEA_HEAD_DOWN);
+    pTaskManage->bind<Task::Classroom::GetTeaPhone>(AC_CLASSROOM_GET_TEA_PHONE);
+    pTaskManage->bind<Task::Classroom::SetTeaPhone>(AC_CLASSROOM_SET_TEA_PHONE);
+    pTaskManage->bind<Task::Classroom::GetTeaTeaching>(AC_CLASSROOM_GET_TEA_TEACHING);
+    pTaskManage->bind<Task::Classroom::SetTeaTeaching>(AC_CLASSROOM_SET_TEA_TEACHING);
+    pTaskManage->bind<Task::Classroom::GetTeaBoardWrite>(AC_CLASSROOM_GET_TEA_BOARD_WRITE);
+    pTaskManage->bind<Task::Classroom::SetTeaBoardWrite>(AC_CLASSROOM_SET_TEA_BOARD_WRITE);
+    /* 讲台/板书/演示 */
+    pTaskManage->bind<Task::Classroom::GetEnterPodium>(AC_CLASSROOM_GET_ENTER_PODIUM);
+    pTaskManage->bind<Task::Classroom::SetEnterPodium>(AC_CLASSROOM_SET_ENTER_PODIUM);
+    pTaskManage->bind<Task::Classroom::GetBoardOcr>(AC_CLASSROOM_GET_BOARD_OCR);
+    pTaskManage->bind<Task::Classroom::SetBoardOcr>(AC_CLASSROOM_SET_BOARD_OCR);
+    pTaskManage->bind<Task::Classroom::GetStuPodium>(AC_CLASSROOM_GET_STU_PODIUM);
+    pTaskManage->bind<Task::Classroom::SetStuPodium>(AC_CLASSROOM_SET_STU_PODIUM);
+    pTaskManage->bind<Task::Classroom::GetStuPresent>(AC_CLASSROOM_GET_STU_PRESENT);
+    pTaskManage->bind<Task::Classroom::SetStuPresent>(AC_CLASSROOM_SET_STU_PRESENT);
+    /* 课程报告（只读） */
+    pTaskManage->bind<Task::Classroom::GetCourseReport>(AC_CLASSROOM_GET_COURSE_REPORT);
+#endif
 
     TaskPublish::instance()->set_manage(pTaskManage);
 }

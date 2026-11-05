@@ -6,12 +6,15 @@
 
 #include "pmnm_algo_detect.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <vector>
 
 #include "algorithm_define.hpp"
 #include "common_process.h"
 #include "kitchen_clothing_sub_detector.hpp"
+#include "group4_sub_detector.hpp"
+#include "crowd_gathering_sub_detector.hpp"
 #include "pmnm_detect.hpp"
 #include "video_define.h"
 #include "share_data.h"
@@ -112,6 +115,7 @@ void CPMNMAlgoDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
     m_stPersonLoiteringCfg.bEnable = stAlgoConfig.nEnLoiteringDetect;
     m_stQueueCrowdingCfg.bEnable = stAlgoConfig.nEnQueueCrowding;
     m_bKitchenClothingEnable = (stAlgoConfig.nKitchenClothingCompliance != 0);
+    m_bCrowdGatheringEnable = (stAlgoConfig.nEnCrowdGathering != 0);
 
     /* 启用的事件拉取详细配置并直接下发处理器 */
     if (stAlgoConfig.nClimbDetection)
@@ -180,17 +184,46 @@ void CPMNMAlgoDetect::setAlgoEnCfg(const Event::AlgorithmConfig &stAlgoConfig)
         m_pKitchenClothingSubDetector->updateConfig();
     }
 
+    /* Group4 行为检测（抽烟/睡岗/玩手机/摔倒）：开启即创建子检测器并通知其自拉配置 */
+    m_bGroup4Enable = (stAlgoConfig.nEnSmoking != 0 || stAlgoConfig.nEnSleepOnDuty != 0 ||
+                       stAlgoConfig.nEnPhoneUsage != 0 || stAlgoConfig.nEnTrip != 0);
+    if (m_bGroup4Enable)
+    {
+        if (!m_pGroup4SubDetector)
+        {
+            m_pGroup4SubDetector = std::make_unique<CGroup4SubDetector>();
+            dlog_info("PMNM_ALGO_DETECT: 创建 Group4 子检测器");
+        }
+        m_pGroup4SubDetector->updateConfig();
+    }
+
+    /* 人员聚集检测：开启即创建子检测器并通知其自拉配置（使用 Group2Detect_NS 模型） */
+    if (m_bCrowdGatheringEnable)
+    {
+        if (!m_pCrowdGatheringSubDetector)
+        {
+            m_pCrowdGatheringSubDetector = std::make_unique<CCrowdGatheringSubDetector>();
+            dlog_info("PMNM_ALGO_DETECT: 创建人员聚集子检测器");
+        }
+        m_pCrowdGatheringSubDetector->updateConfig();
+    }
+
     /* 任一事件启用即拉起算法取流 */
     m_bAlgoEnable.store(stAlgoConfig.nClimbDetection != 0 || stAlgoConfig.nDangerZoneApproach != 0 ||
                         stAlgoConfig.nLongTimeStay != 0 || stAlgoConfig.nDangerZoneStay != 0 ||
                         stAlgoConfig.nKeyAreaAbnormalStay != 0 || stAlgoConfig.nRooftopStay != 0 ||
                         stAlgoConfig.nEnLoiteringDetect != 0 || stAlgoConfig.nEnQueueCrowding != 0 ||
-                        stAlgoConfig.nKitchenClothingCompliance != 0);
-dlog_info("PMNM_ALGO_DETECT: 配置更新 攀爬识别[%d] 危险区域靠近[%d] 长时间滞留[%d] 危险区域滞留[%d] 重点区域异常滞留[%d] 天台滞留[%d] 人员徘徊[%d] 排队拥堵[%d] 后厨穿戴规范[%d]",
-          stAlgoConfig.nClimbDetection, stAlgoConfig.nDangerZoneApproach,
-          stAlgoConfig.nLongTimeStay, stAlgoConfig.nDangerZoneStay,
-          stAlgoConfig.nKeyAreaAbnormalStay, stAlgoConfig.nRooftopStay,
-          stAlgoConfig.nEnLoiteringDetect, stAlgoConfig.nEnQueueCrowding, stAlgoConfig.nKitchenClothingCompliance);
+                        stAlgoConfig.nKitchenClothingCompliance != 0 ||
+                        stAlgoConfig.nEnSmoking != 0 || stAlgoConfig.nEnSleepOnDuty != 0 ||
+                        stAlgoConfig.nEnPhoneUsage != 0 || stAlgoConfig.nEnTrip != 0 ||
+                        stAlgoConfig.nEnCrowdGathering != 0);
+    dlog_info("PMNM_ALGO_DETECT: 配置更新 攀爬识别[%d] 危险区域靠近[%d] 长时间滞留[%d] 危险区域滞留[%d] 重点区域异常滞留[%d] 天台滞留[%d] 人员徘徊[%d] 排队拥堵[%d] 后厨穿戴规范[%d] 抽烟[%d] 睡岗[%d] 玩手机[%d] 摔倒[%d] 人员聚集[%d]",
+              stAlgoConfig.nClimbDetection, stAlgoConfig.nDangerZoneApproach,
+              stAlgoConfig.nLongTimeStay, stAlgoConfig.nDangerZoneStay,
+              stAlgoConfig.nKeyAreaAbnormalStay, stAlgoConfig.nRooftopStay,
+              stAlgoConfig.nEnLoiteringDetect, stAlgoConfig.nEnQueueCrowding, stAlgoConfig.nKitchenClothingCompliance,
+              stAlgoConfig.nEnSmoking, stAlgoConfig.nEnSleepOnDuty, stAlgoConfig.nEnPhoneUsage, stAlgoConfig.nEnTrip,
+              stAlgoConfig.nEnCrowdGathering);
 }
 
 void CPMNMAlgoDetect::setAlgoParamCfg(const Alarm::ClimbDetection_S &stAlgoCfg)
@@ -485,31 +518,43 @@ void CPMNMAlgoDetect::run()
 
         processRegionStayEvent(m_stClimbCfg.bEnable, Event::Type::CLIMB_DETECTION,
                                m_climbProcessor, m_climbAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stDangerZoneCfg.bEnable, Event::Type::DANGER_ZONE_APPROACH,
                                m_dangerZoneProcessor, m_dangerZoneAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stLongTimeStayCfg.bEnable, Event::Type::LONG_TIME_STAY,
                                m_longTimeStayProcessor, m_longTimeStayAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stDangerZoneStayCfg.bEnable, Event::Type::DANGER_ZONE_STAY,
                                m_dangerZoneStayProcessor, m_dangerZoneStayAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stKeyAreaAbnormalStayCfg.bEnable, Event::Type::KEY_AREA_ABNORMAL_STAY,
                                m_keyAreaAbnormalStayProcessor, m_keyAreaAbnormalStayAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stRooftopStayCfg.bEnable, Event::Type::ROOFTOP_STAY,
                                m_rooftopStayProcessor, m_rooftopStayAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
         processRegionStayEvent(m_stPersonLoiteringCfg.bEnable, Event::Type::LOITERING_DETECT,
                                m_personLoiteringProcessor, m_personLoiteringAlarmStateMachine,
-                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
-        processQueueCrowding(nFrameTsMs, vecTracked[PMNM_CLASS_PERSON]);
+                               nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
+        processQueueCrowding(nFrameTsMs, vecTracked[PMNM_CLASS_PERSON], rgbMat);
 
         /* 后厨穿戴规范：子检测器内部判定并直接上报 */
         if (m_bKitchenClothingEnable && m_pKitchenClothingSubDetector)
         {
             m_pKitchenClothingSubDetector->process(rgbMat, vecTracked[PMNM_CLASS_PERSON]);
+        }
+
+        /* Group4 行为检测（抽烟/玩手机/摔倒）：子检测器内部判定并直接上报 */
+        if (m_bGroup4Enable && m_pGroup4SubDetector)
+        {
+            m_pGroup4SubDetector->process(rgbMat, vecTracked[PMNM_CLASS_PERSON]);
+        }
+
+        /* 人员聚集检测：子检测器内部使用 Group2 模型判定并直接上报 */
+        if (m_bCrowdGatheringEnable && m_pCrowdGatheringSubDetector)
+        {
+            m_pCrowdGatheringSubDetector->process(rgbMat, vecTracked[PMNM_CLASS_PERSON], rgbMat, stMediaData.stMediaParam.nChannel);
         }
         // dlog_debug("PMNM_ALGO_DETECT: 检测到目标[%zu]个", vecResults.size());
     }
@@ -520,7 +565,8 @@ void CPMNMAlgoDetect::processRegionStayEvent(
     CRegionStayProcessor &processor,
     CAlarmStateMachine &stateMachine,
     const int64_t nFrameTsMs,
-    const std::vector<TrackedTarget_S> &vecTrackedTarget)
+    const std::vector<TrackedTarget_S> &vecTrackedTarget,
+    const cv::Mat &rgbMat)
 {
     /* 事件未开启不参与判定 */
     if (!bEnable)
@@ -531,6 +577,7 @@ void CPMNMAlgoDetect::processRegionStayEvent(
     std::vector<RegionStayTrigger_S> vecTriggers;
     processor.process(nFrameTsMs, vecTrackedTarget, vecTriggers);
 
+#ifdef ENABLE_TVSDK_SRC
     /* 组装触发上下文，状态机驱动事件开始/结束上报 */
     EventTriggerContext_S stContext;
     stContext.enEventType = enType;
@@ -547,11 +594,32 @@ void CPMNMAlgoDetect::processRegionStayEvent(
         stContext.nTop    = static_cast<int>(stTrigger.fY1);
         stContext.nRight  = static_cast<int>(stTrigger.fX2);
         stContext.nBottom = static_cast<int>(stTrigger.fY2);
+
+        /* 大图整帧编码 小图按目标框裁剪 裁剪异常仅缺小图不影响上报 */
+        if (!rgbMat.empty())
+        {
+            encode_mat_to_tvsdk_image(rgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+
+            const int nX1 = std::max(0, stContext.nLeft);
+            const int nY1 = std::max(0, stContext.nTop);
+            const int nX2 = std::min(rgbMat.cols, stContext.nRight);
+            const int nY2 = std::min(rgbMat.rows, stContext.nBottom);
+            if (nX2 > nX1 && nY2 > nY1)
+            {
+                cv::Mat targetMat = rgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+                encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
+            }
+        }
     }
     stateMachine.handleAlarmState(!vecTriggers.empty(), stContext);
+#else
+    (void)rgbMat;
+    stateMachine.handleAlarmState(!vecTriggers.empty(), enType);
+#endif
 }
 
-void CPMNMAlgoDetect::processQueueCrowding(const int64_t nFrameTsMs, const std::vector<TrackedTarget_S> &vecTrackedTarget)
+void CPMNMAlgoDetect::processQueueCrowding(const int64_t nFrameTsMs, const std::vector<TrackedTarget_S> &vecTrackedTarget,
+                                            const cv::Mat &rgbMat)
 {
     /* 事件未开启不参与判定 */
     if (!m_stQueueCrowdingCfg.bEnable)
@@ -562,6 +630,7 @@ void CPMNMAlgoDetect::processQueueCrowding(const int64_t nFrameTsMs, const std::
     std::vector<QueueCrowdingTrigger_S> vecTriggers;
     m_queueCrowdingProcessor.process(nFrameTsMs, vecTrackedTarget, vecTriggers);
 
+#ifdef ENABLE_TVSDK_SRC
     /* 组装触发上下文，状态机驱动事件开始/结束上报 */
     EventTriggerContext_S stContext;
     stContext.enEventType = Event::Type::QUEUE_CROWDING;
@@ -575,7 +644,17 @@ void CPMNMAlgoDetect::processQueueCrowding(const int64_t nFrameTsMs, const std::
         stContext.nObjectType = 1; /* 人 */
         dlog_info("PMNM_ALGO_DETECT: 排队拥堵 区域内静止人数 %d >= 阈值 %d，触发报警",
                   stTrigger.nStaticPersonCount, stTrigger.nPersonThreshold);
+
+        /* 统计类事件无单目标框 仅带整帧大图 */
+        if (!rgbMat.empty())
+        {
+            encode_mat_to_tvsdk_image(rgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+        }
     }
 
     m_queueCrowdingAlarmStateMachine.handleAlarmState(!vecTriggers.empty(), stContext);
+#else
+    (void)rgbMat;
+    m_queueCrowdingAlarmStateMachine.handleAlarmState(!vecTriggers.empty(), Event::Type::QUEUE_CROWDING);
+#endif
 }

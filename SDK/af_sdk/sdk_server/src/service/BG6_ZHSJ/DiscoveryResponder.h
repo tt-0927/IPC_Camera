@@ -36,7 +36,7 @@ using DiscoveryDeviceInfoCallback =
     std::function<void(NET_DiscoveryDeviceInfo_S* pInfo)>;
 
 using DiscoverySetNetworkCallback =
-    std::function<bool(const NET_PoeNetworkConfig_S& config)>;
+    std::function<bool(const NET_PoeNetworkConfig_S& stConfig)>;
 
 class CDiscoveryResponder {
 public:
@@ -46,10 +46,10 @@ public:
     /**
  * @author tianl (tianl@kfb.cn)
      * @brief 初始化，获取本机 MAC 等信息
-     * @param szInterfaceName 网卡名称 (如 "eth0")
+     * @param pstrInterfaceName 网卡名称 (如 "eth0")
      * @return 0 成功，<0 失败
      */
-    int init(const char* szInterfaceName);
+    int init(const char* pstrInterfaceName);
 
     /**
  * @author tianl (tianl@kfb.cn)
@@ -86,20 +86,20 @@ private:
     void close_raw_socket();
 
     /* 解析原始帧，提取 UDP 负载和客户端地址 */
-    bool parse_frame(const uint8_t* data, ssize_t len,
-                     std::vector<uint8_t>& udp_payload,
-                     uint8_t client_mac[6],
-                     uint32_t& client_ip, uint16_t& client_port);
+    bool parse_frame(const uint8_t* pbyData, ssize_t lLen,
+                     std::vector<uint8_t>& vecUdpPayload,
+                     uint8_t byClientMac[6],
+                     uint32_t& uClientIp, uint16_t& uClientPort);
 
     /* 构建 L2 以太网响应帧 */
     std::vector<uint8_t> build_l2_response(
-        const uint8_t client_mac[6],
-        uint32_t client_ip, uint16_t client_port,
-        const NET_DiscoveryDeviceInfo_S& info) const;
+        const uint8_t byClientMac[6],
+        uint32_t uClientIp, uint16_t uClientPort,
+        const NET_DiscoveryDeviceInfo_S& stInfo) const;
 
     /* 标准 UDP 单播回包 */
-    int send_udp_response(uint32_t client_ip, uint16_t client_port,
-                          const NET_DiscoveryDeviceInfo_S& info);
+    int send_udp_response(uint32_t uClientIp, uint16_t uClientPort,
+                          const NET_DiscoveryDeviceInfo_S& stInfo);
 
     int m_nRawFd{-1};
     int m_nInterfaceIndex{0};

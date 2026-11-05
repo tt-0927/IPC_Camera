@@ -39,12 +39,12 @@ public:
     /**
      * @author tianl (tianl@kfb.cn)
      * @brief 设置最后错误码
-     * @param [in] code 错误码
+     * @param [in] nCode 错误码
      * @return 无返回值。
      */
-    void SetLastError(int code)
+    void SetLastError(int nCode)
 	{
-        s_nLastErrorCode = code;
+        s_nLastErrorCode = nCode;
     }
 
     /**

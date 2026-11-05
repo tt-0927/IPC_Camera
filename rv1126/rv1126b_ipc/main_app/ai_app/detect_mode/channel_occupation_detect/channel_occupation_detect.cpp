@@ -8,7 +8,10 @@
  */
 
 #include "channel_occupation_detect.hpp"
+#include "common_process.h"
 #include "event_configure.h"
+
+#include <algorithm>
 
 /* 数据队列 */
 #define QUEUE_MAX (2)
@@ -261,6 +264,7 @@ void CChannelOccupationDetect::channelOccupationProcess(const CChannelOccupation
     /* 目标运动中视为途经 不触发通道占用报警 */
     m_bLastAlarmState = stOutData.bOccupied && (!stOutData.bMoving || m_bLastAlarmState);
 
+#ifdef ENABLE_TVSDK_SRC
     /* 构建事件触发上下文 */
     EventTriggerContext_S stContext;
     stContext.enEventType = Event::Type_E::CHANNEL_OCCUPATION;
@@ -269,5 +273,28 @@ void CChannelOccupationDetect::channelOccupationProcess(const CChannelOccupation
                                std::chrono::system_clock::now().time_since_epoch())
                                .count();
 
+    /* 报警帧携带全景图与目标框供TVSDK推送 非报警帧不编码省CPU */
+    if (m_bLastAlarmState && !m_stFullRgbMat.empty())
+    {
+        /* 全景图直接内嵌上下文 编码失败保持空由推送侧按空图处理 */
+        encode_mat_to_tvsdk_image(m_stFullRgbMat, stContext.stPanoramaImage, JPEG_QUALITY_PANORAMA);
+
+        /* 目标框由算法分辨率缩放到原始帧分辨率 背景差分无类别目标类型保持未知 */
+        if (!stOutData.stBbox.empty())
+        {
+            const float fScaleX = m_nWidth > 0 ? static_cast<float>(m_stFullRgbMat.cols) / m_nWidth : 1.0f;
+            const float fScaleY = m_nHeight > 0 ? static_cast<float>(m_stFullRgbMat.rows) / m_nHeight : 1.0f;
+            stContext.nLeft   = std::max(0, static_cast<int>(stOutData.stBbox.x * fScaleX));
+            stContext.nTop    = std::max(0, static_cast<int>(stOutData.stBbox.y * fScaleY));
+            stContext.nRight  = std::min(m_stFullRgbMat.cols,
+                                         static_cast<int>((stOutData.stBbox.x + stOutData.stBbox.width) * fScaleX));
+            stContext.nBottom = std::min(m_stFullRgbMat.rows,
+                                         static_cast<int>((stOutData.stBbox.y + stOutData.stBbox.height) * fScaleY));
+        }
+    }
+
     m_alarmStateMachine.handleAlarmState(m_bLastAlarmState, stContext);
+#else
+    m_alarmStateMachine.handleAlarmState(m_bLastAlarmState, Event::Type_E::CHANNEL_OCCUPATION);
+#endif
 }

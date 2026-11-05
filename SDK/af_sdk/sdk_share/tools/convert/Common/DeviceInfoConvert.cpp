@@ -117,11 +117,11 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfg_S& stInfo, bool bO
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "NetName", stInfo.szNetName);
+    convert.field(pRootJson, "NetName", stInfo.strNetName);
     convert.field(pRootJson, "IPv4DHCP", stInfo.bIPv4DHCP);
-    convert.field(pRootJson, "IPv4Address", stInfo.szIpv4Address);
-    convert.field(pRootJson, "IPv4GateWay", stInfo.szIPv4GateWay);
-    convert.field(pRootJson, "IPv4SubnetMask", stInfo.szIPv4SubnetMask);
+    convert.field(pRootJson, "IPv4Address", stInfo.strIpv4Address);
+    convert.field(pRootJson, "IPv4GateWay", stInfo.strIPv4GateWay);
+    convert.field(pRootJson, "IPv4SubnetMask", stInfo.strIPv4SubnetMask);
     convert.field(pRootJson, "MTU", stInfo.uMTU);
 }
 
@@ -152,9 +152,9 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_NetworkCfgList_S& stInfo, boo
     else
     {
         std::vector<NET_NetworkCfg_S> nets;
-        const UINT32 count = std::min<UINT32>(stInfo.uNetworkCount, NET_MAX_NET_NUM);
-        stInfo.uNetworkCount = count;
-        for (UINT32 i = 0; i < count; ++i)
+        const UINT32 uCount = std::min<UINT32>(stInfo.uNetworkCount, NET_MAX_NET_NUM);
+        stInfo.uNetworkCount = uCount;
+        for (UINT32 i = 0; i < uCount; ++i)
         {
             nets.push_back(stInfo.stNets[i]);
         }
@@ -216,8 +216,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SshAdminInfo_S& stInfo, bool 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "SshEnable", stInfo.bSshEnable);
     convert.field(pRootJson, "SshPort", stInfo.nSshPort);
-    convert.field(pRootJson, "SshStartTime", stInfo.szSshStartTime);
-    convert.field(pRootJson, "SshCountdown", stInfo.szSshCountdown);
+    convert.field(pRootJson, "SshStartTime", stInfo.strSshStartTime);
+    convert.field(pRootJson, "SshCountdown", stInfo.strSshCountdown);
 }
 
 
@@ -243,7 +243,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_SshCountdownInfo_S& stInfo, b
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Countdown", stInfo.szCountdown);
+    convert.field(pRootJson, "Countdown", stInfo.strCountdown);
 }
 
 
@@ -257,7 +257,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogServerInfo_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
     convert.field(pRootJson, "EnSsl", stInfo.bEnSsl);
-    convert.field(pRootJson, "ServerAddr", stInfo.szServerAddr);
+    convert.field(pRootJson, "ServerAddr", stInfo.strServerAddr);
     convert.field(pRootJson, "Port", stInfo.nPort);
 }
 
@@ -272,8 +272,8 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogRetrievalCond_S& stInfo, b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Type", stInfo.nType);
     convert.field(pRootJson, "Action", stInfo.nAction);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
 }
 
 
@@ -285,13 +285,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_LogInfo_S& stInfo, bool bOutS
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
     convert.field(pRootJson, "Type", stInfo.nType);
     convert.field(pRootJson, "Action", stInfo.nAction);
-    convert.field(pRootJson, "ChnName", stInfo.szChnName);
-    convert.field(pRootJson, "User", stInfo.szUser);
-    convert.field(pRootJson, "Host", stInfo.szHost);
-    convert.field(pRootJson, "Context", stInfo.szContext);
+    convert.field(pRootJson, "ChnName", stInfo.strChnName);
+    convert.field(pRootJson, "User", stInfo.strUser);
+    convert.field(pRootJson, "Host", stInfo.strHost);
+    convert.field(pRootJson, "Context", stInfo.strContext);
 }
 
 
@@ -388,7 +388,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_DeviceControlInfo_S& stInfo, 
     convert.field(pRootJson, "durationMs", stInfo.uDurationMs);
     convert.field(pRootJson, "param1", stInfo.uParam1);
     convert.field(pRootJson, "param2", stInfo.uParam2);
-    convert.field(pRootJson, "ext", stInfo.szExt);
+    convert.field(pRootJson, "ext", stInfo.strExt);
 }
 
 
@@ -402,7 +402,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeInfo_S& stInfo, bool b
         return;
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "UpgradePath",            stInfo.szUpgradePath);
+    convert.field(pRootJson, "UpgradePath",            stInfo.strUpgradePath);
 }
 
 
@@ -424,7 +424,7 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_UpgradeVersion_S& stInfo, boo
         return;
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Version",            stInfo.szVersion);
+    convert.field(pRootJson, "Version",            stInfo.strVersion);
 }
 
 

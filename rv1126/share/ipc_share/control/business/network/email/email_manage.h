@@ -89,6 +89,8 @@ public:
 private:
     /// @brief 邮件信息
     Network::EmailInfo_S m_EmInfo;
+    /// @brief 上次事件邮件发送的单调时钟毫秒时间戳，用于发送间隔节流
+    long long m_llLastSendTimeMs = 0;
     /// @brief 用于发送邮件的线程
     std::unique_ptr<std::thread> SendThread;
     /// @brief 线程停止标志

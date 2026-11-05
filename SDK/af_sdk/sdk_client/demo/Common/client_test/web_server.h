@@ -254,16 +254,37 @@ private:
          * 网页表现为"输入后卡住"。超时后关闭连接, 服务线程得以继续 accept。 */
         struct timeval tv = {5, 0};
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-        char buf[4096];
-        ssize_t n = recv(fd, buf, sizeof(buf) - 1, 0);
-        if (n <= 0) return;
-        buf[n] = '\0';
+        /* 循环接收完整HTTP请求: 网页输入大体积JSON(如移动侦测完整结构体约8KB)时
+         * POST body远超单次recv缓冲, 且TCP按分段到达, 单次recv只读到部分数据,
+         * 其余滞留socket缓冲被丢弃, 输入在到达Demo的stdin前就被截断成非法JSON */
+        std::string req;
+        size_t headerEnd = std::string::npos;
+        size_t contentLen = 0;
+        while (true) {
+            char buf[4096];
+            ssize_t n = recv(fd, buf, sizeof(buf), 0);
+            if (n <= 0) break;
+            req.append(buf, (size_t)n);
+            if (headerEnd == std::string::npos) {
+                headerEnd = req.find("\r\n\r\n");
+                if (headerEnd != std::string::npos) {
+                    /* 仅在头区域内解析Content-Length, 按其长度判断body是否收满 */
+                    std::string headers = req.substr(0, headerEnd);
+                    const char *cl = strstr(headers.c_str(), "Content-Length:");
+                    if (cl) contentLen = (size_t)strtoul(cl + 15, nullptr, 10);
+                }
+            }
+            if (headerEnd != std::string::npos &&
+                req.size() >= headerEnd + 4 + contentLen)
+                break;  /* 头部+完整body均已到达 */
+        }
+        if (req.empty()) return;
 
         char method[8] = {}, path[256] = {};
-        sscanf(buf, "%7s %255s", method, path);
+        sscanf(req.c_str(), "%7s %255s", method, path);
 
-        const char *body = strstr(buf, "\r\n\r\n");
-        if (body) body += 4;
+        const char *body = (headerEnd != std::string::npos)
+                           ? req.c_str() + headerEnd + 4 : nullptr;
 
         if (!strcmp(method, "GET") && !strcmp(path, "/")) {
             sendResp(fd, 200, "text/html; charset=utf-8",

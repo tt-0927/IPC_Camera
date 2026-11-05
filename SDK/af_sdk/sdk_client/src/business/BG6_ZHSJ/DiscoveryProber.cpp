@@ -26,25 +26,25 @@
 
 namespace {
 
-bool parse_mac(const char* text, unsigned char mac[6])
+bool parse_mac(const char* pstrText, unsigned char byMac[6])
 {
-    if (!text || !mac) return false;
+    if (!pstrText || !byMac) return false;
 
-    unsigned int value[6]{};
-    char tail = '\0';
-    int parsed = std::sscanf(text, "%2x:%2x:%2x:%2x:%2x:%2x%c",
-                             &value[0], &value[1], &value[2], &value[3],
-                             &value[4], &value[5], &tail);
-    if (parsed != 6) {
-        parsed = std::sscanf(text, "%2x-%2x-%2x-%2x-%2x-%2x%c",
-                             &value[0], &value[1], &value[2], &value[3],
-                             &value[4], &value[5], &tail);
+    unsigned int uValue[6]{};
+    char chTail = '\0';
+    int nParsed = std::sscanf(pstrText, "%2x:%2x:%2x:%2x:%2x:%2x%c",
+                             &uValue[0], &uValue[1], &uValue[2], &uValue[3],
+                             &uValue[4], &uValue[5], &chTail);
+    if (nParsed != 6) {
+        nParsed = std::sscanf(pstrText, "%2x-%2x-%2x-%2x-%2x-%2x%c",
+                             &uValue[0], &uValue[1], &uValue[2], &uValue[3],
+                             &uValue[4], &uValue[5], &chTail);
     }
-    if (parsed != 6) return false;
+    if (nParsed != 6) return false;
 
     for (int i = 0; i < 6; ++i) {
-        if (value[i] > 0xff) return false;
-        mac[i] = static_cast<unsigned char>(value[i]);
+        if (uValue[i] > 0xff) return false;
+        byMac[i] = static_cast<unsigned char>(uValue[i]);
     }
     return true;
 }
@@ -54,15 +54,15 @@ bool parse_mac(const char* text, unsigned char mac[6])
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 在指定网络接口上发送发现报文并收集设备响应。
- * @param [in] szInterfaceIP 用于发送发现报文的本地接口 IPv4 地址。
- * @param [in] dwTimeoutMs 等待设备响应的超时时间，单位为毫秒。
+ * @param [in] pstrInterfaceIP 用于发送发现报文的本地接口 IPv4 地址。
+ * @param [in] uTimeoutMs 等待设备响应的超时时间，单位为毫秒。
  * @param [out] pDeviceList 接收发现到的设备信息的数组。
  * @param [in] nMaxCount pDeviceList 可容纳的最大设备数量。
  * @param [out] pnOutCount 实际发现到的设备数量。
  * @return 0 表示成功；负值表示套接字或发现流程失败。
  */
-int CDiscoveryProber::search(const char* szInterfaceIP,
-                               UINT32 dwTimeoutMs,
+int CDiscoveryProber::search(const char* pstrInterfaceIP,
+                               UINT32 uTimeoutMs,
                                NET_DiscoveryDeviceInfo_S* pDeviceList,
                                int nMaxCount,
                                int* pnOutCount)
@@ -70,108 +70,108 @@ int CDiscoveryProber::search(const char* szInterfaceIP,
     if (!pDeviceList || nMaxCount <= 0 || !pnOutCount) return -1;
     *pnOutCount = 0;
 
-    int ret = create_socket(szInterfaceIP);
-    if (ret < 0) return ret;
+    int nRet = create_socket(pstrInterfaceIP);
+    if (nRet < 0) return nRet;
 
     send_probes();
-    ret = recv_responses(dwTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
+    nRet = recv_responses(uTimeoutMs, pDeviceList, nMaxCount, pnOutCount);
     close_socket();
-    return ret;
+    return nRet;
 }
 
 int CDiscoveryProber::set_network(const NET_PoeNetworkConfig_S& config) const
 {
-    unsigned char mac[6]{};
-    if (!parse_mac(config.szMACAddress, mac) ||
-        config.szTargetIP[0] == '\0' ||
-        config.szSubnetMask[0] == '\0' ||
-        (config.bSetGateway && config.szGateway[0] == '\0')) {
+    unsigned char byMac[6]{};
+    if (!parse_mac(config.strMACAddress, byMac) ||
+        config.strTargetIP[0] == '\0' ||
+        config.strSubnetMask[0] == '\0' ||
+        (config.bSetGateway && config.strGateway[0] == '\0')) {
         return -2;
     }
 
     struct in_addr address{};
-    if (inet_pton(AF_INET, config.szTargetIP, &address) != 1 ||
-        inet_pton(AF_INET, config.szSubnetMask, &address) != 1 ||
-        (config.bSetGateway && inet_pton(AF_INET, config.szGateway, &address) != 1) ||
-        (config.szInterfaceIP[0] != '\0' &&
-         inet_pton(AF_INET, config.szInterfaceIP, &address) != 1)) {
+    if (inet_pton(AF_INET, config.strTargetIP, &address) != 1 ||
+        inet_pton(AF_INET, config.strSubnetMask, &address) != 1 ||
+        (config.bSetGateway && inet_pton(AF_INET, config.strGateway, &address) != 1) ||
+        (config.strInterfaceIP[0] != '\0' &&
+         inet_pton(AF_INET, config.strInterfaceIP, &address) != 1)) {
         return -2;
     }
 
-    socket_fd_t socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (socket_fd == INVALID_SOCKET_FD) {
+    socket_fd_t nSocketFd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (nSocketFd == INVALID_SOCKET_FD) {
         fprintf(stderr, "discovery: network-config socket failed, error=%d\n",
                 NETSDK_SOCKET_GET_ERROR());
         return -3;
     }
 
-    const char* interface_ip = config.szInterfaceIP;
-    if (interface_ip[0] != '\0') {
+    const char* pstrInterfaceIp = config.strInterfaceIP;
+    if (pstrInterfaceIp[0] != '\0') {
         struct in_addr iface_addr{};
-        if (inet_pton(AF_INET, interface_ip, &iface_addr) != 1) {
-            NETSDK_SOCKET_CLOSE(socket_fd);
+        if (inet_pton(AF_INET, pstrInterfaceIp, &iface_addr) != 1) {
+            NETSDK_SOCKET_CLOSE(nSocketFd);
             return -2;
         }
-        if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_IF,
+        if (setsockopt(nSocketFd, IPPROTO_IP, IP_MULTICAST_IF,
                        reinterpret_cast<const char*>(&iface_addr),
                        sizeof(iface_addr)) != 0) {
-            NETSDK_SOCKET_CLOSE(socket_fd);
+            NETSDK_SOCKET_CLOSE(nSocketFd);
             return -3;
         }
     }
 
-    int ttl = NET_DISCOVERY_TTL;
-    setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_TTL,
-               reinterpret_cast<const char*>(&ttl), sizeof(ttl));
+    int nTtl = NET_DISCOVERY_TTL;
+    setsockopt(nSocketFd, IPPROTO_IP, IP_MULTICAST_TTL,
+               reinterpret_cast<const char*>(&nTtl), sizeof(nTtl));
 
     struct sockaddr_in dst_addr{};
     dst_addr.sin_family = AF_INET;
     dst_addr.sin_port = htons(NET_DISCOVERY_MCAST_PORT);
     if (inet_pton(AF_INET, NET_DISCOVERY_MCAST_ADDR, &dst_addr.sin_addr) != 1) {
-        NETSDK_SOCKET_CLOSE(socket_fd);
+        NETSDK_SOCKET_CLOSE(nSocketFd);
         return -3;
     }
 
     const std::string request = discovery::build_set_network_json(config);
     constexpr UINT32 kMaxSendCount = 32;
-    const UINT32 requested_send_count = config.dwSendCount > 0
-        ? config.dwSendCount
+    const UINT32 uRequestedSendCount = config.uSendCount > 0
+        ? config.uSendCount
         : NETSDK_DISCOVERY_PROBE_COUNT;
-    const UINT32 send_count = requested_send_count > kMaxSendCount
+    const UINT32 uSendCount = uRequestedSendCount > kMaxSendCount
         ? kMaxSendCount
-        : requested_send_count;
-    const UINT32 delay_us = config.dwTimeoutMs > 0
-        ? (config.dwTimeoutMs > 4000000U
+        : uRequestedSendCount;
+    const UINT32 uDelayUs = config.uTimeoutMs > 0
+        ? (config.uTimeoutMs > 4000000U
                ? 4000000U
-               : config.dwTimeoutMs * 1000U) / send_count
+               : config.uTimeoutMs * 1000U) / uSendCount
         : NETSDK_DISCOVERY_PROBE_DELAY_US;
-    int ret = 0;
-    for (UINT32 i = 0; i < send_count; ++i) {
+    int nRet = 0;
+    for (UINT32 i = 0; i < uSendCount; ++i) {
         const ssize_t sent = sendto(
-            socket_fd, request.data(), static_cast<int>(request.size()), 0,
+            nSocketFd, request.data(), static_cast<int>(request.size()), 0,
             reinterpret_cast<struct sockaddr*>(&dst_addr), sizeof(dst_addr));
         if (sent < 0 || static_cast<size_t>(sent) != request.size()) {
             fprintf(stderr, "discovery: network-config sendto failed, error=%d\n",
                     NETSDK_SOCKET_GET_ERROR());
-            ret = -3;
+            nRet = -3;
         }
-        if (i + 1 < send_count) {
-            NETSDK_MICRO_SLEEP(delay_us);
+        if (i + 1 < uSendCount) {
+            NETSDK_MICRO_SLEEP(uDelayUs);
         }
     }
 
-    NETSDK_SOCKET_CLOSE(socket_fd);
-    return ret;
+    NETSDK_SOCKET_CLOSE(nSocketFd);
+    return nRet;
 }
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 创建UDP socket并配置组播参数
- * @param [in] szInterfaceIP 网卡IP地址，NULL使用默认路由
+ * @param [in] pstrInterfaceIP 网卡IP地址，NULL使用默认路由
  * @return 成功返回0，失败返回-2(socket创建失败)或-3(bind失败)
  * @details 创建非阻塞UDP socket，绑定到任意端口，配置组播TTL和网口
  */
-int CDiscoveryProber::create_socket(const char* szInterfaceIP)
+int CDiscoveryProber::create_socket(const char* pstrInterfaceIP)
 {
 #ifdef _WIN32
     m_nSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -200,22 +200,22 @@ int CDiscoveryProber::create_socket(const char* szInterfaceIP)
     /* 不需要 IP_ADD_MEMBERSHIP：服务端回包是单播，直接走内核协议栈收 */
 
     /* 如果指定了网口，绑定到该网口 */
-    if (szInterfaceIP && szInterfaceIP[0] != '\0') {
-        m_strInterfaceIp = szInterfaceIP;
+    if (pstrInterfaceIP && pstrInterfaceIP[0] != '\0') {
+        m_strInterfaceIp = pstrInterfaceIP;
         struct in_addr iface_addr{};
 #ifdef _WIN32
-        inet_pton(AF_INET, szInterfaceIP, &iface_addr);
+        inet_pton(AF_INET, pstrInterfaceIP, &iface_addr);
 #else
-        iface_addr.s_addr = inet_addr(szInterfaceIP);
+        iface_addr.s_addr = inet_addr(pstrInterfaceIP);
 #endif
         setsockopt(m_nSocket, IPPROTO_IP, IP_MULTICAST_IF,
                    reinterpret_cast<const char*>(&iface_addr), sizeof(iface_addr));
     }
 
     /* 组播 TTL */
-    int ttl = NET_DISCOVERY_TTL;
+    int nTtl = NET_DISCOVERY_TTL;
     setsockopt(m_nSocket, IPPROTO_IP, IP_MULTICAST_TTL,
-               reinterpret_cast<const char*>(&ttl), sizeof(ttl));
+               reinterpret_cast<const char*>(&nTtl), sizeof(nTtl));
 
     return 0;
 }
@@ -252,70 +252,70 @@ int CDiscoveryProber::send_probes()
 
     std::string probe = discovery::build_probe_json();
 
-    int ret = 0;
+    int nRet = 0;
     for (int i = 0; i < NETSDK_DISCOVERY_PROBE_COUNT; ++i) {
         ssize_t sent = sendto(m_nSocket, probe.data(), static_cast<int>(probe.size()), 0,
                               reinterpret_cast<struct sockaddr*>(&dst_addr),
                               sizeof(dst_addr));
-        if (sent < 0) { fprintf(stderr, "discovery: sendto failed, error=%d\n", NETSDK_SOCKET_GET_ERROR()); ret = -2; }
+        if (sent < 0) { fprintf(stderr, "discovery: sendto failed, error=%d\n", NETSDK_SOCKET_GET_ERROR()); nRet = -2; }
         if (i < NETSDK_DISCOVERY_PROBE_COUNT - 1) {
             NETSDK_MICRO_SLEEP(NETSDK_DISCOVERY_PROBE_DELAY_US);
         }
     }
-    return ret;
+    return nRet;
 }
 
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 接收设备响应
- * @param [in] dwTimeoutMs 等待响应超时时间(ms)
+ * @param [in] uTimeoutMs 等待响应超时时间(ms)
  * @param [out] pDeviceList 输出设备列表缓冲区
  * @param [in] nMaxCount 设备列表最大容量
  * @param [out] pnOutCount 实际发现的设备数量
  * @return 成功返回0
  * @details 使用poll等待socket可读，解析JSON响应，去重后存入设备列表
  */
-int CDiscoveryProber::recv_responses(UINT32 dwTimeoutMs,
+int CDiscoveryProber::recv_responses(UINT32 uTimeoutMs,
                                        NET_DiscoveryDeviceInfo_S* pDeviceList,
                                        int nMaxCount,
                                        int* pnOutCount)
 {
-    int count = 0;
-    auto start_time = std::chrono::steady_clock::now();
+    int nCount = 0;
+    auto stStartTime = std::chrono::steady_clock::now();
 
-    char buf[4096];
+    char strBuf[4096];
 
-    while (count < nMaxCount) {
+    while (nCount < nMaxCount) {
         auto now = std::chrono::steady_clock::now();
-        long elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
-        long remaining_ms = static_cast<long>(dwTimeoutMs) - elapsed_ms;
-        if (remaining_ms <= 0) break;
+        long lElapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - stStartTime).count();
+        long lRemainingMs = static_cast<long>(uTimeoutMs) - lElapsedMs;
+        if (lRemainingMs <= 0) break;
 
         struct pollfd pfd{};
         pfd.fd = static_cast<int>(m_nSocket);
         pfd.events = POLLIN;
 
-        int ret = NETSDK_POLL(&pfd, 1, static_cast<int>(remaining_ms));
-        if (ret < 0) break;
-        if (ret == 0) break;
+        int nRet = NETSDK_POLL(&pfd, 1, static_cast<int>(lRemainingMs));
+        if (nRet < 0) break;
+        if (nRet == 0) break;
 
-        struct sockaddr_in from_addr{};
-        socklen_t from_len = sizeof(from_addr);
-        ssize_t n = recvfrom(m_nSocket, buf, static_cast<int>(sizeof(buf) - 1), 0,
-                             reinterpret_cast<struct sockaddr*>(&from_addr),
-                             &from_len);
-        if (n <= 0) continue;
+        struct sockaddr_in stFromAddr{};
+        socklen_t uFromLen = sizeof(stFromAddr);
+        ssize_t lRecv = recvfrom(m_nSocket, strBuf, static_cast<int>(sizeof(strBuf) - 1), 0,
+                             reinterpret_cast<struct sockaddr*>(&stFromAddr),
+                             &uFromLen);
+        if (lRecv <= 0) continue;
 
-        buf[n] = '\0';
-        NET_DiscoveryDeviceInfo_S info{};
-        if (!discovery::parse_response_json(std::string(buf, n), info)) continue;
+        strBuf[lRecv] = '\0';
+        NET_DiscoveryDeviceInfo_S stInfo{};
+        if (!discovery::parse_response_json(std::string(strBuf, lRecv), stInfo)) continue;
 
-        if (is_duplicate(info, pDeviceList, count)) continue;
+        if (is_duplicate(stInfo, pDeviceList, nCount)) continue;
 
-        pDeviceList[count++] = info;
+        pDeviceList[nCount++] = stInfo;
     }
 
-    *pnOutCount = count;
+    *pnOutCount = nCount;
     return 0;
 }
 

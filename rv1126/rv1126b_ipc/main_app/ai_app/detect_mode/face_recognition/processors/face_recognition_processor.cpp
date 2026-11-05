@@ -33,10 +33,10 @@ float CFaceRecognitionProcessor::sensitivityToConfidence(unsigned int nSensitivi
 }
 
 int CFaceRecognitionProcessor::process(
-    const DetectContext_S &stDetectContext,
-    std::vector<FaceTargetResult_S> &vstCandidates)
+    const std::vector<FaceBaseTarget_S> &vstTargets,
+    std::vector<int> &vstCandidateIndices)
 {
-    vstCandidates.clear();
+    vstCandidateIndices.clear();
 
     /* 规则快照：setRules 可能来自配置线程 */
     Alarm::FaceRecognition_S stRules;
@@ -50,20 +50,19 @@ int CFaceRecognitionProcessor::process(
     const bool bRegionConfigured = isRegionConfigured(stRules.stRegion);
     const bool bCaptureEnable = stRules.bCaptureEnable;
 
-    const std::vector<FaceTargetResult_S> &vstTargets = stDetectContext.vstDetectResult;
-    vstCandidates.reserve(vstTargets.size());
-    for (const auto &stTarget : vstTargets)
+    vstCandidateIndices.reserve(vstTargets.size());
+    for (size_t i = 0; i < vstTargets.size(); ++i)
     {
-        const FaceDetectedTarget_S &stResult = stTarget.stDetectResult;
+        const FaceDetectedTarget_S &stResult = vstTargets[i].stDetectResult;
         if (stResult.fConfidence < fConfidenceThreshold ||
             (bRegionConfigured && !isInRegion(stRules.stRegion, stResult)) ||
             (bCaptureEnable && !isCaptureCandidate(stResult, stRules.stCaptureRule)))
         {
             continue;
         }
-        vstCandidates.push_back(stTarget);
+        vstCandidateIndices.push_back(static_cast<int>(i));
     }
-    return static_cast<int>(vstCandidates.size());
+    return static_cast<int>(vstCandidateIndices.size());
 }
 
 bool CFaceRecognitionProcessor::isInRegion(

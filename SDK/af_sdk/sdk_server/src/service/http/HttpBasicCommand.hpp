@@ -20,8 +20,23 @@
 #include "NetTVSDKHttpUrl.h"
 #include "HttpAuthHandler.h"
 #include "SessionManager.h"
+#include "Json.h"
+#include "SDKConvert.h"
 
 using namespace tvsdk;
+
+namespace {
+    /* 判断响应体是否适合打印到日志（过滤含大体积数据的命令） */
+    inline bool should_log_response(const std::string& url_target)
+    {
+        /* command=301 通道列表：字段多、体积大 */
+        if (url_target.find("command=301") != std::string::npos) return false;
+        /* command=580 抓图：PicDataBase64 含整张图片base64，通常40~100KB */
+        if (url_target.find("command=580") != std::string::npos) return false;
+        return true;
+    }
+}
+
 
 /**
  * @brief 当前HTTP请求的客户端IP上下文（线程局部）
@@ -41,6 +56,18 @@ namespace SdkHttpContext
 class CHttpBasicCommand
 {
 public:
+    /* 请求处理完成后统一校验参数类型：若处理期间发生 JSON 节点类型与目标类型不匹配（Json::get 置位），
+       用 SDK 标准参数错误响应覆盖业务响应，避免类型错值/空值继续向下传递 */
+    static std::string CheckParamTypeError(const std::string& respData)
+    {
+        if (!Json::has_type_error())
+        {
+            return respData;
+        }
+        NETSDK_LOG_MESSAGE_WARN("[CHttpBasicCommand] request param type mismatch, replace resp with invalid-param");
+        return SDKConvert::to_respString(NET_E_INVALID_PARAM);
+    }
+
     static  std::function<void(const httplib::Request&, httplib::Response&)> MakeHttpCallbackHandler(const std::function<std::string(const std::string&,const std::string&)>& Func)
     {
         return [Func](const httplib::Request& req, httplib::Response& res)
@@ -57,9 +84,11 @@ public:
             try
             {
                 NETSDK_LOG_MESSAGE_DEBUG("接收到http请求: body[%s] url[%s] method[%s]",req.body.c_str(),req.target.c_str(),req.method.c_str());
+                Json::clear_type_error();
                 std::string resp_data = Func(req.body, req.target);
-                /* 过滤命令301（通道列表）的返回数据，避免日志过长 */
-                if (req.target.find("command=301") == std::string::npos)
+                resp_data = CheckParamTypeError(resp_data);
+                /* 过滤大响应体命令（通道列表/抓图等），避免日志过长 */
+                if (should_log_response(req.target))
                 {
                     NETSDK_LOG_MESSAGE_DEBUG("return ---------------------------------------------------------------");
                     NETSDK_LOG_MESSAGE_DEBUG("返回http响应: resp[%s] url[%s] method[%s]",resp_data.c_str(),req.target.c_str(),req.method.c_str());
@@ -119,9 +148,11 @@ public:
             try
             {
                 NETSDK_LOG_MESSAGE_DEBUG("接收到http请求: body[%s] url[%s] method[%s]",req.body.c_str(),req.target.c_str(),req.method.c_str());
+                Json::clear_type_error();
                 std::string resp_data = Func(req.body, req.target);
-                /* 过滤命令301（通道列表）的返回数据，避免日志过长 */
-                if (req.target.find("command=301") == std::string::npos)
+                resp_data = CheckParamTypeError(resp_data);
+                /* 过滤大响应体命令（通道列表/抓图等），避免日志过长 */
+                if (should_log_response(req.target))
                 {
                     NETSDK_LOG_MESSAGE_DEBUG("return ---------------------------------------------------------------");
                     NETSDK_LOG_MESSAGE_DEBUG("返回http响应: resp[%s] url[%s] method[%s]",resp_data.c_str(),req.target.c_str(),req.method.c_str());

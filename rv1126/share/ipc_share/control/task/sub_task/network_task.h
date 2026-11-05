@@ -91,10 +91,18 @@ namespace Task
         TaskSubClass(SetConfigWifiIpv4)
         TaskSubClass(GetConfigWifiIpv4)
         TaskSubClass(ScanWifiSta)
-#if CAP_BLUETOOTH
+#endif
+
+        /*
+         * 进程间BLE事务任务类型无条件声明，避免不同目标解析能力宏的时机
+         * 不一致导致 bind<T> 看不到类型；实际绑定和业务逻辑仍受能力宏控制。
+         */
         TaskSubClass(ReleaseBleProvisioning)
-#endif
-#endif
+        TaskSubClass(CancelBleProvisioning)
+        TaskSubClass(CommitBleProvisioning)
+        /** 获取二维码/APP连接BLE所需的完整连接字符串。 */
+        TaskSubClass(GetBleConnectionInfo)
+
 
 #if CAP_NETWORK_4G
         /** 

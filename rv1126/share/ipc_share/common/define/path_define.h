@@ -487,7 +487,7 @@
 /* 垃圾检测 */
 #define AI_GARBAGE_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_garbage_detection.json"
 /* 烟火识别 */
-#define AI_SMOKE_FIRE_DETECTION_CONFIG_FILE DESIGN_DATA_PATH "aiRknnConfig.json"
+#define AI_SMOKE_FIRE_DETECTION_CONFIG_FILE DESIGN_DATA_PATH "ai_FirePerson.json"
 /* rknn模型 */
 #define AI_RKNN_DETECTION_CONFIG_FILE    DESIGN_DATA_PATH "ai_rknn_detect.json"
 /* rkllm模型 */

@@ -27,6 +27,12 @@ class CPMNMDetect;
 /* 后厨穿戴规范子检测器（sub_detectors/），仅持有指针，前置声明 */
 class CKitchenClothingSubDetector;
 
+/* Group4 行为检测子检测器（抽烟/玩手机/摔倒），仅持有指针，前置声明 */
+class CGroup4SubDetector;
+
+/* 人员聚集检测子检测器，仅持有指针，前置声明 */
+class CCrowdGatheringSubDetector;
+
 /**
  * @brief  : 人车非检测业务算法（CAlgorithm 子类）
  * @note   : 取流框架对照 detect_mode 既有算法（线程 + 阻塞队列 + 500ms 节流 + lazy init），
@@ -140,17 +146,21 @@ private:
      * @param    {CAlarmStateMachine &} stateMachine：对应的报警状态机
      * @param    {int64_t} nFrameTsMs：帧时间戳
      * @param    {std::vector<TrackedTarget_S> &} vecTrackedTarget：跟踪目标列表
+     * @param    {cv::Mat &} rgbMat：原始分辨率RGB帧 用于编码人员大图小图
      */
     void processRegionStayEvent(bool bEnable, Event::Type enType,
                                 CRegionStayProcessor &processor,
                                 CAlarmStateMachine &stateMachine,
                                 const int64_t nFrameTsMs,
-                                const std::vector<TrackedTarget_S> &vecTrackedTarget);
+                                const std::vector<TrackedTarget_S> &vecTrackedTarget,
+                                const cv::Mat &rgbMat);
 
     /**
      * @brief   : 处理排队拥堵事件（触发类型与区域停留不同，单独处理）
+     * @param    {cv::Mat &} rgbMat：原始分辨率RGB帧 用于编码人员大图
      */
-    void processQueueCrowding(const int64_t nFrameTsMs, const std::vector<TrackedTarget_S> &vecTrackedTarget);
+    void processQueueCrowding(const int64_t nFrameTsMs, const std::vector<TrackedTarget_S> &vecTrackedTarget,
+                              const cv::Mat &rgbMat);
 
 private:
     /* 纯检测组件实例（推理内核） */
@@ -158,6 +168,12 @@ private:
 
     /* 后厨穿戴规范子检测器（发布订阅：开启时创建并通知其自拉配置，依赖人员目标输出） */
     std::unique_ptr<CKitchenClothingSubDetector> m_pKitchenClothingSubDetector;
+
+    /* Group4 行为检测子检测器（抽烟/玩手机/摔倒） */
+    std::unique_ptr<CGroup4SubDetector> m_pGroup4SubDetector;
+
+    /* 人员聚集检测子检测器 */
+    std::unique_ptr<CCrowdGatheringSubDetector> m_pCrowdGatheringSubDetector;
 
     /* 数据队列 */
     BQ_NS::CBlockingQueue<MediaData_S> m_dateQueue;
@@ -189,6 +205,12 @@ private:
 
     /* 后厨穿戴规范事件开关（发布订阅：开启即创建子检测器，配置由其自行拉取） */
     std::atomic<bool> m_bKitchenClothingEnable{false};
+
+    /* Group4 行为检测事件开关（抽烟/玩手机/摔倒） */
+    std::atomic<bool> m_bGroup4Enable{false};
+
+    /* 人员聚集检测事件开关 */
+    std::atomic<bool> m_bCrowdGatheringEnable{false};
 
     /* 判定处理器：攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留
        （均仅人目标，攀爬区域内每帧触发，其余停留达阈值周期触发） */

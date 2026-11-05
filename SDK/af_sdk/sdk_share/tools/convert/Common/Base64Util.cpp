@@ -22,43 +22,43 @@ static const char kBase64Table[] =
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 查询或校验 IsBase64Char 对应的数据。
- * @param [in] c 函数处理参数。
+ * @param [in] byCh 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-static inline bool IsBase64Char(unsigned char c)
+static inline bool IsBase64Char(unsigned char byCh)
 {
-    return (std::isalnum(c) || (c == '+') || (c == '/') || (c == '='));
+    return (std::isalnum(byCh) || (byCh == '+') || (byCh == '/') || (byCh == '='));
 }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 Base64Encode 定义的内部处理。
- * @param [in] bytes_to_encode 函数处理参数。
- * @param [in] in_len 函数处理参数。
+ * @param [in] pbyBytesToEncode 函数处理参数。
+ * @param [in] uInLen 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-std::string Base64Encode(const unsigned char* bytes_to_encode, size_t in_len)
+std::string Base64Encode(const unsigned char* pbyBytesToEncode, size_t uInLen)
 {
-    std::string ret;
-    ret.reserve(((in_len + 2) / 3) * 4);
-    unsigned char char_array_3[3];
-    unsigned char char_array_4[4];
+    std::string strRet;
+    strRet.reserve(((uInLen + 2) / 3) * 4);
+    unsigned char byCharArray3[3];
+    unsigned char byCharArray4[4];
     int i = 0;
 
-    while (in_len--)
+    while (uInLen--)
     {
-        char_array_3[i++] = *(bytes_to_encode++);
+        byCharArray3[i++] = *(pbyBytesToEncode++);
         if (i == 3)
         {
-            char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-            char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-            char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-            char_array_4[3] = char_array_3[2] & 0x3f;
+            byCharArray4[0] = (byCharArray3[0] & 0xfc) >> 2;
+            byCharArray4[1] = ((byCharArray3[0] & 0x03) << 4) + ((byCharArray3[1] & 0xf0) >> 4);
+            byCharArray4[2] = ((byCharArray3[1] & 0x0f) << 2) + ((byCharArray3[2] & 0xc0) >> 6);
+            byCharArray4[3] = byCharArray3[2] & 0x3f;
 
             for (i = 0; i < 4; i++)
             {
-                ret.push_back(kBase64Table[char_array_4[i]]);
+                strRet.push_back(kBase64Table[byCharArray4[i]]);
             }
             i = 0;
         }
@@ -66,93 +66,93 @@ std::string Base64Encode(const unsigned char* bytes_to_encode, size_t in_len)
 
     if (i)
     {
-        for (int j = i; j < 3; j++) char_array_3[j] = '\0';
+        for (int j = i; j < 3; j++) byCharArray3[j] = '\0';
 
-        char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-        char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-        char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-        char_array_4[3] = char_array_3[2] & 0x3f;
+        byCharArray4[0] = (byCharArray3[0] & 0xfc) >> 2;
+        byCharArray4[1] = ((byCharArray3[0] & 0x03) << 4) + ((byCharArray3[1] & 0xf0) >> 4);
+        byCharArray4[2] = ((byCharArray3[1] & 0x0f) << 2) + ((byCharArray3[2] & 0xc0) >> 6);
+        byCharArray4[3] = byCharArray3[2] & 0x3f;
 
         for (int j = 0; j < i + 1; j++)
         {
-            ret.push_back(kBase64Table[char_array_4[j]]);
+            strRet.push_back(kBase64Table[byCharArray4[j]]);
         }
 
         while ((i++ < 3))
         {
-            ret.push_back('=');
+            strRet.push_back('=');
         }
     }
 
-    return ret;
+    return strRet;
 }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 Base64Decode 定义的内部处理。
- * @param [in] encoded 函数处理参数。
- * @param [out] out 函数处理参数。
+ * @param [in] strEncoded 函数处理参数。
+ * @param [out] vecOut 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-bool Base64Decode(const std::string& encoded, std::vector<unsigned char>& out)
+bool Base64Decode(const std::string& strEncoded, std::vector<unsigned char>& vecOut)
 {
-    out.clear();
-    int in_len = (int)encoded.size();
+    vecOut.clear();
+    int nInLen = (int)strEncoded.size();
     int i = 0;
-    int in_ = 0;
-    unsigned char char_array_4[4], char_array_3[3];
+    int nInPos = 0;
+    unsigned char byCharArray4[4], byCharArray3[3];
 
-    auto decode_value = [](unsigned char c) -> int {
-        if (c >= 'A' && c <= 'Z') return c - 'A';
-        if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-        if (c >= '0' && c <= '9') return c - '0' + 52;
-        if (c == '+') return 62;
-        if (c == '/') return 63;
+    auto fnDecodeValue = [](unsigned char byCh) -> int {
+        if (byCh >= 'A' && byCh <= 'Z') return byCh - 'A';
+        if (byCh >= 'a' && byCh <= 'z') return byCh - 'a' + 26;
+        if (byCh >= '0' && byCh <= '9') return byCh - '0' + 52;
+        if (byCh == '+') return 62;
+        if (byCh == '/') return 63;
         return -1;
     };
 
-    while (in_len-- && (encoded[in_] != '=') && IsBase64Char((unsigned char)encoded[in_]))
+    while (nInLen-- && (strEncoded[nInPos] != '=') && IsBase64Char((unsigned char)strEncoded[nInPos]))
     {
-        unsigned char c = (unsigned char)encoded[in_++];
-        if (c == '\r' || c == '\n' || c == ' ' || c == '\t') continue;
-        char_array_4[i++] = c;
+        unsigned char byCh = (unsigned char)strEncoded[nInPos++];
+        if (byCh == '\r' || byCh == '\n' || byCh == ' ' || byCh == '\t') continue;
+        byCharArray4[i++] = byCh;
 
         if (i == 4)
         {
-            int v0 = decode_value(char_array_4[0]);
-            int v1 = decode_value(char_array_4[1]);
-            int v2 = decode_value(char_array_4[2]);
-            int v3 = decode_value(char_array_4[3]);
-            if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) return false;
+            int nVal0 = fnDecodeValue(byCharArray4[0]);
+            int nVal1 = fnDecodeValue(byCharArray4[1]);
+            int nVal2 = fnDecodeValue(byCharArray4[2]);
+            int nVal3 = fnDecodeValue(byCharArray4[3]);
+            if (nVal0 < 0 || nVal1 < 0 || nVal2 < 0 || nVal3 < 0) return false;
 
-            char_array_3[0] = (unsigned char)((v0 << 2) + ((v1 & 0x30) >> 4));
-            char_array_3[1] = (unsigned char)(((v1 & 0xf) << 4) + ((v2 & 0x3c) >> 2));
-            char_array_3[2] = (unsigned char)(((v2 & 0x3) << 6) + v3);
+            byCharArray3[0] = (unsigned char)((nVal0 << 2) + ((nVal1 & 0x30) >> 4));
+            byCharArray3[1] = (unsigned char)(((nVal1 & 0xf) << 4) + ((nVal2 & 0x3c) >> 2));
+            byCharArray3[2] = (unsigned char)(((nVal2 & 0x3) << 6) + nVal3);
 
-            out.push_back(char_array_3[0]);
-            out.push_back(char_array_3[1]);
-            out.push_back(char_array_3[2]);
+            vecOut.push_back(byCharArray3[0]);
+            vecOut.push_back(byCharArray3[1]);
+            vecOut.push_back(byCharArray3[2]);
             i = 0;
         }
     }
 
     if (i)
     {
-        for (int j = i; j < 4; j++) char_array_4[j] = 'A';
+        for (int j = i; j < 4; j++) byCharArray4[j] = 'A';
 
-        int v0 = decode_value(char_array_4[0]);
-        int v1 = decode_value(char_array_4[1]);
-        int v2 = decode_value(char_array_4[2]);
-        int v3 = decode_value(char_array_4[3]);
-        if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) return false;
+        int nVal0 = fnDecodeValue(byCharArray4[0]);
+        int nVal1 = fnDecodeValue(byCharArray4[1]);
+        int nVal2 = fnDecodeValue(byCharArray4[2]);
+        int nVal3 = fnDecodeValue(byCharArray4[3]);
+        if (nVal0 < 0 || nVal1 < 0 || nVal2 < 0 || nVal3 < 0) return false;
 
-        char_array_3[0] = (unsigned char)((v0 << 2) + ((v1 & 0x30) >> 4));
-        char_array_3[1] = (unsigned char)(((v1 & 0xf) << 4) + ((v2 & 0x3c) >> 2));
-        char_array_3[2] = (unsigned char)(((v2 & 0x3) << 6) + v3);
+        byCharArray3[0] = (unsigned char)((nVal0 << 2) + ((nVal1 & 0x30) >> 4));
+        byCharArray3[1] = (unsigned char)(((nVal1 & 0xf) << 4) + ((nVal2 & 0x3c) >> 2));
+        byCharArray3[2] = (unsigned char)(((nVal2 & 0x3) << 6) + nVal3);
 
         for (int j = 0; j < i - 1; j++)
         {
-            out.push_back(char_array_3[j]);
+            vecOut.push_back(byCharArray3[j]);
         }
     }
 

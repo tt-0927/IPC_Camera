@@ -630,14 +630,14 @@ static void InitDefaultConfig(void)
     g_stPeopleDensityDetectionCfg.nReportInterval = 60;
 
     /* 系统升级信息默认值*/
-    strncpy(g_stUpgradeInfo.szUpgradePath,        "/opt/course/",                    sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
+    strncpy(g_stUpgradeInfo.strUpgradePath,        "/opt/course/",                    sizeof(g_stUpgradeInfo.strUpgradePath) - 1);
     g_stUpgradeStatuts.nUpgradeStatus = -1;
-    strncpy(g_stUpgradeVersions.szVersion,        "Ver1.00.00",                    sizeof(g_stUpgradeVersions.szVersion) - 1);
+    strncpy(g_stUpgradeVersions.strVersion,        "Ver1.00.00",                    sizeof(g_stUpgradeVersions.strVersion) - 1);
 
     /* 设备基本信息默认值 */
     strncpy(g_stDeviceBasicInfo.strDevModel,       "Demo-IPCamera-Model", sizeof(g_stDeviceBasicInfo.strDevModel) - 1);
     strncpy(g_stDeviceBasicInfo.strSerialNum,      "SN-DEMO-000001",      sizeof(g_stDeviceBasicInfo.strSerialNum) - 1);
-    strncpy(g_stDeviceBasicInfo.strFirmwareVersion,"V1.0.0",              sizeof(g_stDeviceBasicInfo.strFirmwareVersion) - 1);
+    strncpy(g_stDeviceBasicInfo.strFirmwareVersion,"V1.0.1",              sizeof(g_stDeviceBasicInfo.strFirmwareVersion) - 1);
     strncpy(g_stDeviceBasicInfo.strMacAddress,     "00:11:22:33:44:55",   sizeof(g_stDeviceBasicInfo.strMacAddress) - 1);
     strncpy(g_stDeviceBasicInfo.strDeviceName,     "Demo-Device",         sizeof(g_stDeviceBasicInfo.strDeviceName) - 1);
     strncpy(g_stDeviceBasicInfo.strManufacturer,   "DemoManufacturer",    sizeof(g_stDeviceBasicInfo.strManufacturer) - 1);
@@ -658,10 +658,10 @@ static void InitDefaultConfig(void)
     g_stNetworkCfg.uNetworkCount = 1;
     g_stNetworkCfg.stNets[0].uMTU     = 1500;
     g_stNetworkCfg.stNets[0].bIPv4DHCP = 0; /* 0-手动配置，1-DHCP */
-    strncpy(g_stNetworkCfg.stNets[0].szNetName,       "eth0",         sizeof(g_stNetworkCfg.stNets[0].szNetName) - 1);
-    strncpy(g_stNetworkCfg.stNets[0].szIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.stNets[0].szIpv4Address) - 1);
-    strncpy(g_stNetworkCfg.stNets[0].szIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.stNets[0].szIPv4GateWay) - 1);
-    strncpy(g_stNetworkCfg.stNets[0].szIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.stNets[0].szIPv4SubnetMask) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].strNetName,       "eth0",         sizeof(g_stNetworkCfg.stNets[0].strNetName) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].strIpv4Address,   "192.168.1.100", sizeof(g_stNetworkCfg.stNets[0].strIpv4Address) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].strIPv4GateWay,   "192.168.1.1",   sizeof(g_stNetworkCfg.stNets[0].strIPv4GateWay) - 1);
+    strncpy(g_stNetworkCfg.stNets[0].strIPv4SubnetMask,"255.255.255.0", sizeof(g_stNetworkCfg.stNets[0].strIPv4SubnetMask) - 1);
 
     /* 系统校时配置默认值 */
     g_stSystemNtpCfg.enTimeZone = 8;
@@ -706,45 +706,45 @@ static void InitDefaultConfig(void)
     g_stWifiStaCfg.bEnableWifi = TRUE;
     g_stWifiStaCfg.bEnableBoost = FALSE;
 
-    strncpy(g_stWifiStaConnect.szSsid, "DemoWifi", sizeof(g_stWifiStaConnect.szSsid) - 1);
+    strncpy(g_stWifiStaConnect.strSsid, "DemoWifi", sizeof(g_stWifiStaConnect.strSsid) - 1);
     g_stWifiStaConnect.nSecurityMode = NET_WIFI_SECURITY_WPA_PERSONAL;
-    strncpy(g_stWifiStaConnect.szIpAddress, "192.168.1.120", sizeof(g_stWifiStaConnect.szIpAddress) - 1);
-    strncpy(g_stWifiStaConnect.szPassword, "12345678", sizeof(g_stWifiStaConnect.szPassword) - 1);
-    strncpy(g_stWifiStaConnect.szPairwise, "CCMP", sizeof(g_stWifiStaConnect.szPairwise) - 1);
+    strncpy(g_stWifiStaConnect.strIpAddress, "192.168.1.120", sizeof(g_stWifiStaConnect.strIpAddress) - 1);
+    strncpy(g_stWifiStaConnect.strPassword, "12345678", sizeof(g_stWifiStaConnect.strPassword) - 1);
+    strncpy(g_stWifiStaConnect.strPairwise, "CCMP", sizeof(g_stWifiStaConnect.strPairwise) - 1);
     g_stWifiStaConnect.nWepKeyLen = 128;
     g_stWifiStaConnect.bWepIsHex = FALSE;
-    strncpy(g_stWifiStaConnect.szAuthAlg, "OPEN", sizeof(g_stWifiStaConnect.szAuthAlg) - 1);
+    strncpy(g_stWifiStaConnect.strAuthAlg, "OPEN", sizeof(g_stWifiStaConnect.strAuthAlg) - 1);
     g_stWifiStaConnect.nWepKeyCount = 1;
     g_stWifiStaConnect.astWepKeys[0].nIndex = 1;
-    strncpy(g_stWifiStaConnect.astWepKeys[0].szValue, "1234567890", sizeof(g_stWifiStaConnect.astWepKeys[0].szValue) - 1);
-    strncpy(g_stWifiStaConnect.szCtrlInterface, "/var/run/wpa_supplicant", sizeof(g_stWifiStaConnect.szCtrlInterface) - 1);
-    strncpy(g_stWifiStaConnect.szInterfaceName, "wlan0", sizeof(g_stWifiStaConnect.szInterfaceName) - 1);
+    strncpy(g_stWifiStaConnect.astWepKeys[0].strValue, "1234567890", sizeof(g_stWifiStaConnect.astWepKeys[0].strValue) - 1);
+    strncpy(g_stWifiStaConnect.strCtrlInterface, "/var/run/wpa_supplicant", sizeof(g_stWifiStaConnect.strCtrlInterface) - 1);
+    strncpy(g_stWifiStaConnect.strInterfaceName, "wlan0", sizeof(g_stWifiStaConnect.strInterfaceName) - 1);
 
-    strncpy(g_st4GInfo.szApn, "ctnet", sizeof(g_st4GInfo.szApn) - 1);
-    strncpy(g_st4GInfo.szCallNumber, "*99#", sizeof(g_st4GInfo.szCallNumber) - 1);
+    strncpy(g_st4GInfo.strApn, "ctnet", sizeof(g_st4GInfo.strApn) - 1);
+    strncpy(g_st4GInfo.strCallNumber, "*99#", sizeof(g_st4GInfo.strCallNumber) - 1);
     g_st4GInfo.nMtu = 1500;
     g_st4GInfo.nAuthMode = 0;
     g_st4GInfo.nNetworkMode = 0;
     g_st4GInfo.nDialMode = 0;
 
     g_stHotspotInfo.bEnabled = FALSE;
-    strncpy(g_stHotspotInfo.szSsid, "DemoHotspot", sizeof(g_stHotspotInfo.szSsid) - 1);
-    strncpy(g_stHotspotInfo.szSecurityMode, "WPA2-personal", sizeof(g_stHotspotInfo.szSecurityMode) - 1);
-    strncpy(g_stHotspotInfo.szEncryptionType, "TKIP", sizeof(g_stHotspotInfo.szEncryptionType) - 1);
-    strncpy(g_stHotspotInfo.szPassword, "12345678", sizeof(g_stHotspotInfo.szPassword) - 1);
-    strncpy(g_stHotspotInfo.szConfirmPassword, "12345678", sizeof(g_stHotspotInfo.szConfirmPassword) - 1);
+    strncpy(g_stHotspotInfo.strSsid, "DemoHotspot", sizeof(g_stHotspotInfo.strSsid) - 1);
+    strncpy(g_stHotspotInfo.strSecurityMode, "WPA2-personal", sizeof(g_stHotspotInfo.strSecurityMode) - 1);
+    strncpy(g_stHotspotInfo.strEncryptionType, "TKIP", sizeof(g_stHotspotInfo.strEncryptionType) - 1);
+    strncpy(g_stHotspotInfo.strPassword, "12345678", sizeof(g_stHotspotInfo.strPassword) - 1);
+    strncpy(g_stHotspotInfo.strConfirmPassword, "12345678", sizeof(g_stHotspotInfo.strConfirmPassword) - 1);
 
-    strncpy(g_stHotspotConnInfo.szStatus, "success", sizeof(g_stHotspotConnInfo.szStatus) - 1);
+    strncpy(g_stHotspotConnInfo.strStatus, "success", sizeof(g_stHotspotConnInfo.strStatus) - 1);
     g_stHotspotConnInfo.nTotal = 2;
     g_stHotspotConnInfo.nDeviceCount = 2;
     g_stHotspotConnInfo.astDevices[0].nIndex = 1;
-    strncpy(g_stHotspotConnInfo.astDevices[0].szMac, "00:11:22:33:44:66", sizeof(g_stHotspotConnInfo.astDevices[0].szMac) - 1);
-    strncpy(g_stHotspotConnInfo.astDevices[0].szIp, "192.168.43.10", sizeof(g_stHotspotConnInfo.astDevices[0].szIp) - 1);
-    strncpy(g_stHotspotConnInfo.astDevices[0].szConnTime, "2026-04-30 10:00:00", sizeof(g_stHotspotConnInfo.astDevices[0].szConnTime) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[0].strMac, "00:11:22:33:44:66", sizeof(g_stHotspotConnInfo.astDevices[0].strMac) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[0].strIp, "192.168.43.10", sizeof(g_stHotspotConnInfo.astDevices[0].strIp) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[0].strConnTime, "2026-04-30 10:00:00", sizeof(g_stHotspotConnInfo.astDevices[0].strConnTime) - 1);
     g_stHotspotConnInfo.astDevices[1].nIndex = 2;
-    strncpy(g_stHotspotConnInfo.astDevices[1].szMac, "00:11:22:33:44:77", sizeof(g_stHotspotConnInfo.astDevices[1].szMac) - 1);
-    strncpy(g_stHotspotConnInfo.astDevices[1].szIp, "192.168.43.11", sizeof(g_stHotspotConnInfo.astDevices[1].szIp) - 1);
-    strncpy(g_stHotspotConnInfo.astDevices[1].szConnTime, "2026-04-30 10:05:00", sizeof(g_stHotspotConnInfo.astDevices[1].szConnTime) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[1].strMac, "00:11:22:33:44:77", sizeof(g_stHotspotConnInfo.astDevices[1].strMac) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[1].strIp, "192.168.43.11", sizeof(g_stHotspotConnInfo.astDevices[1].strIp) - 1);
+    strncpy(g_stHotspotConnInfo.astDevices[1].strConnTime, "2026-04-30 10:05:00", sizeof(g_stHotspotConnInfo.astDevices[1].strConnTime) - 1);
 
     /* 安全服务、日志与日志服务器默认值 */
     g_stSecurityServicesInfo.stLoginLock.bIllegalLoginEnable = TRUE;
@@ -755,13 +755,13 @@ static void InitDefaultConfig(void)
     g_stSecurityServicesInfo.stPwdPolicy.bAllowLowLevelPwdLogin = FALSE;
     g_stSecurityServicesInfo.stSshAdmin.bSshEnable = FALSE;
     g_stSecurityServicesInfo.stSshAdmin.nSshPort = 22;
-    strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime, "2026-05-06 10:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshStartTime) - 1);
-    strncpy(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown, "08:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.szSshCountdown) - 1);
-    strncpy(g_stSshCountdownInfo.szCountdown, "08:00:00", sizeof(g_stSshCountdownInfo.szCountdown) - 1);
+    strncpy(g_stSecurityServicesInfo.stSshAdmin.strSshStartTime, "2026-05-06 10:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.strSshStartTime) - 1);
+    strncpy(g_stSecurityServicesInfo.stSshAdmin.strSshCountdown, "08:00:00", sizeof(g_stSecurityServicesInfo.stSshAdmin.strSshCountdown) - 1);
+    strncpy(g_stSshCountdownInfo.strCountdown, "08:00:00", sizeof(g_stSshCountdownInfo.strCountdown) - 1);
 
     g_stLogServerInfo.bEnable = TRUE;
     g_stLogServerInfo.bEnSsl = FALSE;
-    strncpy(g_stLogServerInfo.szServerAddr, "oam.itc-pa.cn", sizeof(g_stLogServerInfo.szServerAddr) - 1);
+    strncpy(g_stLogServerInfo.strServerAddr, "oam.itc-pa.cn", sizeof(g_stLogServerInfo.strServerAddr) - 1);
     g_stLogServerInfo.nPort = 1883;
 
     g_stLogList.stPage.nCurPage = 1;
@@ -769,20 +769,20 @@ static void InitDefaultConfig(void)
     g_stLogList.stPage.nDataTotal = 2;
     g_stLogList.stPage.nPageTotal = 1;
     g_stLogList.nLogCount = 2;
-    strncpy(g_stLogList.astLogs[0].szStartTime, "2026-05-06 10:00:00", sizeof(g_stLogList.astLogs[0].szStartTime) - 1);
+    strncpy(g_stLogList.astLogs[0].strStartTime, "2026-05-06 10:00:00", sizeof(g_stLogList.astLogs[0].strStartTime) - 1);
     g_stLogList.astLogs[0].nType = 3;
     g_stLogList.astLogs[0].nAction = 0;
-    strncpy(g_stLogList.astLogs[0].szChnName, "IPC-1", sizeof(g_stLogList.astLogs[0].szChnName) - 1);
-    strncpy(g_stLogList.astLogs[0].szUser, "admin", sizeof(g_stLogList.astLogs[0].szUser) - 1);
-    strncpy(g_stLogList.astLogs[0].szHost, "192.168.1.10", sizeof(g_stLogList.astLogs[0].szHost) - 1);
-    strncpy(g_stLogList.astLogs[0].szContext, "Demo login success", sizeof(g_stLogList.astLogs[0].szContext) - 1);
-    strncpy(g_stLogList.astLogs[1].szStartTime, "2026-05-06 10:05:00", sizeof(g_stLogList.astLogs[1].szStartTime) - 1);
+    strncpy(g_stLogList.astLogs[0].strChnName, "IPC-1", sizeof(g_stLogList.astLogs[0].strChnName) - 1);
+    strncpy(g_stLogList.astLogs[0].strUser, "admin", sizeof(g_stLogList.astLogs[0].strUser) - 1);
+    strncpy(g_stLogList.astLogs[0].strHost, "192.168.1.10", sizeof(g_stLogList.astLogs[0].strHost) - 1);
+    strncpy(g_stLogList.astLogs[0].strContext, "Demo login success", sizeof(g_stLogList.astLogs[0].strContext) - 1);
+    strncpy(g_stLogList.astLogs[1].strStartTime, "2026-05-06 10:05:00", sizeof(g_stLogList.astLogs[1].strStartTime) - 1);
     g_stLogList.astLogs[1].nType = 4;
     g_stLogList.astLogs[1].nAction = 0;
-    strncpy(g_stLogList.astLogs[1].szChnName, "IPC-1", sizeof(g_stLogList.astLogs[1].szChnName) - 1);
-    strncpy(g_stLogList.astLogs[1].szUser, "system", sizeof(g_stLogList.astLogs[1].szUser) - 1);
-    strncpy(g_stLogList.astLogs[1].szHost, "localhost", sizeof(g_stLogList.astLogs[1].szHost) - 1);
-    strncpy(g_stLogList.astLogs[1].szContext, "Demo log server heartbeat", sizeof(g_stLogList.astLogs[1].szContext) - 1);
+    strncpy(g_stLogList.astLogs[1].strChnName, "IPC-1", sizeof(g_stLogList.astLogs[1].strChnName) - 1);
+    strncpy(g_stLogList.astLogs[1].strUser, "system", sizeof(g_stLogList.astLogs[1].strUser) - 1);
+    strncpy(g_stLogList.astLogs[1].strHost, "localhost", sizeof(g_stLogList.astLogs[1].strHost) - 1);
+    strncpy(g_stLogList.astLogs[1].strContext, "Demo log server heartbeat", sizeof(g_stLogList.astLogs[1].strContext) - 1);
 
     /* 手动录像、录像计划、录像文件与下载默认值 */
     g_stRecordInfo.nChnId = 0;
@@ -791,10 +791,10 @@ static void InitDefaultConfig(void)
     g_stRecordInfo.nRecordStatus = NET_RECORD_STATUS_RECORDING;
     g_stRecordInfo.nRecordFormat = 0;
     g_stRecordInfo.nEventType = 0;
-    strncpy(g_stRecordInfo.szPath, "/tmp/", sizeof(g_stRecordInfo.szPath) - 1);
-    strncpy(g_stRecordInfo.szRedunPath, "/tmp/", sizeof(g_stRecordInfo.szRedunPath) - 1);
-    strncpy(g_stRecordInfo.szRecordName, "manual_record_demo.ts", sizeof(g_stRecordInfo.szRecordName) - 1);
-    strncpy(g_stRecordInfo.szRecordTime, "2026-05-06 10:00:00", sizeof(g_stRecordInfo.szRecordTime) - 1);
+    strncpy(g_stRecordInfo.strPath, "/tmp/", sizeof(g_stRecordInfo.strPath) - 1);
+    strncpy(g_stRecordInfo.strRedunPath, "/tmp/", sizeof(g_stRecordInfo.strRedunPath) - 1);
+    strncpy(g_stRecordInfo.strRecordName, "manual_record_demo.ts", sizeof(g_stRecordInfo.strRecordName) - 1);
+    strncpy(g_stRecordInfo.strRecordTime, "2026-05-06 10:00:00", sizeof(g_stRecordInfo.strRecordTime) - 1);
     g_stRecordInfo.nStreamType = 0;
 
     g_stRecordStatusInfo.nStatus = NET_RECORD_STATUS_STOP;
@@ -817,27 +817,27 @@ static void InitDefaultConfig(void)
 
     g_stRecordFileList.stFind.nChnId = 0;
     g_stRecordFileList.stFind.nType = 0;
-    strncpy(g_stRecordFileList.stFind.szYear, "2026", sizeof(g_stRecordFileList.stFind.szYear) - 1);
-    strncpy(g_stRecordFileList.stFind.szMonth, "05", sizeof(g_stRecordFileList.stFind.szMonth) - 1);
-    strncpy(g_stRecordFileList.stFind.szDate, "2026-05-06", sizeof(g_stRecordFileList.stFind.szDate) - 1);
-    strncpy(g_stRecordFileList.stFind.szStartTime, "2026-05-06 00:00:00", sizeof(g_stRecordFileList.stFind.szStartTime) - 1);
-    strncpy(g_stRecordFileList.stFind.szEndTime, "2026-05-06 23:59:59", sizeof(g_stRecordFileList.stFind.szEndTime) - 1);
+    strncpy(g_stRecordFileList.stFind.strYear, "2026", sizeof(g_stRecordFileList.stFind.strYear) - 1);
+    strncpy(g_stRecordFileList.stFind.strMonth, "05", sizeof(g_stRecordFileList.stFind.strMonth) - 1);
+    strncpy(g_stRecordFileList.stFind.strDate, "2026-05-06", sizeof(g_stRecordFileList.stFind.strDate) - 1);
+    strncpy(g_stRecordFileList.stFind.strStartTime, "2026-05-06 00:00:00", sizeof(g_stRecordFileList.stFind.strStartTime) - 1);
+    strncpy(g_stRecordFileList.stFind.strEndTime, "2026-05-06 23:59:59", sizeof(g_stRecordFileList.stFind.strEndTime) - 1);
     g_stRecordFileList.nResultCount = 1;
     g_stRecordFileList.astResults[0].nChnId = 0;
     g_stRecordFileList.astResults[0].nDateCount = 1;
-    strncpy(g_stRecordFileList.astResults[0].aszDates[0], "2026-05-06", sizeof(g_stRecordFileList.astResults[0].aszDates[0]) - 1);
-    strncpy(g_stRecordFileList.astResults[0].szFilename, "manual_record_demo.ts", sizeof(g_stRecordFileList.astResults[0].szFilename) - 1);
+    strncpy(g_stRecordFileList.astResults[0].astrDates[0], "2026-05-06", sizeof(g_stRecordFileList.astResults[0].astrDates[0]) - 1);
+    strncpy(g_stRecordFileList.astResults[0].strFilename, "manual_record_demo.ts", sizeof(g_stRecordFileList.astResults[0].strFilename) - 1);
     g_stRecordFileList.astResults[0].nVideoTimeCount = 1;
     g_stRecordFileList.astResults[0].astVideoTimes[0].nStartTime = 3600;
     g_stRecordFileList.astResults[0].astVideoTimes[0].nEndTime = 7200;
 
     g_stRecordDownloadList.nDownloadCount = 1;
     g_stRecordDownloadList.astDownloads[0].nChnId = 0;
-    strncpy(g_stRecordDownloadList.astDownloads[0].szPath, "/tmp/manual_record_demo.ts", sizeof(g_stRecordDownloadList.astDownloads[0].szPath) - 1);
-    strncpy(g_stRecordDownloadList.astDownloads[0].szStartTime, "2026-05-06 10:00:00", sizeof(g_stRecordDownloadList.astDownloads[0].szStartTime) - 1);
-    strncpy(g_stRecordDownloadList.astDownloads[0].szEndTime, "2026-05-06 10:30:00", sizeof(g_stRecordDownloadList.astDownloads[0].szEndTime) - 1);
+    strncpy(g_stRecordDownloadList.astDownloads[0].strPath, "/tmp/manual_record_demo.ts", sizeof(g_stRecordDownloadList.astDownloads[0].strPath) - 1);
+    strncpy(g_stRecordDownloadList.astDownloads[0].strStartTime, "2026-05-06 10:00:00", sizeof(g_stRecordDownloadList.astDownloads[0].strStartTime) - 1);
+    strncpy(g_stRecordDownloadList.astDownloads[0].strEndTime, "2026-05-06 10:30:00", sizeof(g_stRecordDownloadList.astDownloads[0].strEndTime) - 1);
     g_stRecordDownloadList.nProgressCount = 1;
-    strncpy(g_stRecordDownloadList.astProgress[0].szFilename, "manual_record_demo.ts", sizeof(g_stRecordDownloadList.astProgress[0].szFilename) - 1);
+    strncpy(g_stRecordDownloadList.astProgress[0].strFilename, "manual_record_demo.ts", sizeof(g_stRecordDownloadList.astProgress[0].strFilename) - 1);
     g_stRecordDownloadList.astProgress[0].nProgress = 0;
 
     /* OSD配置默认值 */
@@ -1150,14 +1150,14 @@ static void InitDefaultConfig(void)
     g_stImageCfg.nSharpness = 50;
 
     /* 预览信息默认值 */
-    strncpy(g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
+    strncpy(g_stPreviewInfo.stRtspUrl.strRtspMainUrl,
             "rtsp://127.0.0.1:554/live/main",
-            sizeof(g_stPreviewInfo.stRtspUrl.szRtspMainUrl) - 1);
-    g_stPreviewInfo.stRtspUrl.szRtspMainUrl[sizeof(g_stPreviewInfo.stRtspUrl.szRtspMainUrl) - 1] = '\0';
-    strncpy(g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
+            sizeof(g_stPreviewInfo.stRtspUrl.strRtspMainUrl) - 1);
+    g_stPreviewInfo.stRtspUrl.strRtspMainUrl[sizeof(g_stPreviewInfo.stRtspUrl.strRtspMainUrl) - 1] = '\0';
+    strncpy(g_stPreviewInfo.stRtspUrl.strRtspSubUrl,
             "rtsp://127.0.0.1:554/live/sub",
-            sizeof(g_stPreviewInfo.stRtspUrl.szRtspSubUrl) - 1);
-    g_stPreviewInfo.stRtspUrl.szRtspSubUrl[sizeof(g_stPreviewInfo.stRtspUrl.szRtspSubUrl) - 1] = '\0';
+            sizeof(g_stPreviewInfo.stRtspUrl.strRtspSubUrl) - 1);
+    g_stPreviewInfo.stRtspUrl.strRtspSubUrl[sizeof(g_stPreviewInfo.stRtspUrl.strRtspSubUrl) - 1] = '\0';
     g_stPreviewInfo.stImageParam.nBrightness = 50;
     g_stPreviewInfo.stImageParam.nContrast = 50;
     g_stPreviewInfo.stImageParam.nSaturation = 50;
@@ -1169,54 +1169,54 @@ static void InitDefaultConfig(void)
     g_stChannelInfo.byStreamType = 0;
     g_stChannelInfo.uChannel = 1;
 
-    strncpy(g_stChannelInfo.szChannelName,
+    strncpy(g_stChannelInfo.strChannelName,
             "Demo-Channel-1",
-            sizeof(g_stChannelInfo.szChannelName) - 1);
-    strncpy(g_stChannelInfo.szRtspMainUrl,
-            g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
-            sizeof(g_stChannelInfo.szRtspMainUrl) - 1);
-    strncpy(g_stChannelInfo.szRtspSubUrl,
-            g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
-            sizeof(g_stChannelInfo.szRtspSubUrl) - 1);
-    strncpy(g_stChannelInfo.szPreviewMainUrl,
-            g_stPreviewInfo.stRtspUrl.szRtspMainUrl,
-            sizeof(g_stChannelInfo.szPreviewMainUrl) - 1);
-    strncpy(g_stChannelInfo.szPreviewSubUrl,
-            g_stPreviewInfo.stRtspUrl.szRtspSubUrl,
-            sizeof(g_stChannelInfo.szPreviewSubUrl) - 1);
-    strncpy(g_stChannelInfo.szDeviceIP,
+            sizeof(g_stChannelInfo.strChannelName) - 1);
+    strncpy(g_stChannelInfo.strRtspMainUrl,
+            g_stPreviewInfo.stRtspUrl.strRtspMainUrl,
+            sizeof(g_stChannelInfo.strRtspMainUrl) - 1);
+    strncpy(g_stChannelInfo.strRtspSubUrl,
+            g_stPreviewInfo.stRtspUrl.strRtspSubUrl,
+            sizeof(g_stChannelInfo.strRtspSubUrl) - 1);
+    strncpy(g_stChannelInfo.strPreviewMainUrl,
+            g_stPreviewInfo.stRtspUrl.strRtspMainUrl,
+            sizeof(g_stChannelInfo.strPreviewMainUrl) - 1);
+    strncpy(g_stChannelInfo.strPreviewSubUrl,
+            g_stPreviewInfo.stRtspUrl.strRtspSubUrl,
+            sizeof(g_stChannelInfo.strPreviewSubUrl) - 1);
+    strncpy(g_stChannelInfo.strDeviceIP,
             "127.0.0.1",
-            sizeof(g_stChannelInfo.szDeviceIP) - 1);
+            sizeof(g_stChannelInfo.strDeviceIP) - 1);
 
     /* 对讲相关默认值 */
     g_stTalkbackStateInfo.bEnable = FALSE;
-    strncpy(g_stTalkbackStateInfo.szSdp,
+    strncpy(g_stTalkbackStateInfo.strSdp,
             "v=0\\r\\no=- 0 0 IN IP4 127.0.0.1\\r\\ns=Talkback\\r\\n",
-            sizeof(g_stTalkbackStateInfo.szSdp) - 1);
-    strncpy(g_stTalkbackStateInfo.szUrl,
+            sizeof(g_stTalkbackStateInfo.strSdp) - 1);
+    strncpy(g_stTalkbackStateInfo.strUrl,
             "rtsp://127.0.0.1:554/talkback",
-            sizeof(g_stTalkbackStateInfo.szUrl) - 1);
-    strncpy(g_stTalkbackStateInfo.szLocalIP,
+            sizeof(g_stTalkbackStateInfo.strUrl) - 1);
+    strncpy(g_stTalkbackStateInfo.strLocalIP,
             "127.0.0.1",
-            sizeof(g_stTalkbackStateInfo.szLocalIP) - 1);
+            sizeof(g_stTalkbackStateInfo.strLocalIP) - 1);
 
-    strncpy(g_stTalkbackToStreamInfo.szHost, "239.0.0.1", sizeof(g_stTalkbackToStreamInfo.szHost) - 1);
+    strncpy(g_stTalkbackToStreamInfo.strHost, "239.0.0.1", sizeof(g_stTalkbackToStreamInfo.strHost) - 1);
     g_stTalkbackToStreamInfo.nPort = 5004;
     g_stTalkbackToStreamInfo.nChnId = 1;
     g_stTalkbackToStreamInfo.nUserID = 1001;
     g_stTalkbackToStreamInfo.bMainStream = TRUE;
-    strncpy(g_stTalkbackToStreamInfo.szProtocol, "rtp", sizeof(g_stTalkbackToStreamInfo.szProtocol) - 1);
-    strncpy(g_stTalkbackToStreamInfo.szStartTime, "2026-01-01 08:00:00", sizeof(g_stTalkbackToStreamInfo.szStartTime) - 1);
-    strncpy(g_stTalkbackToStreamInfo.szEndTime, "2026-01-01 08:30:00", sizeof(g_stTalkbackToStreamInfo.szEndTime) - 1);
-    strncpy(g_stTalkbackToStreamInfo.szFileName, "talkback_live.aac", sizeof(g_stTalkbackToStreamInfo.szFileName) - 1);
+    strncpy(g_stTalkbackToStreamInfo.strProtocol, "rtp", sizeof(g_stTalkbackToStreamInfo.strProtocol) - 1);
+    strncpy(g_stTalkbackToStreamInfo.strStartTime, "2026-01-01 08:00:00", sizeof(g_stTalkbackToStreamInfo.strStartTime) - 1);
+    strncpy(g_stTalkbackToStreamInfo.strEndTime, "2026-01-01 08:30:00", sizeof(g_stTalkbackToStreamInfo.strEndTime) - 1);
+    strncpy(g_stTalkbackToStreamInfo.strFileName, "talkback_live.aac", sizeof(g_stTalkbackToStreamInfo.strFileName) - 1);
 
     g_stTalkbackFromStreamInfo = g_stTalkbackToStreamInfo;
-    strncpy(g_stTalkbackFromStreamInfo.szHost, "239.0.0.2", sizeof(g_stTalkbackFromStreamInfo.szHost) - 1);
+    strncpy(g_stTalkbackFromStreamInfo.strHost, "239.0.0.2", sizeof(g_stTalkbackFromStreamInfo.strHost) - 1);
 
-    strncpy(g_stReplayTalkbackInfo.szNvrIp, "192.168.1.200", sizeof(g_stReplayTalkbackInfo.szNvrIp) - 1);
-    strncpy(g_stReplayTalkbackInfo.szRemoteIp, "192.168.1.10", sizeof(g_stReplayTalkbackInfo.szRemoteIp) - 1);
+    strncpy(g_stReplayTalkbackInfo.strNvrIp, "192.168.1.200", sizeof(g_stReplayTalkbackInfo.strNvrIp) - 1);
+    strncpy(g_stReplayTalkbackInfo.strRemoteIp, "192.168.1.10", sizeof(g_stReplayTalkbackInfo.strRemoteIp) - 1);
     g_stReplayTalkbackInfo.stIPCInfo = g_stTalkbackToStreamInfo;
-    strncpy(g_stReplayTalkbackInfo.stIPCInfo.szFileName, "talkback_replay.aac", sizeof(g_stReplayTalkbackInfo.stIPCInfo.szFileName) - 1);
+    strncpy(g_stReplayTalkbackInfo.stIPCInfo.strFileName, "talkback_replay.aac", sizeof(g_stReplayTalkbackInfo.stIPCInfo.strFileName) - 1);
 
     /* 抓图计划配置默认值 */
     UINT32 i = 0;
@@ -1334,9 +1334,9 @@ static void InitDefaultConfig(void)
 
     /* 目标库默认值 */
     g_stFaceLibList.nTargetLibCount = 1;
-    strncpy(g_stFaceLibList.astTargetLibInfos[0].szFaceLibName,
+    strncpy(g_stFaceLibList.astTargetLibInfos[0].strFaceLibName,
             "default_library",
-            sizeof(g_stFaceLibList.astTargetLibInfos[0].szFaceLibName) - 1);
+            sizeof(g_stFaceLibList.astTargetLibInfos[0].strFaceLibName) - 1);
     g_stFaceLibList.astTargetLibInfos[0].nTotalFace = 1;
     g_stFaceLibList.astTargetLibInfos[0].nNormalNum = 1;
     g_stFaceLibList.astTargetLibInfos[0].nAbnormalNum = 0;
@@ -1344,25 +1344,25 @@ static void InitDefaultConfig(void)
     /* 人脸信息默认值 */
     g_stFaceInfoList.nFaceInfoCount = 1;
     g_stFaceInfoList.astFaceInfos[0].nId = 1;
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szFaceLibName,
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strFaceLibName,
             "default_library",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szFaceLibName) - 1);
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szName,
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strFaceLibName) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strName,
             "demo_person",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szName) - 1);
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szPhoneNum,
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strName) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strPhoneNum,
             "13800000000",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szPhoneNum) - 1);
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicPath,
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strPhoneNum) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strPicPath,
             "/tmp/demo_person.jpg",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicPath) - 1);
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicType,
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strPicPath) - 1);
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strPicType,
             "jpg",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicType) - 1);
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strPicType) - 1);
     g_stFaceInfoList.astFaceInfos[0].nPicSize = 1024;
-    strncpy(g_stFaceInfoList.astFaceInfos[0].szPicDate,
+    strncpy(g_stFaceInfoList.astFaceInfos[0].strPicDate,
             "2026-05-07 10:00:00",
-            sizeof(g_stFaceInfoList.astFaceInfos[0].szPicDate) - 1);
+            sizeof(g_stFaceInfoList.astFaceInfos[0].strPicDate) - 1);
     g_stFaceInfoList.astFaceInfos[0].nModelState = 1;
     g_stFaceInfoList.astFaceInfos[0].nRatingLevel = 3;
 
@@ -1596,9 +1596,9 @@ static NET_COMMON_ECODE_E MySetDeviceBasicInfoCb(pNET_DeviceBasicInfo_S pInfo)
 }
 
 /* 音频配置 Get 回调，对应命令 NET_GET_AUDIOCFG */
-static NET_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetAudioCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -1608,7 +1608,7 @@ static NET_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
     pNET_AudioCfg_S pOut = (pNET_AudioCfg_S)lpOutBuffer;
     *pOut = g_stAudioCfg;
 
-    printf("[ConfigServerDemo] GetAudioCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetAudioCfg callback, Channel=%d\n", nChannelID);
     printf("  AudioSwitch=%d, InputType=%d, Format=%d, SampRate=%d, BitRate=%d, InputVolume=%u, Denoise=%d, OutputType=%d, OutputVolume=%u\n",
            g_stAudioCfg.bAudioSwitch,
            g_stAudioCfg.enInputType,
@@ -1624,9 +1624,9 @@ static NET_COMMON_ECODE_E MyGetAudioCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 }
 
 /* 音频配置 Set 回调，对应命令 NET_SET_AUDIOCFG */
-static NET_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetAudioCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -1636,7 +1636,7 @@ static NET_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
     pNET_AudioCfg_S pIn = (pNET_AudioCfg_S)lpInBuffer;
     g_stAudioCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetAudioCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetAudioCfg callback, Channel=%d\n", nChannelID);
     printf("  New AudioSwitch=%d, InputType=%d, Format=%d, SampRate=%d, BitRate=%d, InputVolume=%u, Denoise=%d, OutputType=%d, OutputVolume=%u\n",
            g_stAudioCfg.bAudioSwitch, g_stAudioCfg.enInputType, g_stAudioCfg.enFormat, g_stAudioCfg.enSampRate,
            g_stAudioCfg.enBitRate, g_stAudioCfg.u32InputVolume, g_stAudioCfg.bDenoise, g_stAudioCfg.enOutputType, g_stAudioCfg.u32OutputVolume);
@@ -1644,9 +1644,9 @@ static NET_COMMON_ECODE_E MySetAudioCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /* 视频码流配置 Get 回调，对应命令 NET_GET_STREAMCFG */
-static NET_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetStreamCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -1656,7 +1656,7 @@ static NET_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
     pNET_VideoEncodeOption_S pOut = (pNET_VideoEncodeOption_S)lpOutBuffer;
     *pOut = g_stStreamCfg;
 
-    printf("[ConfigServerDemo] GetStreamCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetStreamCfg callback, Channel=%d\n", nChannelID);
     printf("  Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
            g_stStreamCfg.nId,
            g_stStreamCfg.enVideoCodec,
@@ -1670,9 +1670,9 @@ static NET_COMMON_ECODE_E MyGetStreamCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
 }
 
 /* 视频码流配置 Set 回调，对应命令 NET_SET_STREAMCFG */
-static NET_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetStreamCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -1682,7 +1682,7 @@ static NET_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
     pNET_VideoEncodeOption_S pIn = (pNET_VideoEncodeOption_S)lpInBuffer;
     g_stStreamCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetStreamCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetStreamCfg callback, Channel=%d\n", nChannelID);
     printf("  New Id=%d, Codec=%d, Resolution=%dx%d, FrameRate=%d, AverageBitrate=%d, BitrateUpperLimit=%d\n",
            g_stStreamCfg.nId,
            g_stStreamCfg.enVideoCodec,
@@ -1696,9 +1696,9 @@ static NET_COMMON_ECODE_E MySetStreamCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /* 网络配置 Get 回调，对应命令 NET_GET_NETWORKCFG */
-static NET_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -1708,23 +1708,23 @@ static NET_COMMON_ECODE_E MyGetNetworkCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
     pNET_NetworkCfgList_S pOut = (pNET_NetworkCfgList_S)lpOutBuffer;
     *pOut = g_stNetworkCfg;
 
-    printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetNetworkCfg callback, Channel=%d\n", nChannelID);
     printf("  NetworkCount=%u\n", g_stNetworkCfg.uNetworkCount);
     if (g_stNetworkCfg.uNetworkCount > 0)
     {
-        printf("  NetName=%s\n", g_stNetworkCfg.stNets[0].szNetName);
-        printf("  IPv4Address=%s\n", g_stNetworkCfg.stNets[0].szIpv4Address);
-        printf("  IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].szIPv4GateWay);
-        printf("  IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].szIPv4SubnetMask);
+        printf("  NetName=%s\n", g_stNetworkCfg.stNets[0].strNetName);
+        printf("  IPv4Address=%s\n", g_stNetworkCfg.stNets[0].strIpv4Address);
+        printf("  IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].strIPv4GateWay);
+        printf("  IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].strIPv4SubnetMask);
     }
 
     return NET_E_SUCCEED;
 }
 
 /* 网络配置 Set 回调，对应命令 NET_SET_NETWORKCFG */
-static NET_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetNetworkCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -1734,23 +1734,23 @@ static NET_COMMON_ECODE_E MySetNetworkCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
     pNET_NetworkCfgList_S pIn = (pNET_NetworkCfgList_S)lpInBuffer;
     g_stNetworkCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetNetworkCfg callback, Channel=%d\n", nChannelID);
     printf("  NetworkCount=%u\n", g_stNetworkCfg.uNetworkCount);
     if (g_stNetworkCfg.uNetworkCount > 0)
     {
-        printf("  New NetName=%s\n", g_stNetworkCfg.stNets[0].szNetName);
-        printf("  New IPv4Address=%s\n", g_stNetworkCfg.stNets[0].szIpv4Address);
-        printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].szIPv4GateWay);
-        printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].szIPv4SubnetMask);
+        printf("  New NetName=%s\n", g_stNetworkCfg.stNets[0].strNetName);
+        printf("  New IPv4Address=%s\n", g_stNetworkCfg.stNets[0].strIpv4Address);
+        printf("  New IPv4Gateway=%s\n", g_stNetworkCfg.stNets[0].strIPv4GateWay);
+        printf("  New IPv4SubnetMask=%s\n", g_stNetworkCfg.stNets[0].strIPv4SubnetMask);
     }
 
     return NET_E_SUCCEED;
 }
 
 /* 系统校时配置 Get 回调，对应命令 NET_GET_NTPCFG */
-static NET_COMMON_ECODE_E MyGetNtpCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetNtpCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -1760,7 +1760,7 @@ static NET_COMMON_ECODE_E MyGetNtpCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
     pNET_SystemNtpInfo_S pOut = (pNET_SystemNtpInfo_S)lpOutBuffer;
     *pOut = g_stSystemNtpCfg;
 
-    printf("[ConfigServerDemo] GetNtpCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetNtpCfg callback, Channel=%d\n", nChannelID);
     printf("  TimeZone=UTC%+d, DateFormat=%d, EnableNtp=%d, ManualSync=%d, DateTime=%s\n",
            g_stSystemNtpCfg.enTimeZone,
            g_stSystemNtpCfg.enDateFormat,
@@ -1777,7 +1777,7 @@ static NET_COMMON_ECODE_E MyGetNtpCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 }
 
 /* 系统时间 Set 回调，对应命令 NET_SET_SYSTEM_TIME */
-static NET_COMMON_ECODE_E MySetSystemTimeCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSystemTimeCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1791,14 +1791,14 @@ static NET_COMMON_ECODE_E MySetSystemTimeCb(INT32 dwChannelID, LPVOID lpInBuffer
     g_stSystemNtpCfg.bManualSync = TRUE;
 
     printf("[ConfigServerDemo] SetSystemTime callback, Channel=%d, DateTime=%s\n",
-           dwChannelID, g_stSystemNtpCfg.strDateTime);
+           nChannelID, g_stSystemNtpCfg.strDateTime);
     return NET_E_SUCCEED;
 }
 
 /* 系统校时配置 Set 回调，对应命令 NET_SET_NTPCFG */
-static NET_COMMON_ECODE_E MySetNtpCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetNtpCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -1810,7 +1810,7 @@ static NET_COMMON_ECODE_E MySetNtpCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
     g_stSystemNtpCfg.strDateTime[sizeof(g_stSystemNtpCfg.strDateTime) - 1] = '\0';
     g_stSystemNtpCfg.strAddress[sizeof(g_stSystemNtpCfg.strAddress) - 1] = '\0';
 
-    printf("[ConfigServerDemo] SetNtpCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetNtpCfg callback, Channel=%d\n", nChannelID);
     printf("  New TimeZone=UTC%+d, DateFormat=%d, EnableNtp=%d, ManualSync=%d, DateTime=%s\n",
            g_stSystemNtpCfg.enTimeZone,
            g_stSystemNtpCfg.enDateFormat,
@@ -1828,7 +1828,7 @@ static NET_COMMON_ECODE_E MySetNtpCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
 
 /* WIFI STA配置 Set 回调，对应命令 NET_SET_CONFIG_WIFI_STA */
-static NET_COMMON_ECODE_E MySetConfigWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetConfigWifiStaCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1837,13 +1837,13 @@ static NET_COMMON_ECODE_E MySetConfigWifiStaCb(INT32 dwChannelID, LPVOID lpInBuf
 
     g_stWifiStaCfg = *(pNET_WifiStaCfg_S)lpInBuffer;
 
-    printf("[ConfigServerDemo] SetConfigWifiSta callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetConfigWifiSta callback, Channel=%d\n", nChannelID);
     printf("  EnableWifi=%d, EnableBoost=%d\n", g_stWifiStaCfg.bEnableWifi, g_stWifiStaCfg.bEnableBoost);
     return NET_E_SUCCEED;
 }
 
 /* WIFI STA连接 Set 回调，对应命令 NET_CONNECT_WIFI_STA */
-static NET_COMMON_ECODE_E MyConnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyConnectWifiStaCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1852,17 +1852,17 @@ static NET_COMMON_ECODE_E MyConnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffe
 
     g_stWifiStaConnect = *(pNET_WifiStaConnect_S)lpInBuffer;
 
-    printf("[ConfigServerDemo] ConnectWifiSta callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] ConnectWifiSta callback, Channel=%d\n", nChannelID);
     printf("  Ssid=%s, SecurityMode=%d, Ip=%s, Interface=%s\n",
-           g_stWifiStaConnect.szSsid,
+           g_stWifiStaConnect.strSsid,
            g_stWifiStaConnect.nSecurityMode,
-           g_stWifiStaConnect.szIpAddress,
-           g_stWifiStaConnect.szInterfaceName);
+           g_stWifiStaConnect.strIpAddress,
+           g_stWifiStaConnect.strInterfaceName);
     return NET_E_SUCCEED;
 }
 
 /* WIFI STA断开 Set 回调，对应命令 NET_DISCONNECT_WIFI_STA */
-static NET_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1870,15 +1870,15 @@ static NET_COMMON_ECODE_E MyDisconnectWifiStaCb(INT32 dwChannelID, LPVOID lpInBu
     }
 
     g_stWifiStaConnect = *(pNET_WifiStaConnect_S)lpInBuffer;
-    memset(g_stWifiStaConnect.szIpAddress, 0, sizeof(g_stWifiStaConnect.szIpAddress));
+    memset(g_stWifiStaConnect.strIpAddress, 0, sizeof(g_stWifiStaConnect.strIpAddress));
 
-    printf("[ConfigServerDemo] DisconnectWifiSta callback, Channel=%d\n", dwChannelID);
-    printf("  Ssid=%s disconnected\n", g_stWifiStaConnect.szSsid);
+    printf("[ConfigServerDemo] DisconnectWifiSta callback, Channel=%d\n", nChannelID);
+    printf("  Ssid=%s disconnected\n", g_stWifiStaConnect.strSsid);
     return NET_E_SUCCEED;
 }
 
 /* 4G配置 Get 回调，对应命令 NET_GET_4G_INFO */
-static NET_COMMON_ECODE_E MyGet4GInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGet4GInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -1887,10 +1887,10 @@ static NET_COMMON_ECODE_E MyGet4GInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 
     *(pNET_4GInfo_S)lpOutBuffer = g_st4GInfo;
 
-    printf("[ConfigServerDemo] Get4GInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] Get4GInfo callback, Channel=%d\n", nChannelID);
     printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
-           g_st4GInfo.szApn,
-           g_st4GInfo.szCallNumber,
+           g_st4GInfo.strApn,
+           g_st4GInfo.strCallNumber,
            g_st4GInfo.nMtu,
            g_st4GInfo.nAuthMode,
            g_st4GInfo.nNetworkMode,
@@ -1899,7 +1899,7 @@ static NET_COMMON_ECODE_E MyGet4GInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 }
 
 /* 4G配置 Set 回调，对应命令 NET_SET_4G_INFO */
-static NET_COMMON_ECODE_E MySet4GInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySet4GInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1908,10 +1908,10 @@ static NET_COMMON_ECODE_E MySet4GInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_st4GInfo = *(pNET_4GInfo_S)lpInBuffer;
 
-    printf("[ConfigServerDemo] Set4GInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] Set4GInfo callback, Channel=%d\n", nChannelID);
     printf("  APN=%s, CallNumber=%s, MTU=%d, AuthMode=%d, NetworkMode=%d, DialMode=%d\n",
-           g_st4GInfo.szApn,
-           g_st4GInfo.szCallNumber,
+           g_st4GInfo.strApn,
+           g_st4GInfo.strCallNumber,
            g_st4GInfo.nMtu,
            g_st4GInfo.nAuthMode,
            g_st4GInfo.nNetworkMode,
@@ -1920,7 +1920,7 @@ static NET_COMMON_ECODE_E MySet4GInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /* 热点配置 Set 回调，对应命令 NET_SET_HOTSPOT_INFO */
-static NET_COMMON_ECODE_E MySetHotspotInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetHotspotInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1929,17 +1929,17 @@ static NET_COMMON_ECODE_E MySetHotspotInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
 
     g_stHotspotInfo = *(pNET_HotspotInfo_S)lpInBuffer;
 
-    printf("[ConfigServerDemo] SetHotspotInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetHotspotInfo callback, Channel=%d\n", nChannelID);
     printf("  Enabled=%d, Ssid=%s, SecurityMode=%s, EncryptionType=%s\n",
            g_stHotspotInfo.bEnabled,
-           g_stHotspotInfo.szSsid,
-           g_stHotspotInfo.szSecurityMode,
-           g_stHotspotInfo.szEncryptionType);
+           g_stHotspotInfo.strSsid,
+           g_stHotspotInfo.strSecurityMode,
+           g_stHotspotInfo.strEncryptionType);
     return NET_E_SUCCEED;
 }
 
 /* 热点连接设备 Get 回调，对应命令 NET_GET_HOTSPOT_CONN */
-static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     int i = 0;
     int nCount = 0;
@@ -1957,9 +1957,9 @@ static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuff
         nCount = NET_HOTSPOT_CONN_MAX_NUM;
     }
 
-    printf("[ConfigServerDemo] GetHotspotConn callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetHotspotConn callback, Channel=%d\n", nChannelID);
     printf("  Status=%s, Total=%d, DeviceCount=%d\n",
-           g_stHotspotConnInfo.szStatus,
+           g_stHotspotConnInfo.strStatus,
            g_stHotspotConnInfo.nTotal,
            g_stHotspotConnInfo.nDeviceCount);
     for (i = 0; i < nCount; ++i)
@@ -1967,15 +1967,15 @@ static NET_COMMON_ECODE_E MyGetHotspotConnCb(INT32 dwChannelID, LPVOID lpOutBuff
         printf("  Device[%d]: Index=%d, Mac=%s, Ip=%s, ConnTime=%s\n",
                i,
                g_stHotspotConnInfo.astDevices[i].nIndex,
-               g_stHotspotConnInfo.astDevices[i].szMac,
-               g_stHotspotConnInfo.astDevices[i].szIp,
-               g_stHotspotConnInfo.astDevices[i].szConnTime);
+               g_stHotspotConnInfo.astDevices[i].strMac,
+               g_stHotspotConnInfo.astDevices[i].strIp,
+               g_stHotspotConnInfo.astDevices[i].strConnTime);
     }
 
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -1984,13 +1984,13 @@ static NET_COMMON_ECODE_E MyGetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID 
 
     *(pNET_SecurityServicesInfo_S)lpOutBuffer = g_stSecurityServicesInfo;
     printf("[ConfigServerDemo] GetSecurityServicesInfo callback, Channel=%d, SshEnable=%d, SshPort=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stSecurityServicesInfo.stSshAdmin.bSshEnable,
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -1998,18 +1998,18 @@ static NET_COMMON_ECODE_E MySetSecurityServicesInfoCb(INT32 dwChannelID, LPVOID 
     }
 
     g_stSecurityServicesInfo = *(pNET_SecurityServicesInfo_S)lpInBuffer;
-    strncpy(g_stSshCountdownInfo.szCountdown,
-            g_stSecurityServicesInfo.stSshAdmin.szSshCountdown,
-            sizeof(g_stSshCountdownInfo.szCountdown) - 1);
-    g_stSshCountdownInfo.szCountdown[sizeof(g_stSshCountdownInfo.szCountdown) - 1] = '\0';
+    strncpy(g_stSshCountdownInfo.strCountdown,
+            g_stSecurityServicesInfo.stSshAdmin.strSshCountdown,
+            sizeof(g_stSshCountdownInfo.strCountdown) - 1);
+    g_stSshCountdownInfo.strCountdown[sizeof(g_stSshCountdownInfo.strCountdown) - 1] = '\0';
     printf("[ConfigServerDemo] SetSecurityServicesInfo callback, Channel=%d, SshEnable=%d, SshPort=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stSecurityServicesInfo.stSshAdmin.bSshEnable,
            g_stSecurityServicesInfo.stSshAdmin.nSshPort);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSshCountdownCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -2018,11 +2018,11 @@ static NET_COMMON_ECODE_E MyGetSshCountdownCb(INT32 dwChannelID, LPVOID lpOutBuf
 
     *(pNET_SshCountdownInfo_S)lpOutBuffer = g_stSshCountdownInfo;
     printf("[ConfigServerDemo] GetSshCountdown callback, Channel=%d, Countdown=%s\n",
-           dwChannelID, g_stSshCountdownInfo.szCountdown);
+           nChannelID, g_stSshCountdownInfo.strCountdown);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyFindLogCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     NET_LogList_S stReq;
     if (!lpOutBuffer)
@@ -2037,20 +2037,20 @@ static NET_COMMON_ECODE_E MyFindLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
     ((pNET_LogList_S)lpOutBuffer)->stPage.nPageSize = stReq.stPage.nPageSize > 0 ? stReq.stPage.nPageSize : g_stLogList.stPage.nPageSize;
 
     printf("[ConfigServerDemo] FindLog callback, Channel=%d, Type=%d, Action=%d, Count=%d\n",
-           dwChannelID,
+           nChannelID,
            stReq.stCond.nType,
            stReq.stCond.nAction,
            g_stLogList.nLogCount);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyExportLogCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyExportLogCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    printf("[ConfigServerDemo] ExportLog callback, Channel=%d\n", dwChannelID);
-    return MyFindLogCb(dwChannelID, lpOutBuffer);
+    printf("[ConfigServerDemo] ExportLog callback, Channel=%d\n", nChannelID);
+    return MyFindLogCb(nChannelID, lpOutBuffer);
 }
 
-static NET_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetLogServerCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -2059,15 +2059,15 @@ static NET_COMMON_ECODE_E MyGetLogServerCb(INT32 dwChannelID, LPVOID lpOutBuffer
 
     *(pNET_LogServerInfo_S)lpOutBuffer = g_stLogServerInfo;
     printf("[ConfigServerDemo] GetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stLogServerInfo.bEnable,
            g_stLogServerInfo.bEnSsl,
-           g_stLogServerInfo.szServerAddr,
+           g_stLogServerInfo.strServerAddr,
            g_stLogServerInfo.nPort);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetLogServerCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -2076,15 +2076,15 @@ static NET_COMMON_ECODE_E MySetLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_stLogServerInfo = *(pNET_LogServerInfo_S)lpInBuffer;
     printf("[ConfigServerDemo] SetLogServer callback, Channel=%d, Enable=%d, Ssl=%d, Addr=%s, Port=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stLogServerInfo.bEnable,
            g_stLogServerInfo.bEnSsl,
-           g_stLogServerInfo.szServerAddr,
+           g_stLogServerInfo.strServerAddr,
            g_stLogServerInfo.nPort);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyTestLogServerCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -2093,13 +2093,13 @@ static NET_COMMON_ECODE_E MyTestLogServerCb(INT32 dwChannelID, LPVOID lpInBuffer
 
     pNET_LogServerInfo_S pInfo = (pNET_LogServerInfo_S)lpInBuffer;
     printf("[ConfigServerDemo] TestLogServer callback, Channel=%d, Addr=%s, Port=%d\n",
-           dwChannelID,
-           pInfo->szServerAddr,
+           nChannelID,
+           pInfo->strServerAddr,
            pInfo->nPort);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyControlRecordInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -2109,14 +2109,14 @@ static NET_COMMON_ECODE_E MyControlRecordInfoCb(INT32 dwChannelID, LPVOID lpInBu
     g_stRecordInfo = *(pNET_RecordInfo_S)lpInBuffer;
     g_stRecordStatusInfo.nStatus = g_stRecordInfo.nRecordStatus;
     printf("[ConfigServerDemo] ControlRecordInfo callback, Channel=%d, ChnId=%d, Status=%d, Name=%s\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordInfo.nChnId,
            g_stRecordInfo.nRecordStatus,
-           g_stRecordInfo.szRecordName);
+           g_stRecordInfo.strRecordName);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetRecordStatusCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -2125,12 +2125,12 @@ static NET_COMMON_ECODE_E MyGetRecordStatusCb(INT32 dwChannelID, LPVOID lpOutBuf
 
     *(pNET_RecordStatusInfo_S)lpOutBuffer = g_stRecordStatusInfo;
     printf("[ConfigServerDemo] GetRecordStatus callback, Channel=%d, Status=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordStatusInfo.nStatus);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -2139,13 +2139,13 @@ static NET_COMMON_ECODE_E MyGetRecordScheduleCb(INT32 dwChannelID, LPVOID lpOutB
 
     *(pNET_RecordSchedule_S)lpOutBuffer = g_stRecordSchedule;
     printf("[ConfigServerDemo] GetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordSchedule.bEnable,
            g_stRecordSchedule.nDayScheduleCount);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetRecordScheduleCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -2154,13 +2154,13 @@ static NET_COMMON_ECODE_E MySetRecordScheduleCb(INT32 dwChannelID, LPVOID lpInBu
 
     g_stRecordSchedule = *(pNET_RecordSchedule_S)lpInBuffer;
     printf("[ConfigServerDemo] SetRecordSchedule callback, Channel=%d, Enable=%d, DayCount=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordSchedule.bEnable,
            g_stRecordSchedule.nDayScheduleCount);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -2169,14 +2169,14 @@ static NET_COMMON_ECODE_E MyGetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
 
     *(pNET_RecordAdvancedParam_S)lpOutBuffer = g_stRecordAdvancedParam;
     printf("[ConfigServerDemo] GetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
            g_stRecordAdvancedParam.nPreTime,
            g_stRecordAdvancedParam.nDelayTime);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
     {
@@ -2185,14 +2185,14 @@ static NET_COMMON_ECODE_E MySetRecordAdvancedParamCb(INT32 dwChannelID, LPVOID l
 
     g_stRecordAdvancedParam = *(pNET_RecordAdvancedParam_S)lpInBuffer;
     printf("[ConfigServerDemo] SetRecordAdvancedParam callback, Channel=%d, LoopWrite=%d, PreTime=%d, DelayTime=%d\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordAdvancedParam.bLoopWrite,
            g_stRecordAdvancedParam.nPreTime,
            g_stRecordAdvancedParam.nDelayTime);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     NET_RecordFindCond_S stFind;
     if (!lpOutBuffer)
@@ -2204,14 +2204,14 @@ static NET_COMMON_ECODE_E MyFindRecordFileInfoCb(INT32 dwChannelID, LPVOID lpOut
     *(pNET_RecordFileList_S)lpOutBuffer = g_stRecordFileList;
     ((pNET_RecordFileList_S)lpOutBuffer)->stFind = stFind;
     printf("[ConfigServerDemo] FindRecordFileInfo callback, Channel=%d, ChnId=%d, Date=%s, Count=%d\n",
-           dwChannelID,
+           nChannelID,
            stFind.nChnId,
-           stFind.szDate,
+           stFind.strDate,
            g_stRecordFileList.nResultCount);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
     NET_Alarmer_S stAlarmer;
     NET_RecordDownloadProgress_S stProgress;
@@ -2225,16 +2225,16 @@ static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInB
     if (g_stRecordDownloadList.nProgressCount <= 0)
     {
         g_stRecordDownloadList.nProgressCount = 1;
-        strncpy(g_stRecordDownloadList.astProgress[0].szFilename,
+        strncpy(g_stRecordDownloadList.astProgress[0].strFilename,
                 "manual_record_demo.ts",
-                sizeof(g_stRecordDownloadList.astProgress[0].szFilename) - 1);
+                sizeof(g_stRecordDownloadList.astProgress[0].strFilename) - 1);
     }
     g_stRecordDownloadList.astProgress[0].nProgress = 35;
 
     printf("[ConfigServerDemo] DownloadRecordFile callback, Channel=%d, DownloadCount=%d, Path=%s\n",
-           dwChannelID,
+           nChannelID,
            g_stRecordDownloadList.nDownloadCount,
-           g_stRecordDownloadList.astDownloads[0].szPath);
+           g_stRecordDownloadList.astDownloads[0].strPath);
 
     memset(&stAlarmer, 0, sizeof(stAlarmer));
     strncpy(stAlarmer.strDeviceIP, "127.0.0.1", sizeof(stAlarmer.strDeviceIP) - 1);
@@ -2247,9 +2247,9 @@ static NET_COMMON_ECODE_E MyDownloadRecordFileCb(INT32 dwChannelID, LPVOID lpInB
 }
 
 /* OSD能力集配置 Get 回调，对应命令 NET_GET_OSDCAPCFG */
-static NET_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2260,16 +2260,16 @@ static NET_COMMON_ECODE_E MyGetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer
     pNET_VideoOsdCfg_S pOut = (pNET_VideoOsdCfg_S)lpOutBuffer;
     *pOut = g_stOsdCfg;
 
-    printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetOSDCapCfg callback, Channel=%d\n", nChannelID);
     PrintOsdConfigSummary("Return OSD config", &g_stOsdCfg);
 
     return NET_E_SUCCEED;
 }
 
 /* OSD能力集配置 Set 回调，对应命令 NET_SET_OSDCAPCFG */
-static NET_COMMON_ECODE_E MySetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetOSDCapCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2280,16 +2280,16 @@ static NET_COMMON_ECODE_E MySetOSDCapCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
     g_stOsdCfg = *pIn;
     NormalizeDemoOsdConfig(&g_stOsdCfg);
 
-    printf("[ConfigServerDemo] SetOSDCapCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetOSDCapCfg callback, Channel=%d\n", nChannelID);
     PrintOsdConfigSummary("Saved OSD config", &g_stOsdCfg);
 
     return NET_E_SUCCEED;
 }
 
 /* 移动侦测配置 Get 回调，对应命令 NET_GET_MOTIONALARM */
-static NET_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2299,7 +2299,7 @@ static NET_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_MotionAlarmInfo_S pOut = (pNET_MotionAlarmInfo_S)lpOutBuffer;
     *pOut = g_stMotionAlarmInfo;
 
-    printf("[ConfigServerDemo] GetMotionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetMotionAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Mode=%d, Sensitivity=%d\n",
            g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.uMode,
            g_stMotionAlarmInfo.stNormalMode.nSensitivity);
@@ -2308,9 +2308,9 @@ static NET_COMMON_ECODE_E MyGetMotionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuff
 }
 
 /* 移动侦测配置 Set 回调，对应命令 NET_SET_MOTIONALARM */
-static NET_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetMotionAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2320,7 +2320,7 @@ static NET_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffe
     pNET_MotionAlarmInfo_S pIn = (pNET_MotionAlarmInfo_S)lpInBuffer;
     g_stMotionAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetMotionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetMotionAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Mode=%d, Sensitivity=%d\n",
            g_stMotionAlarmInfo.bEnable, g_stMotionAlarmInfo.uMode,
            g_stMotionAlarmInfo.stNormalMode.nSensitivity);
@@ -2329,9 +2329,9 @@ static NET_COMMON_ECODE_E MySetMotionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffe
 }
 
 /* 隐私遮盖配置 Get 回调，对应命令 NET_GET_PRIVACYMASKCFG */
-static NET_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2341,7 +2341,7 @@ static NET_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_PrivacyMaskCfg_S pOut = (pNET_PrivacyMaskCfg_S)lpOutBuffer;
     *pOut = g_stPrivacyMaskCfg;
 
-    printf("[ConfigServerDemo] GetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPrivacyMaskCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, AreaCount=%d\n",
            g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.uAreaCount);
     for (int i = 0; i < g_stPrivacyMaskCfg.uAreaCount && i < NET_MAX_PRIVACY_MASK_AREA_NUM; i++)
@@ -2357,9 +2357,9 @@ static NET_COMMON_ECODE_E MyGetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 隐私遮盖配置 Set 回调，对应命令 NET_SET_PRIVACYMASKCFG */
-static NET_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2377,7 +2377,7 @@ static NET_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpInBu
         g_stPrivacyMaskCfg.uAreaCount = NET_MAX_PRIVACY_MASK_AREA_NUM;
     }
 
-    printf("[ConfigServerDemo] SetPrivacyMaskCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPrivacyMaskCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, AreaCount=%d\n",
            g_stPrivacyMaskCfg.bEnable, g_stPrivacyMaskCfg.uAreaCount);
 
@@ -2385,9 +2385,9 @@ static NET_COMMON_ECODE_E MySetPrivacyMaskCfgCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 遮挡报警配置 Get 回调，对应命令 NET_GET_TAMPERALARM */
-static NET_COMMON_ECODE_E MyGetTamperAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetTamperAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2397,7 +2397,7 @@ static NET_COMMON_ECODE_E MyGetTamperAlarmCb(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_TamperAlarmInfo_S pOut = (pNET_TamperAlarmInfo_S)lpOutBuffer;
     *pOut = g_stTamperAlarmInfo;
 
-    printf("[ConfigServerDemo] GetTamperAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetTamperAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d, Rect=[%d,%d,%d,%d]\n",
            g_stTamperAlarmInfo.bEnable, g_stTamperAlarmInfo.uSensitivity,
            g_stTamperAlarmInfo.nRectLeft, g_stTamperAlarmInfo.nRectTop,
@@ -2407,9 +2407,9 @@ static NET_COMMON_ECODE_E MyGetTamperAlarmCb(INT32 dwChannelID, LPVOID lpOutBuff
 }
 
 /* 遮挡报警配置 Set 回调，对应命令 NET_SET_TAMPERALARM */
-static NET_COMMON_ECODE_E MySetTamperAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetTamperAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2419,7 +2419,7 @@ static NET_COMMON_ECODE_E MySetTamperAlarmCb(INT32 dwChannelID, LPVOID lpInBuffe
     pNET_TamperAlarmInfo_S pIn = (pNET_TamperAlarmInfo_S)lpInBuffer;
     g_stTamperAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetTamperAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetTamperAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stTamperAlarmInfo.bEnable, g_stTamperAlarmInfo.uSensitivity);
 
@@ -2427,9 +2427,9 @@ static NET_COMMON_ECODE_E MySetTamperAlarmCb(INT32 dwChannelID, LPVOID lpInBuffe
 }
 
 /* 越界检测配置 Get 回调，对应命令 NET_GET_CROSSLINEALARM */
-static NET_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2439,7 +2439,7 @@ static NET_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_CrossLineAlarmInfo_S pOut = (pNET_CrossLineAlarmInfo_S)lpOutBuffer;
     *pOut = g_stCrossLineAlarmInfo;
 
-    printf("[ConfigServerDemo] GetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetCrossLineAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.uRuleCount);
 
@@ -2447,9 +2447,9 @@ static NET_COMMON_ECODE_E MyGetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 越界检测配置 Set 回调，对应命令 NET_SET_CROSSLINEALARM */
-static NET_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2459,7 +2459,7 @@ static NET_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_CrossLineAlarmInfo_S pIn = (pNET_CrossLineAlarmInfo_S)lpInBuffer;
     g_stCrossLineAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetCrossLineAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetCrossLineAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stCrossLineAlarmInfo.bEnable, g_stCrossLineAlarmInfo.uRuleCount);
 
@@ -2467,9 +2467,9 @@ static NET_COMMON_ECODE_E MySetCrossLineAlarmCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 入侵检测配置 Get 回调，对应命令 NET_GET_INTRUSIONALARM */
-static NET_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2479,7 +2479,7 @@ static NET_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_IntrusionAlarmInfo_S pOut = (pNET_IntrusionAlarmInfo_S)lpOutBuffer;
     *pOut = g_stIntrusionAlarmInfo;
 
-    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.uRuleCount);
 
@@ -2487,9 +2487,9 @@ static NET_COMMON_ECODE_E MyGetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 入侵检测配置 Set 回调，对应命令 NET_SET_INTRUSIONALARM */
-static NET_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2499,7 +2499,7 @@ static NET_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_IntrusionAlarmInfo_S pIn = (pNET_IntrusionAlarmInfo_S)lpInBuffer;
     g_stIntrusionAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stIntrusionAlarmInfo.bEnable, g_stIntrusionAlarmInfo.uRuleCount);
 
@@ -2507,9 +2507,9 @@ static NET_COMMON_ECODE_E MySetIntrusionAlarmCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 进入区域侦测配置 Get 回调，对应命令 NET_GET_ENTERREGIONALARM */
-static NET_COMMON_ECODE_E MyGetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetEnterRegionAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2519,7 +2519,7 @@ static NET_COMMON_ECODE_E MyGetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpOu
     pNET_EnterRegionAlarmInfo_S pOut = (pNET_EnterRegionAlarmInfo_S)lpOutBuffer;
     *pOut = g_stEnterRegionAlarmInfo;
 
-    printf("[ConfigServerDemo] GetEnterRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetEnterRegionAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stEnterRegionAlarmInfo.bEnable,
            g_stEnterRegionAlarmInfo.uRuleCount);
@@ -2528,9 +2528,9 @@ static NET_COMMON_ECODE_E MyGetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpOu
 }
 
 /* 进入区域侦测配置 Set 回调，对应命令 NET_SET_ENTERREGIONALARM */
-static NET_COMMON_ECODE_E MySetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetEnterRegionAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2540,7 +2540,7 @@ static NET_COMMON_ECODE_E MySetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpIn
     pNET_EnterRegionAlarmInfo_S pIn = (pNET_EnterRegionAlarmInfo_S)lpInBuffer;
     g_stEnterRegionAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetEnterRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetEnterRegionAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stEnterRegionAlarmInfo.bEnable,
            g_stEnterRegionAlarmInfo.uRuleCount);
@@ -2549,9 +2549,9 @@ static NET_COMMON_ECODE_E MySetEnterRegionAlarmCb(INT32 dwChannelID, LPVOID lpIn
 }
 
 /* 离开区域侦测配置 Get 回调，对应命令 NET_GET_LEAVEREGIONALARM */
-static NET_COMMON_ECODE_E MyGetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetLeaveRegionAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2561,7 +2561,7 @@ static NET_COMMON_ECODE_E MyGetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpOu
     pNET_LeaveRegionAlarmInfo_S pOut = (pNET_LeaveRegionAlarmInfo_S)lpOutBuffer;
     *pOut = g_stLeaveRegionAlarmInfo;
 
-    printf("[ConfigServerDemo] GetLeaveRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetLeaveRegionAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stLeaveRegionAlarmInfo.bEnable,
            g_stLeaveRegionAlarmInfo.uRuleCount);
@@ -2570,9 +2570,9 @@ static NET_COMMON_ECODE_E MyGetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpOu
 }
 
 /* 离开区域侦测配置 Set 回调，对应命令 NET_SET_LEAVEREGIONALARM */
-static NET_COMMON_ECODE_E MySetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetLeaveRegionAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2582,7 +2582,7 @@ static NET_COMMON_ECODE_E MySetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpIn
     pNET_LeaveRegionAlarmInfo_S pIn = (pNET_LeaveRegionAlarmInfo_S)lpInBuffer;
     g_stLeaveRegionAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetLeaveRegionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetLeaveRegionAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stLeaveRegionAlarmInfo.bEnable,
            g_stLeaveRegionAlarmInfo.uRuleCount);
@@ -2591,9 +2591,9 @@ static NET_COMMON_ECODE_E MySetLeaveRegionAlarmCb(INT32 dwChannelID, LPVOID lpIn
 }
 
 /* 徘徊侦测配置 Get 回调，对应命令 NET_GET_LOITERINGALARM */
-static NET_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2603,7 +2603,7 @@ static NET_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_LoiteringAlarmInfo_S pOut = (pNET_LoiteringAlarmInfo_S)lpOutBuffer;
     *pOut = g_stLoiteringAlarmInfo;
 
-    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetIntrusionAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.uRuleCount);
 
@@ -2611,9 +2611,9 @@ static NET_COMMON_ECODE_E MyGetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 徘徊侦测配置 Set 回调，对应命令 NET_SET_LOITERINGALARM */
-static NET_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2623,7 +2623,7 @@ static NET_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_LoiteringAlarmInfo_S pIn = (pNET_LoiteringAlarmInfo_S)lpInBuffer;
     g_stLoiteringAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetIntrusionAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stLoiteringAlarmInfo.bEnable, g_stLoiteringAlarmInfo.uRuleCount);
 
@@ -2632,9 +2632,9 @@ static NET_COMMON_ECODE_E MySetLoiteringAlarmCb(INT32 dwChannelID, LPVOID lpInBu
 
 
 /* 场景变更侦测配置 Get 回调，对应命令 NET_GET_SCENECHANGEALARM */
-static NET_COMMON_ECODE_E MyGetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSceneChangeAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2644,7 +2644,7 @@ static NET_COMMON_ECODE_E MyGetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpOu
     pNET_SceneChangeAlarmInfo_S pOut = (pNET_SceneChangeAlarmInfo_S)lpOutBuffer;
     *pOut = g_stSceneChangeAlarmInfo;
 
-    printf("[ConfigServerDemo] GetSceneChangeAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetSceneChangeAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stSceneChangeAlarmInfo.bEnable,
            g_stSceneChangeAlarmInfo.nSensitivity);
@@ -2653,9 +2653,9 @@ static NET_COMMON_ECODE_E MyGetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpOu
 }
 
 /* 场景变更侦测配置 Set 回调，对应命令 NET_SET_SCENECHANGEALARM */
-static NET_COMMON_ECODE_E MySetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSceneChangeAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2665,7 +2665,7 @@ static NET_COMMON_ECODE_E MySetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpIn
     pNET_SceneChangeAlarmInfo_S pIn = (pNET_SceneChangeAlarmInfo_S)lpInBuffer;
     g_stSceneChangeAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetSceneChangeAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetSceneChangeAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stSceneChangeAlarmInfo.bEnable,
            g_stSceneChangeAlarmInfo.nSensitivity);
@@ -2674,9 +2674,9 @@ static NET_COMMON_ECODE_E MySetSceneChangeAlarmCb(INT32 dwChannelID, LPVOID lpIn
 }
 
 /* 人员聚集侦测配置 Get 回调，对应命令 NET_GET_CROWDGATHERINGALARM */
-static NET_COMMON_ECODE_E MyGetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetCrowdGatheringAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2686,7 +2686,7 @@ static NET_COMMON_ECODE_E MyGetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID l
     pNET_CrowdGatheringAlarmInfo_S pOut = (pNET_CrowdGatheringAlarmInfo_S)lpOutBuffer;
     *pOut = g_stCrowdGatheringAlarmInfo;
 
-    printf("[ConfigServerDemo] GetCrowdGatheringAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetCrowdGatheringAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stCrowdGatheringAlarmInfo.bEnable,
            g_stCrowdGatheringAlarmInfo.uRuleCount);
@@ -2695,9 +2695,9 @@ static NET_COMMON_ECODE_E MyGetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID l
 }
 
 /* 人员聚集侦测配置 Set 回调，对应命令 NET_SET_CROWDGATHERINGALARM */
-static NET_COMMON_ECODE_E MySetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetCrowdGatheringAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2707,7 +2707,7 @@ static NET_COMMON_ECODE_E MySetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID l
     pNET_CrowdGatheringAlarmInfo_S pIn = (pNET_CrowdGatheringAlarmInfo_S)lpInBuffer;
     g_stCrowdGatheringAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetCrowdGatheringAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetCrowdGatheringAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stCrowdGatheringAlarmInfo.bEnable,
            g_stCrowdGatheringAlarmInfo.uRuleCount);
@@ -2716,9 +2716,9 @@ static NET_COMMON_ECODE_E MySetCrowdGatheringAlarmCb(INT32 dwChannelID, LPVOID l
 }
 
 /* 垃圾暴露配置 Get 回调，对应命令 NET_GET_GARBAGE_EXPOSURE_CFG */
-static NET_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2728,7 +2728,7 @@ static NET_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
     pNET_GarbageExposureCfg_S pOut = (pNET_GarbageExposureCfg_S)lpOutBuffer;
     *pOut = g_stGarbageExposureCfg;
 
-    printf("[ConfigServerDemo] GetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetGarbageExposureCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stGarbageExposureCfg.bEnable,
            g_stGarbageExposureCfg.stRule.nSensitivity,
@@ -2738,9 +2738,9 @@ static NET_COMMON_ECODE_E MyGetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 垃圾暴露配置 Set 回调，对应命令 NET_SET_GARBAGE_EXPOSURE_CFG */
-static NET_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2750,7 +2750,7 @@ static NET_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
     pNET_GarbageExposureCfg_S pIn = (pNET_GarbageExposureCfg_S)lpInBuffer;
     g_stGarbageExposureCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetGarbageExposureCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetGarbageExposureCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stGarbageExposureCfg.bEnable,
            g_stGarbageExposureCfg.stRule.nSensitivity,
@@ -2760,9 +2760,9 @@ static NET_COMMON_ECODE_E MySetGarbageExposureCfgCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 垃圾满溢配置 Get 回调，对应命令 NET_GET_GARBAGE_OVERFLOW_CFG */
-static NET_COMMON_ECODE_E MyGetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetGarbageOverflowCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2772,7 +2772,7 @@ static NET_COMMON_ECODE_E MyGetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lp
     pNET_GarbageOverflowCfg_S pOut = (pNET_GarbageOverflowCfg_S)lpOutBuffer;
     *pOut = g_stGarbageOverflowCfg;
 
-    printf("[ConfigServerDemo] GetGarbageOverflowCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetGarbageOverflowCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stGarbageOverflowCfg.bEnable,
            g_stGarbageOverflowCfg.stRule.nSensitivity,
@@ -2782,9 +2782,9 @@ static NET_COMMON_ECODE_E MyGetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 垃圾满溢配置 Set 回调，对应命令 NET_SET_GARBAGE_OVERFLOW_CFG */
-static NET_COMMON_ECODE_E MySetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetGarbageOverflowCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2794,7 +2794,7 @@ static NET_COMMON_ECODE_E MySetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lp
     pNET_GarbageOverflowCfg_S pIn = (pNET_GarbageOverflowCfg_S)lpInBuffer;
     g_stGarbageOverflowCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetGarbageOverflowCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetGarbageOverflowCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stGarbageOverflowCfg.bEnable,
            g_stGarbageOverflowCfg.stRule.nSensitivity,
@@ -2804,9 +2804,9 @@ static NET_COMMON_ECODE_E MySetGarbageOverflowCfgCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 人流统计配置 Get 回调，对应命令 NET_GET_PEOPLE_FLOW_STATISTICS_CFG */
-static NET_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2816,7 +2816,7 @@ static NET_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
     pNET_PeopleFlowStatisticsCfg_S pOut = (pNET_PeopleFlowStatisticsCfg_S)lpOutBuffer;
     *pOut = g_stPeopleFlowStatisticsCfg;
 
-    printf("[ConfigServerDemo] GetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPeopleFlowStatisticsCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d, StatisticsType=%d\n",
            g_stPeopleFlowStatisticsCfg.bEnable,
            g_stPeopleFlowStatisticsCfg.nSensitivity,
@@ -2826,9 +2826,9 @@ static NET_COMMON_ECODE_E MyGetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 人流统计配置 Set 回调，对应命令 NET_SET_PEOPLE_FLOW_STATISTICS_CFG */
-static NET_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2838,7 +2838,7 @@ static NET_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
     pNET_PeopleFlowStatisticsCfg_S pIn = (pNET_PeopleFlowStatisticsCfg_S)lpInBuffer;
     g_stPeopleFlowStatisticsCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetPeopleFlowStatisticsCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPeopleFlowStatisticsCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d, StatisticsType=%d\n",
            g_stPeopleFlowStatisticsCfg.bEnable,
            g_stPeopleFlowStatisticsCfg.nSensitivity,
@@ -2848,11 +2848,11 @@ static NET_COMMON_ECODE_E MySetPeopleFlowStatisticsCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 人流统计清零回调，对应命令 NET_RESET_PEOPLE_FLOW_STATISTICS */
-static NET_COMMON_ECODE_E MyResetPeopleFlowStatisticsCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyResetPeopleFlowStatisticsCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
-    printf("[ConfigServerDemo] ResetPeopleFlowStatistics callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] ResetPeopleFlowStatistics callback, Channel=%d\n", nChannelID);
 
     /* 清零操作：将配置中的统计值置零 */
     g_stPeopleFlowStatisticsCfg.nReportInterval = 0;
@@ -2861,9 +2861,9 @@ static NET_COMMON_ECODE_E MyResetPeopleFlowStatisticsCb(INT32 dwChannelID, LPVOI
 }
 
 /* 人员密度检测配置 Get 回调，对应命令 NET_GET_PEOPLE_DENSITY_DETECTION_CFG */
-static NET_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2873,7 +2873,7 @@ static NET_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
     pNET_PeopleDensityDetectionCfg_S pOut = (pNET_PeopleDensityDetectionCfg_S)lpOutBuffer;
     *pOut = g_stPeopleDensityDetectionCfg;
 
-    printf("[ConfigServerDemo] GetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPeopleDensityDetectionCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stPeopleDensityDetectionCfg.bEnable,
            g_stPeopleDensityDetectionCfg.nSensitivity);
@@ -2882,9 +2882,9 @@ static NET_COMMON_ECODE_E MyGetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
 }
 
 /* 人员密度检测配置 Set 回调，对应命令 NET_SET_PEOPLE_DENSITY_DETECTION_CFG */
-static NET_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2894,7 +2894,7 @@ static NET_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
     pNET_PeopleDensityDetectionCfg_S pIn = (pNET_PeopleDensityDetectionCfg_S)lpInBuffer;
     g_stPeopleDensityDetectionCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetPeopleDensityDetectionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPeopleDensityDetectionCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stPeopleDensityDetectionCfg.bEnable,
            g_stPeopleDensityDetectionCfg.nSensitivity);
@@ -2903,9 +2903,9 @@ static NET_COMMON_ECODE_E MySetPeopleDensityDetectionCfgCb(INT32 dwChannelID, LP
 }
 
 /* 井盖异常检测配置 Get 回调，对应命令 NET_GET_MANHOLE_COVER_ABNORMAL_CFG */
-static NET_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2915,7 +2915,7 @@ static NET_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
     pNET_ManholeCoverAbnormalCfg_S pOut = (pNET_ManholeCoverAbnormalCfg_S)lpOutBuffer;
     *pOut = g_stManholeCoverAbnormalCfg;
 
-    printf("[ConfigServerDemo] GetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetManholeCoverAbnormalCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stManholeCoverAbnormalCfg.bEnable,
            g_stManholeCoverAbnormalCfg.stRule.nSensitivity);
@@ -2924,9 +2924,9 @@ static NET_COMMON_ECODE_E MyGetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 井盖异常检测配置 Set 回调，对应命令 NET_SET_MANHOLE_COVER_ABNORMAL_CFG */
-static NET_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2936,7 +2936,7 @@ static NET_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
     pNET_ManholeCoverAbnormalCfg_S pIn = (pNET_ManholeCoverAbnormalCfg_S)lpInBuffer;
     g_stManholeCoverAbnormalCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetManholeCoverAbnormalCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetManholeCoverAbnormalCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stManholeCoverAbnormalCfg.bEnable,
            g_stManholeCoverAbnormalCfg.stRule.nSensitivity);
@@ -2945,9 +2945,9 @@ static NET_COMMON_ECODE_E MySetManholeCoverAbnormalCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 睡岗识别配置 Get 回调，对应命令 NET_GET_SLEEP_ON_DUTY_CFG */
-static NET_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2957,7 +2957,7 @@ static NET_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_SleepOnDutyCfg_S pOut = (pNET_SleepOnDutyCfg_S)lpOutBuffer;
     *pOut = g_stSleepOnDutyCfg;
 
-    printf("[ConfigServerDemo] GetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetSleepOnDutyCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stSleepOnDutyCfg.bEnable,
            g_stSleepOnDutyCfg.stRule.nSensitivity);
@@ -2966,9 +2966,9 @@ static NET_COMMON_ECODE_E MyGetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 睡岗识别配置 Set 回调，对应命令 NET_SET_SLEEP_ON_DUTY_CFG */
-static NET_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -2978,7 +2978,7 @@ static NET_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_SleepOnDutyCfg_S pIn = (pNET_SleepOnDutyCfg_S)lpInBuffer;
     g_stSleepOnDutyCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetSleepOnDutyCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetSleepOnDutyCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stSleepOnDutyCfg.bEnable,
            g_stSleepOnDutyCfg.stRule.nSensitivity);
@@ -2987,9 +2987,9 @@ static NET_COMMON_ECODE_E MySetSleepOnDutyCfgCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 电瓶车进电梯识别配置 Get 回调，对应命令 NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG */
-static NET_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -2999,7 +2999,7 @@ static NET_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
     pNET_ElectricVehicleInElevatorCfg_S pOut = (pNET_ElectricVehicleInElevatorCfg_S)lpOutBuffer;
     *pOut = g_stElectricVehicleInElevatorCfg;
 
-    printf("[ConfigServerDemo] GetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetElectricVehicleInElevatorCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stElectricVehicleInElevatorCfg.bEnable,
            g_stElectricVehicleInElevatorCfg.stRule.nSensitivity);
@@ -3008,9 +3008,9 @@ static NET_COMMON_ECODE_E MyGetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
 }
 
 /* 电瓶车进电梯识别配置 Set 回调，对应命令 NET_SET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG */
-static NET_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3020,7 +3020,7 @@ static NET_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
     pNET_ElectricVehicleInElevatorCfg_S pIn = (pNET_ElectricVehicleInElevatorCfg_S)lpInBuffer;
     g_stElectricVehicleInElevatorCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetElectricVehicleInElevatorCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetElectricVehicleInElevatorCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stElectricVehicleInElevatorCfg.bEnable,
            g_stElectricVehicleInElevatorCfg.stRule.nSensitivity);
@@ -3029,9 +3029,9 @@ static NET_COMMON_ECODE_E MySetElectricVehicleInElevatorCfgCb(INT32 dwChannelID,
 }
 
 /* 人员倒地识别配置 Get 回调，对应命令 NET_GET_PERSON_FALL_DOWN_CFG */
-static NET_COMMON_ECODE_E MyGetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPersonFallDownCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3041,7 +3041,7 @@ static NET_COMMON_ECODE_E MyGetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpO
     pNET_PersonFallDownCfg_S pOut = (pNET_PersonFallDownCfg_S)lpOutBuffer;
     *pOut = g_stPersonFallDownCfg;
 
-    printf("[ConfigServerDemo] GetPersonFallDownCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPersonFallDownCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stPersonFallDownCfg.bEnable,
            g_stPersonFallDownCfg.stRule.nSensitivity);
@@ -3050,9 +3050,9 @@ static NET_COMMON_ECODE_E MyGetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpO
 }
 
 /* 人员倒地识别配置 Set 回调，对应命令 NET_SET_PERSON_FALL_DOWN_CFG */
-static NET_COMMON_ECODE_E MySetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPersonFallDownCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3062,7 +3062,7 @@ static NET_COMMON_ECODE_E MySetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpI
     pNET_PersonFallDownCfg_S pIn = (pNET_PersonFallDownCfg_S)lpInBuffer;
     g_stPersonFallDownCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetPersonFallDownCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPersonFallDownCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stPersonFallDownCfg.bEnable,
            g_stPersonFallDownCfg.stRule.nSensitivity);
@@ -3071,9 +3071,9 @@ static NET_COMMON_ECODE_E MySetPersonFallDownCfgCb(INT32 dwChannelID, LPVOID lpI
 }
 
 /* 施工占道识别配置 Get 回调，对应命令 NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG */
-static NET_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3083,7 +3083,7 @@ static NET_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
     pNET_ConstructionOccupyRoadCfg_S pOut = (pNET_ConstructionOccupyRoadCfg_S)lpOutBuffer;
     *pOut = g_stConstructionOccupyRoadCfg;
 
-    printf("[ConfigServerDemo] GetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetConstructionOccupyRoadCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stConstructionOccupyRoadCfg.bEnable,
            g_stConstructionOccupyRoadCfg.stRule.nSensitivity);
@@ -3092,9 +3092,9 @@ static NET_COMMON_ECODE_E MyGetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
 }
 
 /* 施工占道识别配置 Set 回调，对应命令 NET_SET_CONSTRUCTION_OCCUPY_ROAD_CFG */
-static NET_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3104,7 +3104,7 @@ static NET_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
     pNET_ConstructionOccupyRoadCfg_S pIn = (pNET_ConstructionOccupyRoadCfg_S)lpInBuffer;
     g_stConstructionOccupyRoadCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetConstructionOccupyRoadCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetConstructionOccupyRoadCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stConstructionOccupyRoadCfg.bEnable,
            g_stConstructionOccupyRoadCfg.stRule.nSensitivity);
@@ -3113,9 +3113,9 @@ static NET_COMMON_ECODE_E MySetConstructionOccupyRoadCfgCb(INT32 dwChannelID, LP
 }
 
 /* 拥堵识别配置 Get 回调，对应命令 NET_GET_CONGESTION_CFG */
-static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3125,7 +3125,7 @@ static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBu
     pNET_CongestionCfg_S pOut = (pNET_CongestionCfg_S)lpOutBuffer;
     *pOut = g_stCongestionCfg;
 
-    printf("[ConfigServerDemo] GetCongestionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetCongestionCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stCongestionCfg.bEnable,
            g_stCongestionCfg.stRule.nSensitivity);
@@ -3134,9 +3134,9 @@ static NET_COMMON_ECODE_E MyGetCongestionCfgCb(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /* 拥堵识别配置 Set 回调，对应命令 NET_SET_CONGESTION_CFG */
-static NET_COMMON_ECODE_E MySetCongestionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetCongestionCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3146,7 +3146,7 @@ static NET_COMMON_ECODE_E MySetCongestionCfgCb(INT32 dwChannelID, LPVOID lpInBuf
     pNET_CongestionCfg_S pIn = (pNET_CongestionCfg_S)lpInBuffer;
     g_stCongestionCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetCongestionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetCongestionCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stCongestionCfg.bEnable,
            g_stCongestionCfg.stRule.nSensitivity);
@@ -3155,9 +3155,9 @@ static NET_COMMON_ECODE_E MySetCongestionCfgCb(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /* 车牌识别配置 Get 回调，对应命令 NET_GET_LICENSE_PLATE_RECOGNITION_CFG */
-static NET_COMMON_ECODE_E MyGetLicensePlateRecognitionCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetLicensePlateRecognitionCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3167,7 +3167,7 @@ static NET_COMMON_ECODE_E MyGetLicensePlateRecognitionCfgCb(INT32 dwChannelID, L
     pNET_LicensePlateRecognitionCfg_S pOut = (pNET_LicensePlateRecognitionCfg_S)lpOutBuffer;
     *pOut = g_stLicensePlateRecognitionCfg;
 
-    printf("[ConfigServerDemo] GetLicensePlateRecognitionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetLicensePlateRecognitionCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stLicensePlateRecognitionCfg.bEnable,
            g_stLicensePlateRecognitionCfg.stRule.nSensitivity);
@@ -3176,9 +3176,9 @@ static NET_COMMON_ECODE_E MyGetLicensePlateRecognitionCfgCb(INT32 dwChannelID, L
 }
 
 /* 车牌识别配置 Set 回调，对应命令 NET_SET_LICENSE_PLATE_RECOGNITION_CFG */
-static NET_COMMON_ECODE_E MySetLicensePlateRecognitionCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetLicensePlateRecognitionCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3188,7 +3188,7 @@ static NET_COMMON_ECODE_E MySetLicensePlateRecognitionCfgCb(INT32 dwChannelID, L
     pNET_LicensePlateRecognitionCfg_S pIn = (pNET_LicensePlateRecognitionCfg_S)lpInBuffer;
     g_stLicensePlateRecognitionCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetLicensePlateRecognitionCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetLicensePlateRecognitionCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stLicensePlateRecognitionCfg.bEnable,
            g_stLicensePlateRecognitionCfg.stRule.nSensitivity);
@@ -3197,9 +3197,9 @@ static NET_COMMON_ECODE_E MySetLicensePlateRecognitionCfgCb(INT32 dwChannelID, L
 }
 
 /* 高空安全带识别配置 Get 回调，对应命令 NET_GET_HIGH_ALTITUDE_SEATBELT_CFG */
-static NET_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3209,7 +3209,7 @@ static NET_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
     pNET_HighAltitudeSeatbeltCfg_S pOut = (pNET_HighAltitudeSeatbeltCfg_S)lpOutBuffer;
     *pOut = g_stHighAltitudeSeatbeltCfg;
 
-    printf("[ConfigServerDemo] GetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetHighAltitudeSeatbeltCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stHighAltitudeSeatbeltCfg.bEnable,
            g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity);
@@ -3218,9 +3218,9 @@ static NET_COMMON_ECODE_E MyGetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 高空安全带识别配置 Set 回调，对应命令 NET_SET_HIGH_ALTITUDE_SEATBELT_CFG */
-static NET_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3230,7 +3230,7 @@ static NET_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
     pNET_HighAltitudeSeatbeltCfg_S pIn = (pNET_HighAltitudeSeatbeltCfg_S)lpInBuffer;
     g_stHighAltitudeSeatbeltCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetHighAltitudeSeatbeltCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetHighAltitudeSeatbeltCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stHighAltitudeSeatbeltCfg.bEnable,
            g_stHighAltitudeSeatbeltCfg.stRule.nSensitivity);
@@ -3239,9 +3239,9 @@ static NET_COMMON_ECODE_E MySetHighAltitudeSeatbeltCfgCb(INT32 dwChannelID, LPVO
 }
 
 /* 安全帽识别配置 Get 回调，对应命令 NET_GET_SAFETY_HELMET_CFG */
-static NET_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3251,7 +3251,7 @@ static NET_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpOut
     pNET_SafetyHelmetCfg_S pOut = (pNET_SafetyHelmetCfg_S)lpOutBuffer;
     *pOut = g_stSafetyHelmetCfg;
 
-    printf("[ConfigServerDemo] GetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetSafetyHelmetCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stSafetyHelmetCfg.bEnable,
            g_stSafetyHelmetCfg.stRule.nSensitivity);
@@ -3260,9 +3260,9 @@ static NET_COMMON_ECODE_E MyGetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpOut
 }
 
 /* 安全帽识别配置 Set 回调，对应命令 NET_SET_SAFETY_HELMET_CFG */
-static NET_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3272,7 +3272,7 @@ static NET_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpInB
     pNET_SafetyHelmetCfg_S pIn = (pNET_SafetyHelmetCfg_S)lpInBuffer;
     g_stSafetyHelmetCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetSafetyHelmetCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetSafetyHelmetCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stSafetyHelmetCfg.bEnable,
            g_stSafetyHelmetCfg.stRule.nSensitivity);
@@ -3281,9 +3281,9 @@ static NET_COMMON_ECODE_E MySetSafetyHelmetCfgCb(INT32 dwChannelID, LPVOID lpInB
 }
 
 /* 摔倒识别配置 Get 回调，对应命令 NET_GET_PERSON_FALL_CFG */
-static NET_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3293,7 +3293,7 @@ static NET_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpOutBu
     pNET_PersonFallCfg_S pOut = (pNET_PersonFallCfg_S)lpOutBuffer;
     *pOut = g_stPersonFallCfg;
 
-    printf("[ConfigServerDemo] GetPersonFallCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPersonFallCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stPersonFallCfg.bEnable,
            g_stPersonFallCfg.stRule.nSensitivity);
@@ -3302,9 +3302,9 @@ static NET_COMMON_ECODE_E MyGetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /* 摔倒识别配置 Set 回调，对应命令 NET_SET_PERSON_FALL_CFG */
-static NET_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3314,7 +3314,7 @@ static NET_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpInBuf
     pNET_PersonFallCfg_S pIn = (pNET_PersonFallCfg_S)lpInBuffer;
     g_stPersonFallCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetPersonFallCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPersonFallCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stPersonFallCfg.bEnable,
            g_stPersonFallCfg.stRule.nSensitivity);
@@ -3323,9 +3323,9 @@ static NET_COMMON_ECODE_E MySetPersonFallCfgCb(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /* 玩手机识别配置 Get 回调，对应命令 NET_GET_PHONE_USAGE_CFG */
-static NET_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3335,7 +3335,7 @@ static NET_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpOutBu
     pNET_PhoneUsageCfg_S pOut = (pNET_PhoneUsageCfg_S)lpOutBuffer;
     *pOut = g_stPhoneUsageCfg;
 
-    printf("[ConfigServerDemo] GetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPhoneUsageCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stPhoneUsageCfg.bEnable,
            g_stPhoneUsageCfg.stRule.nSensitivity);
@@ -3344,9 +3344,9 @@ static NET_COMMON_ECODE_E MyGetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /* 玩手机识别配置 Set 回调，对应命令 NET_SET_PHONE_USAGE_CFG */
-static NET_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3356,7 +3356,7 @@ static NET_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpInBuf
     pNET_PhoneUsageCfg_S pIn = (pNET_PhoneUsageCfg_S)lpInBuffer;
     g_stPhoneUsageCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetPhoneUsageCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPhoneUsageCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stPhoneUsageCfg.bEnable,
            g_stPhoneUsageCfg.stRule.nSensitivity);
@@ -3365,9 +3365,9 @@ static NET_COMMON_ECODE_E MySetPhoneUsageCfgCb(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /* 抽烟识别配置 Get 回调，对应命令 NET_GET_SMOKING_CFG */
-static NET_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3377,7 +3377,7 @@ static NET_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
     pNET_SmokingCfg_S pOut = (pNET_SmokingCfg_S)lpOutBuffer;
     *pOut = g_stSmokingCfg;
 
-    printf("[ConfigServerDemo] GetSmokingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetSmokingCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stSmokingCfg.bEnable,
            g_stSmokingCfg.stRule.nSensitivity);
@@ -3386,9 +3386,9 @@ static NET_COMMON_ECODE_E MyGetSmokingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffe
 }
 
 /* 抽烟识别配置 Set 回调，对应命令 NET_SET_SMOKING_CFG */
-static NET_COMMON_ECODE_E MySetSmokingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSmokingCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3398,7 +3398,7 @@ static NET_COMMON_ECODE_E MySetSmokingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
     pNET_SmokingCfg_S pIn = (pNET_SmokingCfg_S)lpInBuffer;
     g_stSmokingCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetSmokingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetSmokingCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stSmokingCfg.bEnable,
            g_stSmokingCfg.stRule.nSensitivity);
@@ -3407,9 +3407,9 @@ static NET_COMMON_ECODE_E MySetSmokingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer
 }
 
 /* 明火识别配置 Get 回调，对应命令 NET_GET_OPEN_FLAME_CFG */
-static NET_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3419,7 +3419,7 @@ static NET_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
     pNET_OpenFlameCfg_S pOut = (pNET_OpenFlameCfg_S)lpOutBuffer;
     *pOut = g_stOpenFlameCfg;
 
-    printf("[ConfigServerDemo] GetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetOpenFlameCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stOpenFlameCfg.bEnable,
            g_stOpenFlameCfg.stRule.nSensitivity);
@@ -3428,9 +3428,9 @@ static NET_COMMON_ECODE_E MyGetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
 }
 
 /* 明火识别配置 Set 回调，对应命令 NET_SET_OPEN_FLAME_CFG */
-static NET_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3440,7 +3440,7 @@ static NET_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpInBuff
     pNET_OpenFlameCfg_S pIn = (pNET_OpenFlameCfg_S)lpInBuffer;
     g_stOpenFlameCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetOpenFlameCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetOpenFlameCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stOpenFlameCfg.bEnable,
            g_stOpenFlameCfg.stRule.nSensitivity);
@@ -3449,9 +3449,9 @@ static NET_COMMON_ECODE_E MySetOpenFlameCfgCb(INT32 dwChannelID, LPVOID lpInBuff
 }
 
 /* 黄土裸露识别配置 Get 回调，对应命令 NET_GET_BARE_SOIL_CFG */
-static NET_COMMON_ECODE_E MyGetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetBareSoilCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3461,7 +3461,7 @@ static NET_COMMON_ECODE_E MyGetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_BareSoilCfg_S pOut = (pNET_BareSoilCfg_S)lpOutBuffer;
     *pOut = g_stBareSoilCfg;
 
-    printf("[ConfigServerDemo] GetBareSoilCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetBareSoilCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stBareSoilCfg.bEnable,
            g_stBareSoilCfg.stRule.nSensitivity);
@@ -3470,9 +3470,9 @@ static NET_COMMON_ECODE_E MyGetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpOutBuff
 }
 
 /* 黄土裸露识别配置 Set 回调，对应命令 NET_SET_BARE_SOIL_CFG */
-static NET_COMMON_ECODE_E MySetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetBareSoilCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3482,7 +3482,7 @@ static NET_COMMON_ECODE_E MySetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpInBuffe
     pNET_BareSoilCfg_S pIn = (pNET_BareSoilCfg_S)lpInBuffer;
     g_stBareSoilCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetBareSoilCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetBareSoilCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stBareSoilCfg.bEnable,
            g_stBareSoilCfg.stRule.nSensitivity);
@@ -3491,9 +3491,9 @@ static NET_COMMON_ECODE_E MySetBareSoilCfgCb(INT32 dwChannelID, LPVOID lpInBuffe
 }
 
 /* 洞口防护栏识别配置 Get 回调，对应命令 NET_GET_HOLE_PROTECTION_BAR_CFG */
-static NET_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3503,7 +3503,7 @@ static NET_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
     pNET_HoleProtectionBarCfg_S pOut = (pNET_HoleProtectionBarCfg_S)lpOutBuffer;
     *pOut = g_stHoleProtectionBarCfg;
 
-    printf("[ConfigServerDemo] GetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetHoleProtectionBarCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stHoleProtectionBarCfg.bEnable,
            g_stHoleProtectionBarCfg.stRule.nSensitivity);
@@ -3512,9 +3512,9 @@ static NET_COMMON_ECODE_E MyGetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
 }
 
 /* 洞口防护栏识别配置 Set 回调，对应命令 NET_SET_HOLE_PROTECTION_BAR_CFG */
-static NET_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3524,7 +3524,7 @@ static NET_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
     pNET_HoleProtectionBarCfg_S pIn = (pNET_HoleProtectionBarCfg_S)lpInBuffer;
     g_stHoleProtectionBarCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetHoleProtectionBarCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetHoleProtectionBarCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stHoleProtectionBarCfg.bEnable,
            g_stHoleProtectionBarCfg.stRule.nSensitivity);
@@ -3533,9 +3533,9 @@ static NET_COMMON_ECODE_E MySetHoleProtectionBarCfgCb(INT32 dwChannelID, LPVOID 
 }
 
 /* 反光衣识别配置 Get 回调，对应命令 NET_GET_REFLECTIVE_CLOTHING_CFG */
-static NET_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3545,7 +3545,7 @@ static NET_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
     pNET_ReflectiveClothingCfg_S pOut = (pNET_ReflectiveClothingCfg_S)lpOutBuffer;
     *pOut = g_stReflectiveClothingCfg;
 
-    printf("[ConfigServerDemo] GetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetReflectiveClothingCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stReflectiveClothingCfg.bEnable,
            g_stReflectiveClothingCfg.stRule.nSensitivity);
@@ -3554,9 +3554,9 @@ static NET_COMMON_ECODE_E MyGetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
 }
 
 /* 反光衣识别配置 Set 回调，对应命令 NET_SET_REFLECTIVE_CLOTHING_CFG */
-static NET_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3566,7 +3566,7 @@ static NET_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
     pNET_ReflectiveClothingCfg_S pIn = (pNET_ReflectiveClothingCfg_S)lpInBuffer;
     g_stReflectiveClothingCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetReflectiveClothingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetReflectiveClothingCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stReflectiveClothingCfg.bEnable,
            g_stReflectiveClothingCfg.stRule.nSensitivity);
@@ -3575,9 +3575,9 @@ static NET_COMMON_ECODE_E MySetReflectiveClothingCfgCb(INT32 dwChannelID, LPVOID
 }
 
 /* 宠物识别配置 Get 回调，对应命令 NET_GET_PET_RECOGNITION_INFO */
-static NET_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3587,7 +3587,7 @@ static NET_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
     pNET_PetRecognitionInfo_S pOut = (pNET_PetRecognitionInfo_S)lpOutBuffer;
     *pOut = g_stPetRecognitionInfo;
 
-    printf("[ConfigServerDemo] GetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPetRecognitionInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, DynamicAnalysisEnable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stPetRecognitionInfo.bEnable,
            g_stPetRecognitionInfo.bDynamicAnalysisEnable,
@@ -3598,9 +3598,9 @@ static NET_COMMON_ECODE_E MyGetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 宠物识别配置 Set 回调，对应命令 NET_SET_PET_RECOGNITION_INFO */
-static NET_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3610,7 +3610,7 @@ static NET_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
     pNET_PetRecognitionInfo_S pIn = (pNET_PetRecognitionInfo_S)lpInBuffer;
     g_stPetRecognitionInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetPetRecognitionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPetRecognitionInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, DynamicAnalysisEnable=%d, Sensitivity=%d, PointCount=%d\n",
            g_stPetRecognitionInfo.bEnable,
            g_stPetRecognitionInfo.bDynamicAnalysisEnable,
@@ -3621,9 +3621,9 @@ static NET_COMMON_ECODE_E MySetPetRecognitionInfoCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 翻越围栏配置 Get 回调，对应命令 NET_GET_CLIMB_FENCE_INFO */
-static NET_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3633,7 +3633,7 @@ static NET_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_ClimbFenceInfo_S pOut = (pNET_ClimbFenceInfo_S)lpOutBuffer;
     *pOut = g_stClimbFenceInfo;
 
-    printf("[ConfigServerDemo] GetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetClimbFenceInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stClimbFenceInfo.bEnable,
            g_stClimbFenceInfo.uRuleCount,
@@ -3644,9 +3644,9 @@ static NET_COMMON_ECODE_E MyGetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 翻越围栏配置 Set 回调，对应命令 NET_SET_CLIMB_FENCE_INFO */
-static NET_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3656,7 +3656,7 @@ static NET_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_ClimbFenceInfo_S pIn = (pNET_ClimbFenceInfo_S)lpInBuffer;
     g_stClimbFenceInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetClimbFenceInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetClimbFenceInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stClimbFenceInfo.bEnable,
            g_stClimbFenceInfo.uRuleCount,
@@ -3667,9 +3667,9 @@ static NET_COMMON_ECODE_E MySetClimbFenceInfoCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 离岗配置 Get 回调，对应命令 NET_GET_DIMISSION_INFO */
-static NET_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3679,7 +3679,7 @@ static NET_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 dwChannelID, LPVOID lpOutBu
     pNET_DimissionInfo_S pOut = (pNET_DimissionInfo_S)lpOutBuffer;
     *pOut = g_stDimissionInfo;
 
-    printf("[ConfigServerDemo] GetDimissionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetDimissionInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stDimissionInfo.bEnable,
            g_stDimissionInfo.uRuleCount,
@@ -3690,9 +3690,9 @@ static NET_COMMON_ECODE_E MyGetDimissionInfoCb(INT32 dwChannelID, LPVOID lpOutBu
 }
 
 /* 离岗配置 Set 回调，对应命令 NET_SET_DIMISSION_INFO */
-static NET_COMMON_ECODE_E MySetDimissionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetDimissionInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3702,7 +3702,7 @@ static NET_COMMON_ECODE_E MySetDimissionInfoCb(INT32 dwChannelID, LPVOID lpInBuf
     pNET_DimissionInfo_S pIn = (pNET_DimissionInfo_S)lpInBuffer;
     g_stDimissionInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetDimissionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetDimissionInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stDimissionInfo.bEnable,
            g_stDimissionInfo.uRuleCount,
@@ -3713,9 +3713,9 @@ static NET_COMMON_ECODE_E MySetDimissionInfoCb(INT32 dwChannelID, LPVOID lpInBuf
 }
 
 /* 违规变道配置 Get 回调，对应命令 NET_GET_ILLEGAL_LANE_INFO */
-static NET_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3725,7 +3725,7 @@ static NET_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpOut
     pNET_IllegalLaneInfo_S pOut = (pNET_IllegalLaneInfo_S)lpOutBuffer;
     *pOut = g_stIllegalLaneInfo;
 
-    printf("[ConfigServerDemo] GetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetIllegalLaneInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stIllegalLaneInfo.bEnable,
            g_stIllegalLaneInfo.uRuleCount,
@@ -3736,9 +3736,9 @@ static NET_COMMON_ECODE_E MyGetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpOut
 }
 
 /* 违规变道配置 Set 回调，对应命令 NET_SET_ILLEGAL_LANE_INFO */
-static NET_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3748,7 +3748,7 @@ static NET_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpInB
     pNET_IllegalLaneInfo_S pIn = (pNET_IllegalLaneInfo_S)lpInBuffer;
     g_stIllegalLaneInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetIllegalLaneInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetIllegalLaneInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stIllegalLaneInfo.bEnable,
            g_stIllegalLaneInfo.uRuleCount,
@@ -3759,9 +3759,9 @@ static NET_COMMON_ECODE_E MySetIllegalLaneInfoCb(INT32 dwChannelID, LPVOID lpInB
 }
 
 /* 逆行配置 Get 回调，对应命令 NET_GET_RETROGRADE_INFO */
-static NET_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3771,7 +3771,7 @@ static NET_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_RetrogradeInfo_S pOut = (pNET_RetrogradeInfo_S)lpOutBuffer;
     *pOut = g_stRetrogradeInfo;
 
-    printf("[ConfigServerDemo] GetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetRetrogradeInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stRetrogradeInfo.bEnable,
            g_stRetrogradeInfo.uRuleCount,
@@ -3782,9 +3782,9 @@ static NET_COMMON_ECODE_E MyGetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 逆行配置 Set 回调，对应命令 NET_SET_RETROGRADE_INFO */
-static NET_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3794,7 +3794,7 @@ static NET_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_RetrogradeInfo_S pIn = (pNET_RetrogradeInfo_S)lpInBuffer;
     g_stRetrogradeInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetRetrogradeInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetRetrogradeInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstDirection=%d, FirstSensitivity=%d\n",
            g_stRetrogradeInfo.bEnable,
            g_stRetrogradeInfo.uRuleCount,
@@ -3805,9 +3805,9 @@ static NET_COMMON_ECODE_E MySetRetrogradeInfoCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 非机动车闯入配置 Get 回调，对应命令 NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO */
-static NET_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3817,7 +3817,7 @@ static NET_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
     pNET_NonmotorVehicleIntrusionInfo_S pOut = (pNET_NonmotorVehicleIntrusionInfo_S)lpOutBuffer;
     *pOut = g_stNonmotorVehicleIntrusionInfo;
 
-    printf("[ConfigServerDemo] GetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stNonmotorVehicleIntrusionInfo.bEnable,
            g_stNonmotorVehicleIntrusionInfo.uRuleCount,
@@ -3828,9 +3828,9 @@ static NET_COMMON_ECODE_E MyGetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
 }
 
 /* 非机动车闯入配置 Set 回调，对应命令 NET_SET_NONMOTOR_VEHICLE_INTRUSION_INFO */
-static NET_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3840,7 +3840,7 @@ static NET_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
     pNET_NonmotorVehicleIntrusionInfo_S pIn = (pNET_NonmotorVehicleIntrusionInfo_S)lpInBuffer;
     g_stNonmotorVehicleIntrusionInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetNonmotorVehicleIntrusionInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stNonmotorVehicleIntrusionInfo.bEnable,
            g_stNonmotorVehicleIntrusionInfo.uRuleCount,
@@ -3851,9 +3851,9 @@ static NET_COMMON_ECODE_E MySetNonmotorVehicleIntrusionInfoCb(INT32 dwChannelID,
 }
 
 /* 应急车道占用识别配置 Get 回调，对应命令 NET_GET_OCCUPATION_EMERGENCY_INFO */
-static NET_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3863,7 +3863,7 @@ static NET_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
     pNET_OccupationEmergencyInfo_S pOut = (pNET_OccupationEmergencyInfo_S)lpOutBuffer;
     *pOut = g_stOccupationEmergencyInfo;
 
-    printf("[ConfigServerDemo] GetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetOccupationEmergencyInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stOccupationEmergencyInfo.bEnable,
            g_stOccupationEmergencyInfo.uRuleCount,
@@ -3874,9 +3874,9 @@ static NET_COMMON_ECODE_E MyGetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
 }
 
 /* 应急车道占用识别配置 Set 回调，对应命令 NET_SET_OCCUPATION_EMERGENCY_INFO */
-static NET_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3886,7 +3886,7 @@ static NET_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
     pNET_OccupationEmergencyInfo_S pIn = (pNET_OccupationEmergencyInfo_S)lpInBuffer;
     g_stOccupationEmergencyInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetOccupationEmergencyInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetOccupationEmergencyInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stOccupationEmergencyInfo.bEnable,
            g_stOccupationEmergencyInfo.uRuleCount,
@@ -3897,9 +3897,9 @@ static NET_COMMON_ECODE_E MySetOccupationEmergencyInfoCb(INT32 dwChannelID, LPVO
 }
 
 /* 行人闯入配置 Get 回调，对应命令 NET_GET_PEDESTRIAN_INTRUSION_INFO */
-static NET_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3909,7 +3909,7 @@ static NET_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
     pNET_PedestrianIntrusionInfo_S pOut = (pNET_PedestrianIntrusionInfo_S)lpOutBuffer;
     *pOut = g_stPedestrianIntrusionInfo;
 
-    printf("[ConfigServerDemo] GetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetPedestrianIntrusionInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stPedestrianIntrusionInfo.bEnable,
            g_stPedestrianIntrusionInfo.uRuleCount,
@@ -3920,9 +3920,9 @@ static NET_COMMON_ECODE_E MyGetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
 }
 
 /* 行人闯入配置 Set 回调，对应命令 NET_SET_PEDESTRIAN_INTRUSION_INFO */
-static NET_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3932,7 +3932,7 @@ static NET_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
     pNET_PedestrianIntrusionInfo_S pIn = (pNET_PedestrianIntrusionInfo_S)lpInBuffer;
     g_stPedestrianIntrusionInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetPedestrianIntrusionInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetPedestrianIntrusionInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d, FirstSensitivity=%d, FirstTimeThreshold=%d\n",
            g_stPedestrianIntrusionInfo.bEnable,
            g_stPedestrianIntrusionInfo.uRuleCount,
@@ -3943,9 +3943,9 @@ static NET_COMMON_ECODE_E MySetPedestrianIntrusionInfoCb(INT32 dwChannelID, LPVO
 }
 
 /* 烟火识别配置 Get 回调，对应命令 NET_GET_SMOKE_FIRE_CFG */
-static NET_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3955,7 +3955,7 @@ static NET_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
     pNET_SmokeFireCfg_S pOut = (pNET_SmokeFireCfg_S)lpOutBuffer;
     *pOut = g_stSmokeFireCfg;
 
-    printf("[ConfigServerDemo] GetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetSmokeFireCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stSmokeFireCfg.bEnable,
            g_stSmokeFireCfg.stRule.nSensitivity);
@@ -3964,9 +3964,9 @@ static NET_COMMON_ECODE_E MyGetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpOutBuf
 }
 
 /* 烟火识别配置 Set 回调，对应命令 NET_SET_SMOKE_FIRE_CFG */
-static NET_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -3976,7 +3976,7 @@ static NET_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpInBuff
     pNET_SmokeFireCfg_S pIn = (pNET_SmokeFireCfg_S)lpInBuffer;
     g_stSmokeFireCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetSmokeFireCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetSmokeFireCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stSmokeFireCfg.bEnable,
            g_stSmokeFireCfg.stRule.nSensitivity);
@@ -3985,9 +3985,9 @@ static NET_COMMON_ECODE_E MySetSmokeFireCfgCb(INT32 dwChannelID, LPVOID lpInBuff
 }
 
 /* 道路积水检测配置 Get 回调，对应命令 NET_GET_ROAD_PONDING_CFG */
-static NET_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -3997,7 +3997,7 @@ static NET_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpOutB
     pNET_RoadPondingCfg_S pOut = (pNET_RoadPondingCfg_S)lpOutBuffer;
     *pOut = g_stRoadPondingCfg;
 
-    printf("[ConfigServerDemo] GetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetRoadPondingCfg callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d\n",
            g_stRoadPondingCfg.bEnable,
            g_stRoadPondingCfg.stRule.nSensitivity);
@@ -4006,9 +4006,9 @@ static NET_COMMON_ECODE_E MyGetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpOutB
 }
 
 /* 道路积水检测配置 Set 回调，对应命令 NET_SET_ROAD_PONDING_CFG */
-static NET_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4018,7 +4018,7 @@ static NET_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpInBu
     pNET_RoadPondingCfg_S pIn = (pNET_RoadPondingCfg_S)lpInBuffer;
     g_stRoadPondingCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetRoadPondingCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetRoadPondingCfg callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d\n",
            g_stRoadPondingCfg.bEnable,
            g_stRoadPondingCfg.stRule.nSensitivity);
@@ -4027,9 +4027,9 @@ static NET_COMMON_ECODE_E MySetRoadPondingCfgCb(INT32 dwChannelID, LPVOID lpInBu
 }
 
 /* 停车侦测配置 Get 回调，对应命令 NET_GET_PARKINGALARM */
-static NET_COMMON_ECODE_E MyGetParkingAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetParkingAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4039,7 +4039,7 @@ static NET_COMMON_ECODE_E MyGetParkingAlarmCb(INT32 dwChannelID, LPVOID lpOutBuf
     pNET_ParkingAlarmInfo_S pOut = (pNET_ParkingAlarmInfo_S)lpOutBuffer;
     *pOut = g_stParkingAlarmInfo;
 
-    printf("[ConfigServerDemo] GetParkingAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetParkingAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stParkingAlarmInfo.bEnable,
            g_stParkingAlarmInfo.uRuleCount);
@@ -4048,9 +4048,9 @@ static NET_COMMON_ECODE_E MyGetParkingAlarmCb(INT32 dwChannelID, LPVOID lpOutBuf
 }
 
 /* 停车侦测配置 Set 回调，对应命令 NET_SET_PARKINGALARM */
-static NET_COMMON_ECODE_E MySetParkingAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetParkingAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4060,7 +4060,7 @@ static NET_COMMON_ECODE_E MySetParkingAlarmCb(INT32 dwChannelID, LPVOID lpInBuff
     pNET_ParkingAlarmInfo_S pIn = (pNET_ParkingAlarmInfo_S)lpInBuffer;
     g_stParkingAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetParkingAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetParkingAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stParkingAlarmInfo.bEnable,
            g_stParkingAlarmInfo.uRuleCount);
@@ -4069,9 +4069,9 @@ static NET_COMMON_ECODE_E MySetParkingAlarmCb(INT32 dwChannelID, LPVOID lpInBuff
 }
 
 /* 物品遗留侦测配置 Get 回调，对应命令 NET_GET_UNATTENDEDOBJECTALARM */
-static NET_COMMON_ECODE_E MyGetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetUnattendedObjectAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4081,7 +4081,7 @@ static NET_COMMON_ECODE_E MyGetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID
     pNET_UnattendedObjectAlarmInfo_S pOut = (pNET_UnattendedObjectAlarmInfo_S)lpOutBuffer;
     *pOut = g_stUnattendedObjectAlarmInfo;
 
-    printf("[ConfigServerDemo] GetUnattendedObjectAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetUnattendedObjectAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stUnattendedObjectAlarmInfo.bEnable,
            g_stUnattendedObjectAlarmInfo.uRuleCount);
@@ -4090,9 +4090,9 @@ static NET_COMMON_ECODE_E MyGetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID
 }
 
 /* 物品遗留侦测配置 Set 回调，对应命令 NET_SET_UNATTENDEDOBJECTALARM */
-static NET_COMMON_ECODE_E MySetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetUnattendedObjectAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4102,7 +4102,7 @@ static NET_COMMON_ECODE_E MySetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID
     pNET_UnattendedObjectAlarmInfo_S pIn = (pNET_UnattendedObjectAlarmInfo_S)lpInBuffer;
     g_stUnattendedObjectAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetUnattendedObjectAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetUnattendedObjectAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stUnattendedObjectAlarmInfo.bEnable,
            g_stUnattendedObjectAlarmInfo.uRuleCount);
@@ -4111,9 +4111,9 @@ static NET_COMMON_ECODE_E MySetUnattendedObjectAlarmCb(INT32 dwChannelID, LPVOID
 }
 
 /* 物品拿取侦测配置 Get 回调，对应命令 NET_GET_OBJECTREMOVALALARM */
-static NET_COMMON_ECODE_E MyGetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetObjectRemovalAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4123,7 +4123,7 @@ static NET_COMMON_ECODE_E MyGetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lp
     pNET_ObjectRemovalAlarmInfo_S pOut = (pNET_ObjectRemovalAlarmInfo_S)lpOutBuffer;
     *pOut = g_stObjectRemovalAlarmInfo;
 
-    printf("[ConfigServerDemo] GetObjectRemovalAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetObjectRemovalAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, RuleCount=%d\n",
            g_stObjectRemovalAlarmInfo.bEnable,
            g_stObjectRemovalAlarmInfo.uRuleCount);
@@ -4132,9 +4132,9 @@ static NET_COMMON_ECODE_E MyGetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 物品拿取侦测配置 Set 回调，对应命令 NET_SET_OBJECTREMOVALALARM */
-static NET_COMMON_ECODE_E MySetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetObjectRemovalAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4144,7 +4144,7 @@ static NET_COMMON_ECODE_E MySetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lp
     pNET_ObjectRemovalAlarmInfo_S pIn = (pNET_ObjectRemovalAlarmInfo_S)lpInBuffer;
     g_stObjectRemovalAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetObjectRemovalAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetObjectRemovalAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, RuleCount=%d\n",
            g_stObjectRemovalAlarmInfo.bEnable,
            g_stObjectRemovalAlarmInfo.uRuleCount);
@@ -4153,9 +4153,9 @@ static NET_COMMON_ECODE_E MySetObjectRemovalAlarmCb(INT32 dwChannelID, LPVOID lp
 }
 
 /* 音频异常侦测配置 Get 回调，对应命令 NET_GET_AUDIOANOMALYALARM */
-static NET_COMMON_ECODE_E MyGetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetAudioAnomalyAlarmCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4165,7 +4165,7 @@ static NET_COMMON_ECODE_E MyGetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpO
     pNET_AudioAnomalyAlarmInfo_S pOut = (pNET_AudioAnomalyAlarmInfo_S)lpOutBuffer;
     *pOut = g_stAudioAnomalyAlarmInfo;
 
-    printf("[ConfigServerDemo] GetAudioAnomalyAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetAudioAnomalyAlarm callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, AudioInputAnomaly=%d, UpEnable=%d, UpSensitivity=%d, UpThreshold=%d, DownEnable=%d, DownSensitivity=%d\n",
            g_stAudioAnomalyAlarmInfo.bEnable,
            g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly,
@@ -4179,9 +4179,9 @@ static NET_COMMON_ECODE_E MyGetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpO
 }
 
 /* 音频异常侦测配置 Set 回调，对应命令 NET_SET_AUDIOANOMALYALARM */
-static NET_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4191,7 +4191,7 @@ static NET_COMMON_ECODE_E MySetAudioAnomalyAlarmCb(INT32 dwChannelID, LPVOID lpI
     pNET_AudioAnomalyAlarmInfo_S pIn = (pNET_AudioAnomalyAlarmInfo_S)lpInBuffer;
     g_stAudioAnomalyAlarmInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetAudioAnomalyAlarm callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetAudioAnomalyAlarm callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, AudioInputAnomaly=%d, UpEnable=%d, UpSensitivity=%d, UpThreshold=%d, DownEnable=%d, DownSensitivity=%d\n",
            g_stAudioAnomalyAlarmInfo.bEnable,
            g_stAudioAnomalyAlarmInfo.bAudioInputAnomaly,
@@ -4510,9 +4510,9 @@ static NET_COMMON_ECODE_E ConfigDemoSetPirAlarmInfo(INT32 nChannelId, LPVOID pIn
 }
 
 /* 图像配置 Get 回调，对应命令 NET_GET_IMAGECFG */
-static NET_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetImageCfgCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4522,7 +4522,7 @@ static NET_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
     pNET_ImageSetting_S pOut = (pNET_ImageSetting_S)lpOutBuffer;
     *pOut = g_stImageCfg;
 
-    printf("[ConfigServerDemo] GetImageCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetImageCfg callback, Channel=%d\n", nChannelID);
     printf("  Brightness=%u, Contrast=%u, Saturation=%u, Sharpness=%u\n",
            g_stImageCfg.nBrightness,
            g_stImageCfg.nContrast,
@@ -4533,9 +4533,9 @@ static NET_COMMON_ECODE_E MyGetImageCfgCb(INT32 dwChannelID, LPVOID lpOutBuffer)
 }
 
 /* 图像配置 Set 回调，对应命令 NET_SET_IMAGECFG */
-static NET_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetImageCfgCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4545,7 +4545,7 @@ static NET_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
     pNET_ImageSetting_S pIn = (pNET_ImageSetting_S)lpInBuffer;
     g_stImageCfg = *pIn;
 
-    printf("[ConfigServerDemo] SetImageCfg callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetImageCfg callback, Channel=%d\n", nChannelID);
     printf("  Brightness=%u, Contrast=%u, Saturation=%u, Sharpness=%u\n",
            g_stImageCfg.nBrightness,
            g_stImageCfg.nContrast,
@@ -4556,9 +4556,9 @@ static NET_COMMON_ECODE_E MySetImageCfgCb(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /* 预览信息配置 Get 回调，对应命令 NET_GET_PREVIEW_INFO */
-static NET_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4568,9 +4568,9 @@ static NET_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_PreviewInfo_S pOut = (pNET_PreviewInfo_S)lpOutBuffer;
     *pOut = g_stPreviewInfo;
 
-    printf("[ConfigServerDemo] GetPreviewInfo callback, Channel=%d\n", dwChannelID);
-    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspMainUrl);
-    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspSubUrl);
+    printf("[ConfigServerDemo] GetPreviewInfo callback, Channel=%d\n", nChannelID);
+    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.strRtspMainUrl);
+    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.strRtspSubUrl);
     printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
            g_stPreviewInfo.stImageParam.nBrightness,
            g_stPreviewInfo.stImageParam.nContrast,
@@ -4581,9 +4581,9 @@ static NET_COMMON_ECODE_E MyGetPreviewInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
 }
 
 /* 预览信息配置 Set 回调，对应命令 NET_SET_PREVIEW_INFO */
-static NET_COMMON_ECODE_E MySetPreviewInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetPreviewInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4593,9 +4593,9 @@ static NET_COMMON_ECODE_E MySetPreviewInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
     pNET_PreviewInfo_S pIn = (pNET_PreviewInfo_S)lpInBuffer;
     g_stPreviewInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetPreviewInfo callback, Channel=%d\n", dwChannelID);
-    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspMainUrl);
-    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.szRtspSubUrl);
+    printf("[ConfigServerDemo] SetPreviewInfo callback, Channel=%d\n", nChannelID);
+    printf("  MainUrl=%s\n", g_stPreviewInfo.stRtspUrl.strRtspMainUrl);
+    printf("  SubUrl=%s\n", g_stPreviewInfo.stRtspUrl.strRtspSubUrl);
     printf("  Brightness=%d, Contrast=%d, Saturation=%d, Sharpness=%d\n",
            g_stPreviewInfo.stImageParam.nBrightness,
            g_stPreviewInfo.stImageParam.nContrast,
@@ -4606,7 +4606,7 @@ static NET_COMMON_ECODE_E MySetPreviewInfoCb(INT32 dwChannelID, LPVOID lpInBuffe
 }
 
 /* 通道信息 Get 回调，对应命令 NET_GET_CHANNEL_INFO */
-static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
     {
@@ -4616,11 +4616,11 @@ static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_ChannelList_S pOut = (pNET_ChannelList_S)lpOutBuffer;
     memset(pOut, 0, sizeof(*pOut));
 
-    if (dwChannelID >= 0)
+    if (nChannelID >= 0)
     {
         /* 单通道查询 */
         pOut->stChannels[0] = g_stChannelInfo;
-        pOut->stChannels[0].uChannel = (UINT32)dwChannelID;
+        pOut->stChannels[0].uChannel = (UINT32)nChannelID;
         pOut->uChannelCount = 1;
     }
     else
@@ -4631,17 +4631,17 @@ static NET_COMMON_ECODE_E MyGetChannelInfoCb(INT32 dwChannelID, LPVOID lpOutBuff
     }
 
     printf("[ConfigServerDemo] GetChannelInfo callback, Channel=%d, count=%u\n",
-           dwChannelID, pOut->uChannelCount);
-    printf("  Channel[0].Name=%s\n", pOut->stChannels[0].szChannelName);
-    printf("  Channel[0].PreviewMainUrl=%s\n", pOut->stChannels[0].szPreviewMainUrl);
-    printf("  Channel[0].PreviewSubUrl=%s\n", pOut->stChannels[0].szPreviewSubUrl);
+           nChannelID, pOut->uChannelCount);
+    printf("  Channel[0].Name=%s\n", pOut->stChannels[0].strChannelName);
+    printf("  Channel[0].PreviewMainUrl=%s\n", pOut->stChannels[0].strPreviewMainUrl);
+    printf("  Channel[0].PreviewSubUrl=%s\n", pOut->stChannels[0].strPreviewSubUrl);
 
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetTalkbackStateCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4649,11 +4649,11 @@ static NET_COMMON_ECODE_E MySetTalkbackStateCb(INT32 dwChannelID, LPVOID lpInBuf
     }
 
     g_stTalkbackStateInfo = *(pNET_TalkbackStateInfo_S)lpInBuffer;
-    printf("[ConfigServerDemo] SetTalkbackState callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetTalkbackState callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Url=%s, LocalIp=%s\n",
            g_stTalkbackStateInfo.bEnable,
-           g_stTalkbackStateInfo.szUrl,
-           g_stTalkbackStateInfo.szLocalIP);
+           g_stTalkbackStateInfo.strUrl,
+           g_stTalkbackStateInfo.strLocalIP);
     return NET_E_SUCCEED;
 }
 
@@ -4686,14 +4686,14 @@ static void STDCALL MyVoiceComPlayCb(const char* data, unsigned int size)
 
 static INT32 STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudioParam,
                                          CHAR* pBuffer,
-                                         UINT32 dwBufferSize,
+                                         UINT32 uBufferSize,
                                          LPVOID lpUserData)
 {
     (void)lpUserData;
 
-    if (!pstAudioParam || !pBuffer || dwBufferSize == 0 ||
+    if (!pstAudioParam || !pBuffer || uBufferSize == 0 ||
         pstAudioParam->uFrameBytes <= 0 ||
-        pstAudioParam->uFrameBytes > (INT32)dwBufferSize)
+        pstAudioParam->uFrameBytes > (INT32)uBufferSize)
     {
         return 0;
     }
@@ -4706,9 +4706,9 @@ static INT32 STDCALL MyVoiceComCaptureCb(const NET_VoiceComAudioParam_S* pstAudi
     return pstAudioParam->uFrameBytes;
 }
 
-static NET_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -4719,19 +4719,19 @@ static NET_COMMON_ECODE_E MySetTalkbackToStreamCb(INT32 dwChannelID, LPVOID lpIn
     /* demo: mirror to from-stream cache so client can read back */
     g_stTalkbackFromStreamInfo = g_stTalkbackToStreamInfo;
 
-    printf("[ConfigServerDemo] SetTalkbackToStream callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetTalkbackToStream callback, Channel=%d\n", nChannelID);
     printf("  Host=%s, Port=%d, ChnId=%d, UserId=%d, Protocol=%s\n",
-           g_stTalkbackToStreamInfo.szHost,
+           g_stTalkbackToStreamInfo.strHost,
            g_stTalkbackToStreamInfo.nPort,
            g_stTalkbackToStreamInfo.nChnId,
            g_stTalkbackToStreamInfo.nUserID,
-           g_stTalkbackToStreamInfo.szProtocol);
+           g_stTalkbackToStreamInfo.strProtocol);
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -4739,13 +4739,13 @@ static NET_COMMON_ECODE_E MyGetTalkbackFromStreamCb(INT32 dwChannelID, LPVOID lp
     }
 
     *(pNET_TalkbackStreamInfo_S)lpOutBuffer = g_stTalkbackFromStreamInfo;
-    printf("[ConfigServerDemo] GetTalkbackFromStream callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetTalkbackFromStream callback, Channel=%d\n", nChannelID);
     printf("  Host=%s, Port=%d, ChnId=%d, UserId=%d, Protocol=%s\n",
-           g_stTalkbackFromStreamInfo.szHost,
+           g_stTalkbackFromStreamInfo.strHost,
            g_stTalkbackFromStreamInfo.nPort,
            g_stTalkbackFromStreamInfo.nChnId,
            g_stTalkbackFromStreamInfo.nUserID,
-           g_stTalkbackFromStreamInfo.szProtocol);
+           g_stTalkbackFromStreamInfo.strProtocol);
     return NET_E_SUCCEED;
 }
 
@@ -4756,19 +4756,19 @@ static NET_COMMON_ECODE_E MyGetReplayUrlCb(pNET_ReplayUrlInfo_S pInfo)
         return NET_E_INVALID_PARAM;
     }
 
-    snprintf(pInfo->szUrl,
-             sizeof(pInfo->szUrl),
+    snprintf(pInfo->strUrl,
+             sizeof(pInfo->strUrl),
              "rtsp://127.0.0.1:554/replay/channel%d?start=%s&end=%s",
              pInfo->uChannel,
-             pInfo->szStartTime,
-             pInfo->szEndTime);
+             pInfo->strStartTime,
+             pInfo->strEndTime);
 
     printf("[ConfigServerDemo] GetReplayUrl callback\n");
     printf("  Channel=%d, Start=%s, End=%s\n",
            pInfo->uChannel,
-           pInfo->szStartTime,
-           pInfo->szEndTime);
-    printf("  Url=%s\n", pInfo->szUrl);
+           pInfo->strStartTime,
+           pInfo->strEndTime);
+    printf("  Url=%s\n", pInfo->strUrl);
     return NET_E_SUCCEED;
 }
 
@@ -4858,13 +4858,13 @@ static void BuildReplayUrl(NET_ReplayCtrlInfo_S* pInfo)
         return;
     }
 
-    snprintf(pInfo->szUrl,
-             sizeof(pInfo->szUrl),
+    snprintf(pInfo->strUrl,
+             sizeof(pInfo->strUrl),
              "rtp://127.0.0.1:6000/playback/%s?channel=%d&start=%s&end=%s&speed=%.2f&replayType=%d&seek=%d",
-             pInfo->szSessionId,
+             pInfo->strSessionId,
              pInfo->uChannel,
-             pInfo->szStartTime,
-             pInfo->szEndTime,
+             pInfo->strStartTime,
+             pInfo->strEndTime,
              pInfo->fSpeed,
              pInfo->nReplayType,
              pInfo->nSeekTime);
@@ -4894,10 +4894,10 @@ static void MergeReplayCtrlState(NET_ReplayCtrlInfo_S* pDst, const NET_ReplayCtr
     {
         pDst->nReplayType = pSrc->nReplayType;
     }
-    CopyTextIfPresent(pDst->szSessionId, sizeof(pDst->szSessionId), pSrc->szSessionId);
-    CopyTextIfPresent(pDst->szStartTime, sizeof(pDst->szStartTime), pSrc->szStartTime);
-    CopyTextIfPresent(pDst->szEndTime, sizeof(pDst->szEndTime), pSrc->szEndTime);
-    CopyTextIfPresent(pDst->szUrl, sizeof(pDst->szUrl), pSrc->szUrl);
+    CopyTextIfPresent(pDst->strSessionId, sizeof(pDst->strSessionId), pSrc->strSessionId);
+    CopyTextIfPresent(pDst->strStartTime, sizeof(pDst->strStartTime), pSrc->strStartTime);
+    CopyTextIfPresent(pDst->strEndTime, sizeof(pDst->strEndTime), pSrc->strEndTime);
+    CopyTextIfPresent(pDst->strUrl, sizeof(pDst->strUrl), pSrc->strUrl);
 }
 
 static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
@@ -4916,10 +4916,10 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
 
     if (stNewState.uCtrlType == NET_REPLAY_CTRL_START)
     {
-        if (!HasTextValue(stNewState.szSessionId))
+        if (!HasTextValue(stNewState.strSessionId))
         {
-            snprintf(stNewState.szSessionId,
-                     sizeof(stNewState.szSessionId),
+            snprintf(stNewState.strSessionId,
+                     sizeof(stNewState.strSessionId),
                      "demo_replay_%d",
                      stNewState.uChannel);
         }
@@ -4934,14 +4934,14 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
     }
     else
     {
-        if (!HasTextValue(stNewState.szSessionId))
+        if (!HasTextValue(stNewState.strSessionId))
         {
             return NET_E_INVALID_PARAM;
         }
 
         if (stNewState.uCtrlType == NET_REPLAY_CTRL_STOP)
         {
-            stNewState.szUrl[0] = '\0';
+            stNewState.strUrl[0] = '\0';
         }
         else if (stNewState.uCtrlType == NET_REPLAY_CTRL_PAUSE)
         {
@@ -4966,8 +4966,8 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
         else if (stNewState.uCtrlType == NET_REPLAY_CTRL_SET_SEEK)
         {
             if (stNewState.nReplayType == NET_REPLAY_PLATFORM_CTRL_NONE &&
-                HasTextValue(stNewState.szStartTime) &&
-                HasTextValue(stNewState.szEndTime))
+                HasTextValue(stNewState.strStartTime) &&
+                HasTextValue(stNewState.strEndTime))
             {
                 stNewState.nReplayType = NET_REPLAY_PLATFORM_CTRL_JUMP_TIME;
             }
@@ -4975,17 +4975,17 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
             switch (stNewState.nReplayType)
             {
                 case NET_REPLAY_PLATFORM_CTRL_JUMP_TIME:
-                    if (!HasTextValue(stNewState.szStartTime) || !HasTextValue(stNewState.szEndTime))
+                    if (!HasTextValue(stNewState.strStartTime) || !HasTextValue(stNewState.strEndTime))
                     {
                         return NET_E_INVALID_PARAM;
                     }
                     break;
                 case NET_REPLAY_PLATFORM_CTRL_BACKWARD_30S:
                     nDeltaSeconds = -(stNewState.nSeekTime > 0 ? stNewState.nSeekTime : 30);
-                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.szStartTime, nDeltaSeconds,
-                                           stNewState.szStartTime, sizeof(stNewState.szStartTime)) ||
-                        !ShiftDateTimeText(g_stReplayCtrlInfo.szEndTime, nDeltaSeconds,
-                                           stNewState.szEndTime, sizeof(stNewState.szEndTime)))
+                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.strStartTime, nDeltaSeconds,
+                                           stNewState.strStartTime, sizeof(stNewState.strStartTime)) ||
+                        !ShiftDateTimeText(g_stReplayCtrlInfo.strEndTime, nDeltaSeconds,
+                                           stNewState.strEndTime, sizeof(stNewState.strEndTime)))
                     {
                         return NET_E_INVALID_PARAM;
                     }
@@ -4993,10 +4993,10 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
                     break;
                 case NET_REPLAY_PLATFORM_CTRL_FORWARD_30S:
                     nDeltaSeconds = (stNewState.nSeekTime > 0 ? stNewState.nSeekTime : 30);
-                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.szStartTime, nDeltaSeconds,
-                                           stNewState.szStartTime, sizeof(stNewState.szStartTime)) ||
-                        !ShiftDateTimeText(g_stReplayCtrlInfo.szEndTime, nDeltaSeconds,
-                                           stNewState.szEndTime, sizeof(stNewState.szEndTime)))
+                    if (!ShiftDateTimeText(g_stReplayCtrlInfo.strStartTime, nDeltaSeconds,
+                                           stNewState.strStartTime, sizeof(stNewState.strStartTime)) ||
+                        !ShiftDateTimeText(g_stReplayCtrlInfo.strEndTime, nDeltaSeconds,
+                                           stNewState.strEndTime, sizeof(stNewState.strEndTime)))
                     {
                         return NET_E_INVALID_PARAM;
                     }
@@ -5027,13 +5027,13 @@ static NET_COMMON_ECODE_E MyControlReplayCb(pNET_ReplayCtrlInfo_S pInfo)
            pInfo->uChannel,
            pInfo->uCtrlType,
            pInfo->nReplayType,
-           pInfo->szSessionId,
+           pInfo->strSessionId,
            pInfo->fSpeed,
            pInfo->nSeekTime);
     printf("  Start=%s, End=%s, Url=%s\n",
-           pInfo->szStartTime,
-           pInfo->szEndTime,
-           pInfo->szUrl);
+           pInfo->strStartTime,
+           pInfo->strEndTime,
+           pInfo->strUrl);
     return NET_E_SUCCEED;
 }
 
@@ -5056,17 +5056,17 @@ static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
         return NET_E_INVALID_PARAM;
     }
 
-    if (pInfo->szDate[0] == '\0')
+    if (pInfo->strDate[0] == '\0')
     {
-        strncpy(pInfo->szDate, "2026-05-06", sizeof(pInfo->szDate) - 1);
+        strncpy(pInfo->strDate, "2026-05-06", sizeof(pInfo->strDate) - 1);
     }
-    if (pInfo->szStartTime[0] == '\0')
+    if (pInfo->strStartTime[0] == '\0')
     {
-        strncpy(pInfo->szStartTime, "2026-05-06 00:00:00", sizeof(pInfo->szStartTime) - 1);
+        strncpy(pInfo->strStartTime, "2026-05-06 00:00:00", sizeof(pInfo->strStartTime) - 1);
     }
-    if (pInfo->szEndTime[0] == '\0')
+    if (pInfo->strEndTime[0] == '\0')
     {
-        strncpy(pInfo->szEndTime, "2026-05-06 23:59:59", sizeof(pInfo->szEndTime) - 1);
+        strncpy(pInfo->strEndTime, "2026-05-06 23:59:59", sizeof(pInfo->strEndTime) - 1);
     }
 
     pInfo->nVideoCount = 2;
@@ -5088,9 +5088,9 @@ static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
            pInfo->uChannel,
            pInfo->bFilterByEventType,
            pInfo->uEventType,
-           pInfo->szDate,
-           pInfo->szStartTime,
-           pInfo->szEndTime,
+           pInfo->strDate,
+           pInfo->strStartTime,
+           pInfo->strEndTime,
            pInfo->nVideoCount,
            pInfo->nPersonEventCount,
            pInfo->nVehicleEventCount,
@@ -5098,9 +5098,9 @@ static NET_COMMON_ECODE_E MyGetReplayRecordListCb(pNET_ReplayRecordList_S pInfo)
     return NET_E_SUCCEED;
 }
 
-static NET_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5108,16 +5108,16 @@ static NET_COMMON_ECODE_E MySetReplayTalkbackCb(INT32 dwChannelID, LPVOID lpInBu
     }
 
     g_stReplayTalkbackInfo = *(pNET_ReplayTalkbackInfo_S)lpInBuffer;
-    printf("[ConfigServerDemo] SetReplayTalkback callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetReplayTalkback callback, Channel=%d\n", nChannelID);
     printf("  NvrIp=%s, RemoteIp=%s, File=%s\n",
-           g_stReplayTalkbackInfo.szNvrIp,
-           g_stReplayTalkbackInfo.szRemoteIp,
-           g_stReplayTalkbackInfo.stIPCInfo.szFileName);
+           g_stReplayTalkbackInfo.strNvrIp,
+           g_stReplayTalkbackInfo.strRemoteIp,
+           g_stReplayTalkbackInfo.stIPCInfo.strFileName);
     return NET_E_SUCCEED;
 }
 
 /* 升级状态 Get 回调，对应命令 NET_GET_UPGRADESTATUS */
-static NET_COMMON_ECODE_E MyGetUpgradeStatus(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetUpgradeStatus(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
@@ -5125,13 +5125,13 @@ static NET_COMMON_ECODE_E MyGetUpgradeStatus(INT32 dwChannelID, LPVOID lpOutBuff
     pNET_UpgradeStatus_S pOut = (pNET_UpgradeStatus_S)lpOutBuffer;
     *pOut = g_stUpgradeStatuts;
 
-    printf("[ConfigServerDemo] MyGetUpgradeStatus callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetUpgradeStatus callback, Channel=%d\n", nChannelID);
     printf("    nUpgradeStatus=%d\n", pOut->nUpgradeStatus);
     return NET_E_SUCCEED;
 }
 
 /* 升级文件 Set 回调，对应命令 NET_SET_UPGRADE */
-static NET_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetUpgrade(INT32 nChannelID, LPVOID lpInBuffer)
 {
     if (!lpInBuffer)
         return NET_E_INVALID_PARAM;
@@ -5139,17 +5139,17 @@ static NET_COMMON_ECODE_E MySetUpgrade(INT32 dwChannelID, LPVOID lpInBuffer)
     pNET_UpgradeInfo_S pIn = (pNET_UpgradeInfo_S)lpInBuffer;
 
     memset(&g_stUpgradeInfo, 0, sizeof(g_stUpgradeInfo));
-    strncpy(g_stUpgradeInfo.szUpgradePath, pIn->szUpgradePath, sizeof(g_stUpgradeInfo.szUpgradePath) - 1);
-    g_stUpgradeInfo.szUpgradePath[sizeof(g_stUpgradeInfo.szUpgradePath) - 1] = '\0';
+    strncpy(g_stUpgradeInfo.strUpgradePath, pIn->strUpgradePath, sizeof(g_stUpgradeInfo.strUpgradePath) - 1);
+    g_stUpgradeInfo.strUpgradePath[sizeof(g_stUpgradeInfo.strUpgradePath) - 1] = '\0';
 
-    printf("[ConfigServerDemo] MySetUpgrade callback, Channel=%d\n", dwChannelID);
-    printf("    szUpgradePath=%s\n", pIn->szUpgradePath);
+    printf("[ConfigServerDemo] MySetUpgrade callback, Channel=%d\n", nChannelID);
+    printf("    szUpgradePath=%s\n", pIn->strUpgradePath);
     printf("    Demo only: skip AC_SET_UPGRADE / AC_CHECK_UPGRADE.\n");
     return NET_E_SUCCEED;
 }
 
 /* 升级版本 Get 回调，对应命令 NET_GET_UPGRADEVERSION */
-static NET_COMMON_ECODE_E MyGetUpgradeVersion(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetUpgradeVersion(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     if (!lpOutBuffer)
         return NET_E_INVALID_PARAM;
@@ -5157,8 +5157,8 @@ static NET_COMMON_ECODE_E MyGetUpgradeVersion(INT32 dwChannelID, LPVOID lpOutBuf
     pNET_UpgradeVersion_S pOut = (pNET_UpgradeVersion_S)lpOutBuffer;
     *pOut = g_stUpgradeVersions;
 
-    printf("[ConfigServerDemo] MyGetUpgradeVersion callback, Channel=%d\n", dwChannelID);
-    printf("    szVersion=%s\n", pOut->szVersion);
+    printf("[ConfigServerDemo] MyGetUpgradeVersion callback, Channel=%d\n", nChannelID);
+    printf("    szVersion=%s\n", pOut->strVersion);
     return NET_E_SUCCEED;
 }
 
@@ -5210,7 +5210,7 @@ static void PrintOneCaptureConfig(const char *prefix, const NET_CaptureConfig_S 
 }
 
 /* 抓图计划信息 Get 回调，对应命令 NET_GET_CAPTURE_PLAN_INFO */
-static NET_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_CapturePlanInfo_S pOut = NULL;
 
@@ -5220,13 +5220,13 @@ static NET_COMMON_ECODE_E MyGetCapturePlanInfo(INT32 dwChannelID, LPVOID lpOutBu
     pOut = (pNET_CapturePlanInfo_S)lpOutBuffer;
     *pOut = g_stCapturePlanInfo;
 
-    printf("[ConfigServerDemo] MyGetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetCapturePlanInfo callback, Channel=%d\n", nChannelID);
     PrintCapturePlanInfo(pOut);
     return NET_E_SUCCEED;
 }
 
 /* 抓图计划信息 Set 回调，对应命令 NET_SET_CAPTURE_PLAN_INFO */
-static NET_COMMON_ECODE_E MySetCapturePlanInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetCapturePlanInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_CapturePlanInfo_S pIn = NULL;
 
@@ -5236,13 +5236,13 @@ static NET_COMMON_ECODE_E MySetCapturePlanInfo(INT32 dwChannelID, LPVOID lpInBuf
     pIn = (pNET_CapturePlanInfo_S)lpInBuffer;
     g_stCapturePlanInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetCapturePlanInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetCapturePlanInfo callback, Channel=%d\n", nChannelID);
     PrintCapturePlanInfo(&g_stCapturePlanInfo);
     return NET_E_SUCCEED;
 }
 
 /* 抓图参数 Get 回调，对应命令 NET_GET_CAPTURE_PARAM_INFO */
-static NET_COMMON_ECODE_E MyGetCaptureParamInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetCaptureParamInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_CaptureParamInfo_S pOut = NULL;
 
@@ -5254,14 +5254,14 @@ static NET_COMMON_ECODE_E MyGetCaptureParamInfo(INT32 dwChannelID, LPVOID lpOutB
     pOut = (pNET_CaptureParamInfo_S)lpOutBuffer;
     *pOut = g_stCaptureParamInfo;
 
-    printf("[ConfigServerDemo] MyGetCaptureParamInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetCaptureParamInfo callback, Channel=%d\n", nChannelID);
     PrintOneCaptureConfig("TimingCfg", &pOut->stCaptureTimingConfig);
     PrintOneCaptureConfig("EventCfg", &pOut->stCaptureEventConfig);
     return NET_E_SUCCEED;
 }
 
 /* 抓图参数 Set 回调，对应命令 NET_SET_CAPTURE_PARAM_INFO */
-static NET_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetCaptureParamInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_CaptureParamInfo_S pIn = NULL;
 
@@ -5273,7 +5273,7 @@ static NET_COMMON_ECODE_E MySetCaptureParamInfo(INT32 dwChannelID, LPVOID lpInBu
     pIn = (pNET_CaptureParamInfo_S)lpInBuffer;
     g_stCaptureParamInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetCaptureParamInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetCaptureParamInfo callback, Channel=%d\n", nChannelID);
     PrintOneCaptureConfig("TimingCfg", &g_stCaptureParamInfo.stCaptureTimingConfig);
     PrintOneCaptureConfig("EventCfg", &g_stCaptureParamInfo.stCaptureEventConfig);
     return NET_E_SUCCEED;
@@ -5369,7 +5369,7 @@ static void PrintWhiteBalanceInfo(const NET_WhiteBalanceInfo_S *pstCfg)
 /**
  * @brief 获取曝光信息的回调函数
  */
-static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_ExposureInfo_S pOut = NULL;
 
@@ -5379,7 +5379,7 @@ static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffe
     pOut = (pNET_ExposureInfo_S)lpOutBuffer;
     *pOut = g_stExposureInfo;
 
-    printf("[ConfigServerDemo] MyGetExposureInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetExposureInfo callback, Channel=%d\n", nChannelID);
     PrintExposureInfo(pOut);
     return NET_E_SUCCEED;
 }
@@ -5387,7 +5387,7 @@ static NET_COMMON_ECODE_E MyGetExposureInfo(INT32 dwChannelID, LPVOID lpOutBuffe
 /**
  * @brief 设置曝光信息的回调函数
  */
-static NET_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetExposureInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_ExposureInfo_S pIn = NULL;
 
@@ -5397,7 +5397,7 @@ static NET_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer
     pIn = (pNET_ExposureInfo_S)lpInBuffer;
     g_stExposureInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetExposureInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetExposureInfo callback, Channel=%d\n", nChannelID);
     PrintExposureInfo(&g_stExposureInfo);
     return NET_E_SUCCEED;
 }
@@ -5405,7 +5405,7 @@ static NET_COMMON_ECODE_E MySetExposureInfo(INT32 dwChannelID, LPVOID lpInBuffer
 /**
  * @brief 获取日夜信息的回调函数
  */
-static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_DayNightInfo_S pOut = NULL;
 
@@ -5415,7 +5415,7 @@ static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffe
     pOut = (pNET_DayNightInfo_S)lpOutBuffer;
     *pOut = g_stDayNightInfo;
 
-    printf("[ConfigServerDemo] MyGetDayNightInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetDayNightInfo callback, Channel=%d\n", nChannelID);
     PrintDayNightInfo(pOut);
     return NET_E_SUCCEED;
 }
@@ -5423,7 +5423,7 @@ static NET_COMMON_ECODE_E MyGetDayNightInfo(INT32 dwChannelID, LPVOID lpOutBuffe
 /**
  * @brief 设置日夜信息的回调函数
  */
-static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_DayNightInfo_S pIn = NULL;
 
@@ -5433,7 +5433,7 @@ static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer
     pIn = (pNET_DayNightInfo_S)lpInBuffer;
     g_stDayNightInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetDayNightInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetDayNightInfo callback, Channel=%d\n", nChannelID);
     PrintDayNightInfo(&g_stDayNightInfo);
     return NET_E_SUCCEED;
 }
@@ -5441,7 +5441,7 @@ static NET_COMMON_ECODE_E MySetDayNightInfo(INT32 dwChannelID, LPVOID lpInBuffer
 /**
  * @brief 获取背光信息的回调函数
  */
-static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_BackLightInfo_S pOut = NULL;
 
@@ -5451,7 +5451,7 @@ static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuff
     pOut = (pNET_BackLightInfo_S)lpOutBuffer;
     *pOut = g_stBackLightInfo;
 
-    printf("[ConfigServerDemo] MyGetBackLightInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetBackLightInfo callback, Channel=%d\n", nChannelID);
     PrintBackLightInfo(pOut);
     return NET_E_SUCCEED;
 }
@@ -5459,7 +5459,7 @@ static NET_COMMON_ECODE_E MyGetBackLightInfo(INT32 dwChannelID, LPVOID lpOutBuff
 /**
  * @brief 设置背光信息的回调函数
  */
-static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_BackLightInfo_S pIn = NULL;
 
@@ -5469,7 +5469,7 @@ static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffe
     pIn = (pNET_BackLightInfo_S)lpInBuffer;
     g_stBackLightInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetBackLightInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetBackLightInfo callback, Channel=%d\n", nChannelID);
     PrintBackLightInfo(&g_stBackLightInfo);
     return NET_E_SUCCEED;
 }
@@ -5477,7 +5477,7 @@ static NET_COMMON_ECODE_E MySetBackLightInfo(INT32 dwChannelID, LPVOID lpInBuffe
 /**
  * @brief 获取降噪信息的回调函数
  */
-static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_DenoiseInfo_S pOut = NULL;
 
@@ -5487,7 +5487,7 @@ static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer
     pOut = (pNET_DenoiseInfo_S)lpOutBuffer;
     *pOut = g_stDenoiseInfo;
 
-    printf("[ConfigServerDemo] MyGetDenoiseInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetDenoiseInfo callback, Channel=%d\n", nChannelID);
     PrintDenoiseInfo(pOut);
     return NET_E_SUCCEED;
 }
@@ -5495,7 +5495,7 @@ static NET_COMMON_ECODE_E MyGetDenoiseInfo(INT32 dwChannelID, LPVOID lpOutBuffer
 /**
  * @brief 设置降噪信息的回调函数
  */
-static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_DenoiseInfo_S pIn = NULL;
 
@@ -5505,7 +5505,7 @@ static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
     pIn = (pNET_DenoiseInfo_S)lpInBuffer;
     g_stDenoiseInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetDenoiseInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetDenoiseInfo callback, Channel=%d\n", nChannelID);
     PrintDenoiseInfo(&g_stDenoiseInfo);
     return NET_E_SUCCEED;
 }
@@ -5513,7 +5513,7 @@ static NET_COMMON_ECODE_E MySetDenoiseInfo(INT32 dwChannelID, LPVOID lpInBuffer)
 /**
  * @brief 获取白平衡信息的回调函数
  */
-static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 nChannelID, LPVOID lpOutBuffer)
 {
     pNET_WhiteBalanceInfo_S pOut = NULL;
 
@@ -5523,7 +5523,7 @@ static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutB
     pOut = (pNET_WhiteBalanceInfo_S)lpOutBuffer;
     *pOut = g_stWhiteBalanceInfo;
 
-    printf("[ConfigServerDemo] MyGetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MyGetWhiteBalanceInfo callback, Channel=%d\n", nChannelID);
     PrintWhiteBalanceInfo(pOut);
     return NET_E_SUCCEED;
 }
@@ -5531,7 +5531,7 @@ static NET_COMMON_ECODE_E MyGetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpOutB
 /**
  * @brief 设置白平衡信息的回调函数
  */
-static NET_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 nChannelID, LPVOID lpInBuffer)
 {
     pNET_WhiteBalanceInfo_S pIn = NULL;
 
@@ -5541,15 +5541,15 @@ static NET_COMMON_ECODE_E MySetWhiteBalanceInfo(INT32 dwChannelID, LPVOID lpInBu
     pIn = (pNET_WhiteBalanceInfo_S)lpInBuffer;
     g_stWhiteBalanceInfo = *pIn;
 
-    printf("[ConfigServerDemo] MySetWhiteBalanceInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] MySetWhiteBalanceInfo callback, Channel=%d\n", nChannelID);
     PrintWhiteBalanceInfo(&g_stWhiteBalanceInfo);
     return NET_E_SUCCEED;
 }
 
 /* 人脸抓拍配置 Get 回调，对应命令 NET_GET_FACECAPTUREINFO */
-static NET_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -5559,7 +5559,7 @@ static NET_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpOut
     pNET_FaceCaptureInfo_S pOut = (pNET_FaceCaptureInfo_S)lpOutBuffer;
     *pOut = g_stFaceCaptureInfo;
 
-    printf("[ConfigServerDemo] GetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] GetFaceCaptureInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, Sensitivity=%d, RegionPointCount=%d, ShieldRegionCount=%d\n",
            g_stFaceCaptureInfo.bEnable,
            g_stFaceCaptureInfo.stRule.nSensitivity,
@@ -5570,9 +5570,9 @@ static NET_COMMON_ECODE_E MyGetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpOut
 }
 
 /* 人脸抓拍配置 Set 回调，对应命令 NET_SET_FACECAPTUREINFO */
-static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5582,7 +5582,7 @@ static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInB
     pNET_FaceCaptureInfo_S pIn = (pNET_FaceCaptureInfo_S)lpInBuffer;
     g_stFaceCaptureInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetFaceCaptureInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetFaceCaptureInfo callback, Channel=%d\n", nChannelID);
     printf("  New Enable=%d, Sensitivity=%d, RegionPointCount=%d, ShieldRegionCount=%d\n",
            g_stFaceCaptureInfo.bEnable,
            g_stFaceCaptureInfo.stRule.nSensitivity,
@@ -5592,16 +5592,16 @@ static NET_COMMON_ECODE_E MySetFaceCaptureInfoCb(INT32 dwChannelID, LPVOID lpInB
     return NET_E_SUCCEED;
 }
 
-static INT32 FindTargetLibIndex(const CHAR* szFaceLibName)
+static INT32 FindTargetLibIndex(const CHAR* pstrFaceLibName)
 {
-    if (!szFaceLibName || szFaceLibName[0] == '\0')
+    if (!pstrFaceLibName || pstrFaceLibName[0] == '\0')
     {
         return -1;
     }
 
     for (INT32 i = 0; i < g_stFaceLibList.nTargetLibCount && i < NET_FACE_LIB_MAX_NUM; ++i)
     {
-        if (strcmp(g_stFaceLibList.astTargetLibInfos[i].szFaceLibName, szFaceLibName) == 0)
+        if (strcmp(g_stFaceLibList.astTargetLibInfos[i].strFaceLibName, pstrFaceLibName) == 0)
         {
             return i;
         }
@@ -5624,9 +5624,9 @@ static INT32 FindFaceInfoIndex(INT32 nId)
 }
 
 /* 人脸比对配置 Set 回调，对应命令 NET_SET_FACE_COMPARE_INFO */
-static NET_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5636,7 +5636,7 @@ static NET_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInB
     pNET_FaceCompareInfo_S pIn = (pNET_FaceCompareInfo_S)lpInBuffer;
     g_stFaceCompareInfo = *pIn;
 
-    printf("[ConfigServerDemo] SetFaceCompareInfo callback, Channel=%d\n", dwChannelID);
+    printf("[ConfigServerDemo] SetFaceCompareInfo callback, Channel=%d\n", nChannelID);
     printf("  Enable=%d, SuccessSnapshotCount=%d, FailSnapshotCount=%d\n",
            g_stFaceCompareInfo.bEnable,
            g_stFaceCompareInfo.stLinkageListSuccess.uSnapshotChannelCount,
@@ -5646,9 +5646,9 @@ static NET_COMMON_ECODE_E MySetFaceCompareInfoCb(INT32 dwChannelID, LPVOID lpInB
 }
 
 /* 添加目标库 Set 回调，对应命令 NET_ADD_TARGET_LIB */
-static NET_COMMON_ECODE_E MyAddTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyAddTargetLibCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5656,7 +5656,7 @@ static NET_COMMON_ECODE_E MyAddTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
     }
 
     pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
-    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    INT32 nIndex = FindTargetLibIndex(pIn->strFaceLibName);
     if (nIndex < 0)
     {
         if (g_stFaceLibList.nTargetLibCount >= NET_FACE_LIB_MAX_NUM)
@@ -5668,14 +5668,14 @@ static NET_COMMON_ECODE_E MyAddTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_stFaceLibList.astTargetLibInfos[nIndex] = *pIn;
     printf("[ConfigServerDemo] AddTargetLib callback, LibId=%s, Count=%d\n",
-           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+           pIn->strFaceLibName, g_stFaceLibList.nTargetLibCount);
     return NET_E_SUCCEED;
 }
 
 /* 删除目标库 Set 回调，对应命令 NET_DEL_TARGET_LIB */
-static NET_COMMON_ECODE_E MyDelTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyDelTargetLibCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5683,7 +5683,7 @@ static NET_COMMON_ECODE_E MyDelTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
     }
 
     pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
-    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    INT32 nIndex = FindTargetLibIndex(pIn->strFaceLibName);
     if (nIndex >= 0)
     {
         for (INT32 i = nIndex; i < g_stFaceLibList.nTargetLibCount - 1; ++i)
@@ -5697,14 +5697,14 @@ static NET_COMMON_ECODE_E MyDelTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
     }
 
     printf("[ConfigServerDemo] DelTargetLib callback, LibId=%s, Count=%d\n",
-           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+           pIn->strFaceLibName, g_stFaceLibList.nTargetLibCount);
     return NET_E_SUCCEED;
 }
 
 /* 修改目标库 Set 回调，对应命令 NET_SET_TARGET_LIB */
-static NET_COMMON_ECODE_E MySetTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetTargetLibCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5712,7 +5712,7 @@ static NET_COMMON_ECODE_E MySetTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
     }
 
     pNET_FaceLibInfo_S pIn = (pNET_FaceLibInfo_S)lpInBuffer;
-    INT32 nIndex = FindTargetLibIndex(pIn->szFaceLibName);
+    INT32 nIndex = FindTargetLibIndex(pIn->strFaceLibName);
     if (nIndex < 0)
     {
         if (g_stFaceLibList.nTargetLibCount >= NET_FACE_LIB_MAX_NUM)
@@ -5724,14 +5724,14 @@ static NET_COMMON_ECODE_E MySetTargetLibCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_stFaceLibList.astTargetLibInfos[nIndex] = *pIn;
     printf("[ConfigServerDemo] SetTargetLib callback, LibId=%s, Count=%d\n",
-           pIn->szFaceLibName, g_stFaceLibList.nTargetLibCount);
+           pIn->strFaceLibName, g_stFaceLibList.nTargetLibCount);
     return NET_E_SUCCEED;
 }
 
 /* 获取目标库 Get 回调，对应命令 NET_GET_TARGET_LIB */
-static NET_COMMON_ECODE_E MyGetTargetLibCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetTargetLibCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {
@@ -5746,9 +5746,9 @@ static NET_COMMON_ECODE_E MyGetTargetLibCb(INT32 dwChannelID, LPVOID lpOutBuffer
 }
 
 /* 添加人脸 Set 回调，对应命令 NET_ADD_FACE_INFO */
-static NET_COMMON_ECODE_E MyAddFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyAddFaceInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5768,14 +5768,14 @@ static NET_COMMON_ECODE_E MyAddFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_stFaceInfoList.astFaceInfos[nIndex] = *pIn;
     printf("[ConfigServerDemo] AddFaceInfo callback, Id=%d, Name=%s, Count=%d\n",
-           pIn->nId, pIn->szName, g_stFaceInfoList.nFaceInfoCount);
+           pIn->nId, pIn->strName, g_stFaceInfoList.nFaceInfoCount);
     return NET_E_SUCCEED;
 }
 
 /* 删除人脸 Set 回调，对应命令 NET_DEL_FACE_INFO */
-static NET_COMMON_ECODE_E MyDelFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MyDelFaceInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5807,9 +5807,9 @@ static NET_COMMON_ECODE_E MyDelFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 }
 
 /* 修改人脸 Set 回调，对应命令 NET_SET_FACE_INFO */
-static NET_COMMON_ECODE_E MySetFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
+static NET_COMMON_ECODE_E MySetFaceInfoCb(INT32 nChannelID, LPVOID lpInBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpInBuffer)
     {
@@ -5829,14 +5829,14 @@ static NET_COMMON_ECODE_E MySetFaceInfoCb(INT32 dwChannelID, LPVOID lpInBuffer)
 
     g_stFaceInfoList.astFaceInfos[nIndex] = *pIn;
     printf("[ConfigServerDemo] SetFaceInfo callback, Id=%d, Name=%s, Count=%d\n",
-           pIn->nId, pIn->szName, g_stFaceInfoList.nFaceInfoCount);
+           pIn->nId, pIn->strName, g_stFaceInfoList.nFaceInfoCount);
     return NET_E_SUCCEED;
 }
 
 /* 获取人脸 Get 回调，对应命令 NET_GET_FACE_INFO */
-static NET_COMMON_ECODE_E MyGetFaceInfoCb(INT32 dwChannelID, LPVOID lpOutBuffer)
+static NET_COMMON_ECODE_E MyGetFaceInfoCb(INT32 nChannelID, LPVOID lpOutBuffer)
 {
-    (void)dwChannelID;
+    (void)nChannelID;
 
     if (!lpOutBuffer)
     {

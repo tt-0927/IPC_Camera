@@ -141,12 +141,12 @@ std::string CNvrBusiness::HandleGetRecordFileList(INT32 nChannelId, INT32 nComma
     std::string strStartTime = ParseStringParam(url_param, "StartTime");
     std::string strEndTime = ParseStringParam(url_param, "EndTime");
     std::string strFilename = ParseStringParam(url_param, "Filename");
-    snprintf(stCfg.stFind.szYear, sizeof(stCfg.stFind.szYear), "%s", strYear.c_str());
-    snprintf(stCfg.stFind.szMonth, sizeof(stCfg.stFind.szMonth), "%s", strMonth.c_str());
-    snprintf(stCfg.stFind.szDate, sizeof(stCfg.stFind.szDate), "%s", strDate.c_str());
-    snprintf(stCfg.stFind.szStartTime, sizeof(stCfg.stFind.szStartTime), "%s", strStartTime.c_str());
-    snprintf(stCfg.stFind.szEndTime, sizeof(stCfg.stFind.szEndTime), "%s", strEndTime.c_str());
-    snprintf(stCfg.stFind.szFilename, sizeof(stCfg.stFind.szFilename), "%s", strFilename.c_str());
+    snprintf(stCfg.stFind.strYear, sizeof(stCfg.stFind.strYear), "%s", strYear.c_str());
+    snprintf(stCfg.stFind.strMonth, sizeof(stCfg.stFind.strMonth), "%s", strMonth.c_str());
+    snprintf(stCfg.stFind.strDate, sizeof(stCfg.stFind.strDate), "%s", strDate.c_str());
+    snprintf(stCfg.stFind.strStartTime, sizeof(stCfg.stFind.strStartTime), "%s", strStartTime.c_str());
+    snprintf(stCfg.stFind.strEndTime, sizeof(stCfg.stFind.strEndTime), "%s", strEndTime.c_str());
+    snprintf(stCfg.stFind.strFilename, sizeof(stCfg.stFind.strFilename), "%s", strFilename.c_str());
 
     NETSDK_LOG_MESSAGE_INFO("GetRecordFileList callback START");
     int nRespCode = executeGetDevConfigCb(nChannelId, nCommand, &stCfg);

@@ -82,12 +82,16 @@ private:
     CommandResult handleWifiConnect(const CommandFrame &frame);
     /** 处理0x0103，返回当前 Wi-Fi连接流程状态和描述。 */
     CommandResult handleWifiStatus(const CommandFrame &frame);
+     /** 取消本次BLE配网，通知control中止连接并恢复配网前WiFi状态。 */
+     CommandResult handleWifiCancel(const CommandFrame &frame);
     /** 处理0x0105，启动异步 Wi-Fi扫描并阻止扫描任务并发。 */
     CommandResult handleWifiScan(const CommandFrame &frame);
     /** 处理0x0201，在 Wi-Fi成功后异步投递平台连接参数。 */
     CommandResult handlePlatformConnect(const CommandFrame &frame);
     /** 处理0x0202，返回当前平台连接流程状态和描述。 */
     CommandResult handlePlatformStatus(const CommandFrame &frame);
+    /** 处理0x0301，异步读取SIM、拨号、IP和4G公网可达状态。 */
+    CommandResult handle4GStatus(const CommandFrame &frame);
     /** 把0x0010开始认证请求转交给安全会话管理器。 */
     CommandResult handleAuthBegin(const CommandFrame &frame);
     /** 把0x0011认证证明请求转交给安全会话管理器。 */
@@ -190,10 +194,13 @@ private:
     int m_platformState;
     /* 仅本 BLE会话提交过0x0201后，平台在线才触发0x0203和延迟断开。 */
     bool m_provisionCompletionPending;
+     /* 平台成功后置位；正常断开只释放所有权，不再回滚已提交配置。 */
+     bool m_provisionCommitted;
     PendingRequest m_pendingWifiRequest;
     PendingRequest m_pendingWifiScanRequest;
     PendingRequest m_pendingPlatformRequest;
     PendingRequest m_pendingPlatformStatusRequest;
+    PendingRequest m_pending4GStatusRequest;
     /* 第一台物理连接的手机独占 GATT；会话绑定在其首次读写时完成。 */
     std::string m_activeDevicePath;
     std::string m_boundDevicePath;

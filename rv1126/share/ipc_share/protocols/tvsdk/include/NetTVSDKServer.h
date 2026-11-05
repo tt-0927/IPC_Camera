@@ -665,7 +665,6 @@ extern "C" {
 #define NET_ALARM_ACCESS_CONTROL_ABNORMAL  (NET_ALARM_BASE_RULE + 0x0B) // 门禁异常通行
 #define NET_ALARM_ROOFTOP_STAY             (NET_ALARM_BASE_RULE + 0x0C) // 天台滞留
 
-
 /**
  * @brief Smart/AI 行为分析 (0x3000 - 0x3FFF)
  * @struct NET_AlarmAiObjectInfo_S
@@ -1342,7 +1341,7 @@ typedef enum tagNETTVCfgCmd
 
     NET_GET_REGISTERINFO                  = 520,           /* 获取注册信息 参见NET_RegisterInfo_S */
     NET_SET_REGISTERINFO                  = 521,           /* 设置注册信息 参见NET_RegisterInfo_S */
-
+#ifdef SCENE_INTELLIGENCE
     /* ---- 600~613：平安校园智能事件配置（对齐 IPC 2798~2815） ---- */
     NET_GET_CHANNEL_OCCUPATION_INFO       = 600,           /* 获取通道占用配置 参见NET_ChannelOccupationInfo_S */
     NET_SET_CHANNEL_OCCUPATION_INFO       = 601,           /* 设置通道占用配置 参见NET_ChannelOccupationInfo_S */
@@ -1358,9 +1357,6 @@ typedef enum tagNETTVCfgCmd
     NET_SET_KEY_AREA_ABNORMAL_STAY_INFO   = 611,           /* 设置重点区域异常滞留配置 参见NET_KeyAreaAbnormalStayInfo_S */
     NET_GET_OPEN_FLAME_LEAVE_INFO         = 612,           /* 获取明火离人配置 参见NET_OpenFlameLeaveInfo_S */
     NET_SET_OPEN_FLAME_LEAVE_INFO         = 613,           /* 设置明火离人配置 参见NET_OpenFlameLeaveInfo_S */
-
-#ifdef SCENE_INTELLIGENCE
-    /* ---- 平安校园扩展事件（614~629）：单区域 + 灵敏度，打架斗殴额外带时间阈值 ---- */
     NET_GET_QUEUE_CROWDING_INFO           = 614,           /* 获取排队拥挤配置 参见NET_QueueCrowdingInfo_S */
     NET_SET_QUEUE_CROWDING_INFO           = 615,           /* 设置排队拥挤配置 参见NET_QueueCrowdingInfo_S */
     NET_GET_KITCHEN_UNRELATED_PERSON_INFO = 616,           /* 获取后厨无关人员进入配置 参见NET_KitchenUnrelatedPersonInfo_S */
@@ -1379,8 +1375,7 @@ typedef enum tagNETTVCfgCmd
     NET_SET_MOUSE_DETECTION_INFO          = 629,           /* 设置鼠患识别配置 参见NET_MouseDetectionInfo_S */
     NET_GET_ROOFTOP_STAY_INFO             = 630,           /* 获取天台滞留配置 参见NET_RooftopStayInfo_S */
     NET_SET_ROOFTOP_STAY_INFO             = 631,           /* 设置天台滞留配置 参见NET_RooftopStayInfo_S */
-#endif /* SCENE_INTELLIGENCE */
- 
+#endif 
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
 }NET_CONFIG_COMMAND_E;
@@ -2138,6 +2133,23 @@ typedef enum tagNETLockDuration
     /* 锁定 5 天，对应 IPC LockDuration_E::LOCK_DURATION_5_DAY。 */
     NET_LOCK_DURATION_5_DAY   = 4
 } NET_LockDuration_EN;
+
+/**
+ * @enum  tagNET_FACE_EMOTION_E
+ * @brief 人脸表情类别，与 IPC 侧 face_expression 模型输出一致
+ * @note 用于 NET_CaptureExtraInfo_S::nFaceExpression
+ */
+typedef enum tagNET_FACE_EMOTION_E
+{
+    NET_FACE_EMOTION_UNKNOWN  = -1,  /* 未分析 */
+    NET_FACE_EMOTION_ANGER    = 0,   /* 生气 */
+    NET_FACE_EMOTION_DISGUST  = 1,   /* 厌恶 */
+    NET_FACE_EMOTION_FEAR     = 2,   /* 恐惧 */
+    NET_FACE_EMOTION_HAPPY    = 3,   /* 高兴 */
+    NET_FACE_EMOTION_SAD      = 4,   /* 难过 */
+    NET_FACE_EMOTION_SURPRISE = 5,   /* 惊讶 */
+    NET_FACE_EMOTION_NEUTRAL  = 6    /* 中立 */
+}NET_FACE_EMOTION_E;
 
 /* END************* 枚举值  Enumeration value *************************** */
 
@@ -3802,23 +3814,6 @@ typedef struct tagNET_CapturePolygon
 typedef NET_CapturePolygon_S* pNET_CapturePolygon_S;
 
 /**
- * @enum  tagNET_FACE_EMOTION_E
- * @brief 人脸表情类别，与 IPC 侧 face_expression 模型输出一致
- * @note 用于 NET_CaptureExtraInfo_S::nFaceExpression
- */
-typedef enum tagNET_FACE_EMOTION_E
-{
-    NET_FACE_EMOTION_UNKNOWN  = -1,  /* 未分析 */
-    NET_FACE_EMOTION_ANGER    = 0,   /* 生气 */
-    NET_FACE_EMOTION_DISGUST  = 1,   /* 厌恶 */
-    NET_FACE_EMOTION_FEAR     = 2,   /* 恐惧 */
-    NET_FACE_EMOTION_HAPPY    = 3,   /* 高兴 */
-    NET_FACE_EMOTION_SAD      = 4,   /* 难过 */
-    NET_FACE_EMOTION_SURPRISE = 5,   /* 惊讶 */
-    NET_FACE_EMOTION_NEUTRAL  = 6    /* 中立 */
-}NET_FACE_EMOTION_E;
-
-/**
  * @struct tagNET_CaptureExtraInfo
  * @brief 通用抓拍扩展属性，承载人脸、行人和车辆的附加信息。
  */
@@ -3839,7 +3834,7 @@ typedef struct tagNET_CaptureExtraInfo
     CHAR strLicensePlateNumber[NET_CAPTURE_LICENSE_PLATE_MAX_LEN];
     CHAR strTimestamp[NET_CAPTURE_TIMESTAMP_MAX_LEN];
     NET_CapturePolygon_S stTargetRegion;
-    INT32 nFaceExpression;   /* 人脸表情类别，取值参见 NET_FACE_EMOTION_E；与 nEmotionLabel（属性模型 8~14）相互独立 */
+    INT32 nFaceExpression;   /* 人脸表情类别，取值参见 NET_FACE_EMOTION_E */
     BYTE byRes[64];
 } NET_CaptureExtraInfo_S;
 
@@ -5320,7 +5315,7 @@ typedef struct tagNET_PedestrianIntrusionInfo
 }NET_PedestrianIntrusionInfo_S;
 
 typedef NET_PedestrianIntrusionInfo_S* pNET_PedestrianIntrusionInfo_S;
-
+#ifdef SCENE_INTELLIGENCE
 /**
  * @struct tagNET_ChannelOccupationInfo
  * @brief 通道占用检测配置信息
@@ -5448,25 +5443,6 @@ typedef struct tagNET_OpenFlameLeaveInfo
 
 typedef NET_OpenFlameLeaveInfo_S* pNET_OpenFlameLeaveInfo_S;
 
-#ifdef SCENE_INTELLIGENCE
-/* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
-
-/**
- * @struct tagNET_RooftopStayInfo
- * @brief 天台滞留检测配置信息 Rooftop stay detection configuration
- * @note 用于NET_GET_ROOFTOP_STAY_INFO/NET_SET_ROOFTOP_STAY_INFO；单区域规则
- */
-typedef struct tagNET_RooftopStayInfo
-{
-    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
-    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
-    NET_SmartRegionRule_S stRule;          /* 天台滞留规则（单区域） */
-    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
-    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
-    BYTE                  byReserved[256]; /* 保留字段 */
-}NET_RooftopStayInfo_S;
-
-typedef NET_RooftopStayInfo_S* pNET_RooftopStayInfo_S;
 
 /**
  * @struct tagNET_QueueCrowdingInfo
@@ -5609,9 +5585,23 @@ typedef struct tagNET_MouseDetectionInfo
     BYTE                byReserved[256]; /* 保留字段 */
 }NET_MouseDetectionInfo_S;
 
-typedef NET_MouseDetectionInfo_S* pNET_MouseDetectionInfo_S;
-#endif /* SCENE_INTELLIGENCE */
+/**
+ * @struct tagNET_RooftopStayInfo
+ * @brief 天台滞留检测配置信息 Rooftop stay detection configuration
+ * @note 用于NET_GET_ROOFTOP_STAY_INFO/NET_SET_ROOFTOP_STAY_INFO；单区域规则
+ */
+typedef struct tagNET_RooftopStayInfo
+{
+    UINT32                uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
+    BOOL                  bEnable;         /* 是否启用 0-不启用 1-启用 */
+    NET_SmartRegionRule_S stRule;          /* 天台滞留规则（单区域） */
+    NET_AlarmSchedule_S   stAlarmSchedule; /* 布防时间 */
+    NET_LinkageList_S     stLinkageList;   /* 联动配置 */
+    BYTE                  byReserved[256]; /* 保留字段 */
+}NET_RooftopStayInfo_S;
 
+typedef NET_RooftopStayInfo_S* pNET_RooftopStayInfo_S;
+#endif /* SCENE_INTELLIGENCE */
 /**
  * @struct tagNET_SmokeFireCfg
  * @brief 烟火识别配置信息 Smoke fire detection configuration
@@ -7510,6 +7500,7 @@ NET_API BOOL STDCALL NET_serverRegisterSetPetRecognitionInfoCb(NET_CB_SetDevConf
 NET_API BOOL STDCALL NET_serverRegisterGetClimbFenceInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetClimbFenceInfoCb(NET_CB_SetDevConfigByCommand pCb);
 
+#ifdef SCENE_INTELLIGENCE
 /* 平安校园智能事件（命令码 600~613） */
 NET_API BOOL STDCALL NET_serverRegisterGetChannelOccupationInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetChannelOccupationInfoCb(NET_CB_SetDevConfigByCommand pCb);
@@ -7525,9 +7516,6 @@ NET_API BOOL STDCALL NET_serverRegisterGetKeyAreaAbnormalStayInfoCb(NET_CB_GetDe
 NET_API BOOL STDCALL NET_serverRegisterSetKeyAreaAbnormalStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetOpenFlameLeaveInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetOpenFlameLeaveInfoCb(NET_CB_SetDevConfigByCommand pCb);
-#ifdef SCENE_INTELLIGENCE
-NET_API BOOL STDCALL NET_serverRegisterGetRooftopStayInfoCb(NET_CB_GetDevConfigByCommand pCb);
-NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetQueueCrowdingInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetQueueCrowdingInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetKitchenUnrelatedPersonInfoCb(NET_CB_GetDevConfigByCommand pCb);
@@ -7544,6 +7532,8 @@ NET_API BOOL STDCALL NET_serverRegisterGetFightDetectionInfoCb(NET_CB_GetDevConf
 NET_API BOOL STDCALL NET_serverRegisterSetFightDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterGetMouseDetectionInfoCb(NET_CB_GetDevConfigByCommand pCb);
 NET_API BOOL STDCALL NET_serverRegisterSetMouseDetectionInfoCb(NET_CB_SetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterGetRooftopStayInfoCb(NET_CB_GetDevConfigByCommand pCb);
+NET_API BOOL STDCALL NET_serverRegisterSetRooftopStayInfoCb(NET_CB_SetDevConfigByCommand pCb);
 #endif /* SCENE_INTELLIGENCE */
 
 NET_API BOOL STDCALL NET_serverRegisterGetDimissionInfoCb(NET_CB_GetDevConfigByCommand pCb);

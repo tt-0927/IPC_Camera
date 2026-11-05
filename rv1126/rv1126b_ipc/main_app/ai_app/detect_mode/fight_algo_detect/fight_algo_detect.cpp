@@ -251,6 +251,7 @@ void CFightAlgoDetect::processFight(const std::vector<DetectedTarget_S> &vecResu
     /* 打架检出：过滤类别+置信度+区域 */
     bool  bDetectFight = false;
     float fFightConf   = sensitivityToConfidence(m_stAlgoFightCfg.stRule.nSensitivity);
+    const DetectedTarget_S *pstHitTarget = nullptr; /* 区域内首个打架目标 */
 
     for (const auto &stResult : vecResult)
     {
@@ -263,6 +264,10 @@ void CFightAlgoDetect::processFight(const std::vector<DetectedTarget_S> &vecResu
             if (isPointInRegion(fCenterX, fCenterY, stRegion))
             {
                 bDetectFight = true;
+                if (pstHitTarget == nullptr)
+                {
+                    pstHitTarget = &stResult;
+                }
 
                 Common::RectInfo_S stRectInfo;
                 stRectInfo.nX1 = (int)stResult.fX1;
@@ -309,6 +314,26 @@ void CFightAlgoDetect::processFight(const std::vector<DetectedTarget_S> &vecResu
         if (encode_mat_to_tvsdk_image(m_fullRgbMat, pPayload->stPanoramaImage, JPEG_QUALITY_PANORAMA))
         {
             stContext.pTvSdkPayload = pPayload;
+        }
+    }
+    /* 报警帧补目标框与小图 裁剪异常仅缺小图不影响上报 */
+    if (bAlarm && pstHitTarget != nullptr && !m_fullRgbMat.empty())
+    {
+        stContext.nObjectType = 1; /* 人 */
+        stContext.fConfidence = pstHitTarget->fConfidence;
+        stContext.nLeft   = (int)pstHitTarget->fX1;
+        stContext.nTop    = (int)pstHitTarget->fY1;
+        stContext.nRight  = (int)pstHitTarget->fX2;
+        stContext.nBottom = (int)pstHitTarget->fY2;
+
+        const int nX1 = std::max(0, stContext.nLeft);
+        const int nY1 = std::max(0, stContext.nTop);
+        const int nX2 = std::min(m_fullRgbMat.cols, stContext.nRight);
+        const int nY2 = std::min(m_fullRgbMat.rows, stContext.nBottom);
+        if (nX2 > nX1 && nY2 > nY1)
+        {
+            cv::Mat targetMat = m_fullRgbMat(cv::Rect(nX1, nY1, nX2 - nX1, nY2 - nY1)).clone();
+            encode_mat_to_tvsdk_image(targetMat, stContext.stTargetImage, JPEG_QUALITY_TARGET);
         }
     }
     m_FightMachine.handleAlarmState(bAlarm, stContext);

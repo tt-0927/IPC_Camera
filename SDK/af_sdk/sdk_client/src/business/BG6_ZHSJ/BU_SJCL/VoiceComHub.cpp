@@ -15,7 +15,7 @@ bool CVoiceComHub::NormalizeAudioParam(NET_VoiceComAudioParam_S& audioParam)
         return false;
     }
 
-    int bytesPerSample = 0;
+    int nBytesPerSample = 0;
     switch (audioParam.enFormat) {
         case NET_AUDIO_FORMAT_PCM:
         {
@@ -32,7 +32,7 @@ bool CVoiceComHub::NormalizeAudioParam(NET_VoiceComAudioParam_S& audioParam)
                 default:
                     return false;
             }
-            bytesPerSample = audioParam.uBitDepth / 8;
+            nBytesPerSample = audioParam.uBitDepth / 8;
             break;
         }
         case NET_AUDIO_FORMAT_AAC:
@@ -70,7 +70,7 @@ bool CVoiceComHub::NormalizeAudioParam(NET_VoiceComAudioParam_S& audioParam)
             if (audioParam.uBitDepth != 8) {
                 return false;
             }
-            bytesPerSample = 1;
+            nBytesPerSample = 1;
             break;
         }
         default:
@@ -84,16 +84,16 @@ bool CVoiceComHub::NormalizeAudioParam(NET_VoiceComAudioParam_S& audioParam)
         return false;
     }
 
-    const int frameBytes = audioParam.uSampleRate * audioParam.uChannels *
-                           bytesPerSample * audioParam.uFrameIntervalMs / 1000;
-    if (frameBytes <= 0 || frameBytes > NET_LEN_4096) {
+    const int nFrameBytes = audioParam.uSampleRate * audioParam.uChannels *
+                           nBytesPerSample * audioParam.uFrameIntervalMs / 1000;
+    if (nFrameBytes <= 0 || nFrameBytes > NET_LEN_4096) {
         return false;
     }
 
     if (audioParam.uFrameBytes <= 0) {
-        audioParam.uFrameBytes = frameBytes;
+        audioParam.uFrameBytes = nFrameBytes;
     }
-    if (audioParam.uFrameBytes != frameBytes) {
+    if (audioParam.uFrameBytes != nFrameBytes) {
         return false;
     }
 
@@ -137,9 +137,9 @@ BOOL CVoiceComHub::Start(LPVOID lpUserID,
     auto client = std::make_shared<tvsdk::CVoiceComStream>();
 
     /* 绑定 C 回调到 C++ callback */
-    tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* data, size_t size) {
+    tvsdk::VoiceComCallback cb = [cbVoiceCom, lpUserData](const char* pstrData, size_t uSize) {
         if (cbVoiceCom) {
-            cbVoiceCom(data, static_cast<unsigned int>(size), lpUserData);
+            cbVoiceCom(pstrData, static_cast<unsigned int>(uSize), lpUserData);
         }
     };
 
@@ -165,9 +165,9 @@ BOOL CVoiceComHub::Start(LPVOID lpUserID,
 /*  SendData                                                                   */
 /* ========================================================================== */
 
-BOOL CVoiceComHub::SendData(LPVOID lpUserID, const CHAR* pData, UINT32 dwSize)
+BOOL CVoiceComHub::SendData(LPVOID lpUserID, const CHAR* pstrData, UINT32 uSize)
 {
-    if (!lpUserID || !pData || dwSize == 0) {
+    if (!lpUserID || !pstrData || uSize == 0) {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
@@ -179,7 +179,7 @@ BOOL CVoiceComHub::SendData(LPVOID lpUserID, const CHAR* pData, UINT32 dwSize)
         return FALSE;
     }
 
-    if (!it->second->send(pData, static_cast<size_t>(dwSize))) {
+    if (!it->second->send(pstrData, static_cast<size_t>(uSize))) {
         CErrorManage::instance()->SetLastError(NET_E_AUDIO_FAILED);
         return FALSE;
     }

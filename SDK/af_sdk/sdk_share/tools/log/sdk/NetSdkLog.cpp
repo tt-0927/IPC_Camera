@@ -80,22 +80,22 @@ static std::shared_ptr<DlogInnerHandle_S> SdkLogEnsureHandle()
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 initSdkLog 对应的处理。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int initSdkLog(char* logname,char* logfile)
+int initSdkLog(char* pstrLogName,char* pstrLogFile)
 {
     std::lock_guard<std::recursive_mutex> stLock(gs_stLogMutex);
     const std::shared_ptr<DlogInnerHandle_S> pLogHandle = SdkLogEnsureHandle();
 
-	int max_days = 7;
-	std::string logName = logname;/*"logger"; */
-	std::string logFile = logfile;/*"vss.log"; */
+	int nMaxDays = 7;
+	std::string logName = pstrLogName;/*"logger"; */
+	std::string logFile = pstrLogFile;/*"vss.log"; */
 
 
-	auto newLogger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, max_days);
+	auto newLogger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, nMaxDays);
 
 	/* [][%@,%!] */
 	spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
@@ -119,36 +119,36 @@ int initSdkLog(char* logname,char* logfile)
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 initSdkLogBySize 对应的处理。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
- * @param [in] max_file_size 函数处理参数。
- * @param [in] max_files 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
+ * @param [in] nMaxFileSize 函数处理参数。
+ * @param [in] nMaxFiles 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int initSdkLogBySize(char *logname, char *logfile, int max_file_size, int max_files)
+int initSdkLogBySize(char *pstrLogName, char *pstrLogFile, int nMaxFileSize, int nMaxFiles)
 {
     std::lock_guard<std::recursive_mutex> stLock(gs_stLogMutex);
     const std::shared_ptr<DlogInnerHandle_S> pLogHandle = SdkLogEnsureHandle();
 
-	std::string logName = logname;/*"logger"; */
-	std::string logFile = logfile;/*"vss.log"; */
+	std::string logName = pstrLogName;/*"logger"; */
+	std::string logFile = pstrLogFile;/*"vss.log"; */
 
 	/* 在日志文件名中添加日期 */
-	time_t now = time(NULL);
-	struct tm *t = localtime(&now);
-	char dateStr[32];
-	strftime(dateStr, sizeof(dateStr), "_%Y-%m-%d", t);
+	time_t lNow = time(NULL);
+	struct tm *pstTime = localtime(&lNow);
+	char strDate[32];
+	strftime(strDate, sizeof(strDate), "_%Y-%m-%d", pstTime);
 
 	/* 找到文件扩展名位置，在扩展名前插入日期 */
-	size_t dotPos = logFile.find_last_of('.');
-	if (dotPos != std::string::npos) {
-		logFile.insert(dotPos, dateStr);
+	size_t uDotPos = logFile.find_last_of('.');
+	if (uDotPos != std::string::npos) {
+		logFile.insert(uDotPos, strDate);
 	} else {
-		logFile += dateStr;
+		logFile += strDate;
 	}
 
-	auto newLogger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
+	auto newLogger = spdlog::rotating_logger_mt(logName, logFile, nMaxFileSize, nMaxFiles);
 
     /* [][%@,%!] */
 	spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%s:%#,%!] [%l] %v");
@@ -194,11 +194,11 @@ int uninitSdkLog()
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 setLogLevel 对应的处理。
- * @param [in] level 函数处理参数。
+ * @param [in] nLevel 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int setLogLevel(int level)
+int setLogLevel(int nLevel)
 {
     std::lock_guard<std::recursive_mutex> stLock(gs_stLogMutex);
     /* 首先判断基础日志创建了没有 */
@@ -209,31 +209,31 @@ int setLogLevel(int level)
 	}
 
 	/* 设置日志等级  */
-    spdlog::level::level_enum spdLevel = spdlog::level::trace;
-	switch(level)
+    spdlog::level::level_enum enLevel = spdlog::level::trace;
+	switch(nLevel)
 	{
 		case NETSDK_LOG_TRACE:
-            spdLevel = spdlog::level::trace;
+            enLevel = spdlog::level::trace;
 			break;
 		case NETSDK_LOG_DEBUG:
-            spdLevel = spdlog::level::debug;
+            enLevel = spdlog::level::debug;
 			break;
 		case NETSDK_LOG_INFO:
-            spdLevel = spdlog::level::info;
+            enLevel = spdlog::level::info;
 			break;
 		case NETSDK_LOG_WARN:
-            spdLevel = spdlog::level::warn;
+            enLevel = spdlog::level::warn;
 			break;
 		case NETSDK_LOG_ERROR:
-            spdLevel = spdlog::level::err;
+            enLevel = spdlog::level::err;
 			break;
 	}
 
-    spdlog::set_level(spdLevel);
+    spdlog::set_level(enLevel);
 
     for (auto& pair : gs_pLogInnerHandle->m_stLoggers) {
         if (pair.second) {
-            pair.second->set_level(spdLevel);
+            pair.second->set_level(enLevel);
         }
     }
 	return 0;
@@ -242,13 +242,13 @@ int setLogLevel(int level)
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 createLevelLog 对应的处理。
  * @param [in,out] pLogHandle 函数处理参数。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
- * @param [in] level 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
+ * @param [in] nLevel 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-static int createLevelLog(DlogInnerHandle_S* pLogHandle, char* logname, char* logfile, int level)
+static int createLevelLog(DlogInnerHandle_S* pLogHandle, char* pstrLogName, char* pstrLogFile, int nLevel)
 {
 	if(pLogHandle == nullptr)
 	{
@@ -256,15 +256,15 @@ static int createLevelLog(DlogInnerHandle_S* pLogHandle, char* logname, char* lo
 		return -1;
 	}
 
-	int max_days = 7;
-	std::string logName = logname;/*"logger"; */
-	std::string logFile = logfile;/*"vss.log"; */
+	int nMaxDays = 7;
+	std::string logName = pstrLogName;/*"logger"; */
+	std::string logFile = pstrLogFile;/*"vss.log"; */
 
-	switch(level)
+	switch(nLevel)
 	{
 		case NETSDK_LOG_WARN:
 		{
-            auto logger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, max_days);
+            auto logger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, nMaxDays);
             logger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			pLogHandle->m_stLoggers[logName] = logger;
             /* Also register with a suffix if needed, or rely on distinct logName */
@@ -272,13 +272,13 @@ static int createLevelLog(DlogInnerHandle_S* pLogHandle, char* logname, char* lo
 		}
 		case NETSDK_LOG_ERROR:
 		{
-            auto logger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, max_days);
+            auto logger = spdlog::daily_logger_mt(logName, logFile, 0, 0, false, nMaxDays);
             logger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			pLogHandle->m_stLoggers[logName] = logger;
 			break;
 		}
 		default:
-			printf("this level[%d] is not support!!!\n",level);
+			printf("this level[%d] is not support!!!\n",nLevel);
 			return -1;
 	}
 
@@ -291,15 +291,15 @@ static int createLevelLog(DlogInnerHandle_S* pLogHandle, char* logname, char* lo
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 createLevelLogBySize 对应的处理。
  * @param [in,out] pLogHandle 函数处理参数。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
- * @param [in] level 函数处理参数。
- * @param [in] max_file_size 函数处理参数。
- * @param [in] max_files 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
+ * @param [in] nLevel 函数处理参数。
+ * @param [in] nMaxFileSize 函数处理参数。
+ * @param [in] nMaxFiles 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-static int createLevelLogBySize(DlogInnerHandle_S* pLogHandle, char* logname, char* logfile, int level, int max_file_size, int max_files)
+static int createLevelLogBySize(DlogInnerHandle_S* pLogHandle, char* pstrLogName, char* pstrLogFile, int nLevel, int nMaxFileSize, int nMaxFiles)
 {
 	if(pLogHandle == nullptr)
 	{
@@ -307,27 +307,27 @@ static int createLevelLogBySize(DlogInnerHandle_S* pLogHandle, char* logname, ch
 		return -1;
 	}
 
-	std::string logName = logname;
-	std::string logFile = logfile;
+	std::string logName = pstrLogName;
+	std::string logFile = pstrLogFile;
 
-	switch(level)
+	switch(nLevel)
 	{
 		case NETSDK_LOG_WARN:
 		{
-            auto logger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
+            auto logger = spdlog::rotating_logger_mt(logName, logFile, nMaxFileSize, nMaxFiles);
             logger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			pLogHandle->m_stLoggers[logName] = logger;
 			break;
 		}
 		case NETSDK_LOG_ERROR:
 		{
-            auto logger = spdlog::rotating_logger_mt(logName, logFile, max_file_size, max_files);
+            auto logger = spdlog::rotating_logger_mt(logName, logFile, nMaxFileSize, nMaxFiles);
             logger->set_pattern("[%H:%M:%S.%e] [%s:%#,%!] [%l] %v");
 			pLogHandle->m_stLoggers[logName] = logger;
 			break;
 		}
 		default:
-			printf("this level[%d] is not support!!!\n",level);
+			printf("this level[%d] is not support!!!\n",nLevel);
 			return -1;
 	}
 	return 0;
@@ -335,13 +335,13 @@ static int createLevelLogBySize(DlogInnerHandle_S* pLogHandle, char* logname, ch
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 initSdkLogLevel 对应的处理。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
- * @param [in] level 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
+ * @param [in] nLevel 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int initSdkLogLevel(char *logname, char *logfile, int level)
+int initSdkLogLevel(char *pstrLogName, char *pstrLogFile, int nLevel)
 {
     std::lock_guard<std::recursive_mutex> stLock(gs_stLogMutex);
     /* 首先判断基础日志创建了没有 */
@@ -352,23 +352,23 @@ int initSdkLogLevel(char *logname, char *logfile, int level)
 	}
 
 	/* 再创建对应等级的日志文件 */
-	int ret = 0;
-	ret = createLevelLog(gs_pLogInnerHandle.get(),\
-							logname,logfile,level);
-	return ret;
+	int nRet = 0;
+	nRet = createLevelLog(gs_pLogInnerHandle.get(),\
+							pstrLogName,pstrLogFile,nLevel);
+	return nRet;
 }
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 执行 initSdkLogLevelBySize 对应的处理。
- * @param [in,out] logname 函数处理参数。
- * @param [in,out] logfile 函数处理参数。
- * @param [in] level 函数处理参数。
- * @param [in] max_file_size 函数处理参数。
- * @param [in] max_files 函数处理参数。
+ * @param [in,out] pstrLogName 函数处理参数。
+ * @param [in,out] pstrLogFile 函数处理参数。
+ * @param [in] nLevel 函数处理参数。
+ * @param [in] nMaxFileSize 函数处理参数。
+ * @param [in] nMaxFiles 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int initSdkLogLevelBySize(char *logname, char *logfile, int level, int max_file_size, int max_files)
+int initSdkLogLevelBySize(char *pstrLogName, char *pstrLogFile, int nLevel, int nMaxFileSize, int nMaxFiles)
 {
     std::lock_guard<std::recursive_mutex> stLock(gs_stLogMutex);
     /* 首先判断基础日志创建了没有 */
@@ -379,45 +379,45 @@ int initSdkLogLevelBySize(char *logname, char *logfile, int level, int max_file_
 	}
 
 	/* 判断参数是否正确 */
-    if (logname == NULL || logfile == NULL || max_file_size == 0 || max_files == 0)
+    if (pstrLogName == NULL || pstrLogFile == NULL || nMaxFileSize == 0 || nMaxFiles == 0)
     {
 		printf("The parameters are incorrect!!!!\n");
 		return -1;
 	}
 
 	/* 再创建对应等级的日志文件 */
-	int ret = 0;
-	ret = createLevelLogBySize(gs_pLogInnerHandle.get(), logname, logfile, level, max_file_size, max_files);
-    return ret;
+	int nRet = 0;
+	nRet = createLevelLogBySize(gs_pLogInnerHandle.get(), pstrLogName, pstrLogFile, nLevel, nMaxFileSize, nMaxFiles);
+    return nRet;
 }
 
 /* 查找并跳过ANSI转义序列 */
-void skip_ansi_escape_sequences(char *str)
+void skip_ansi_escape_sequences(char *pstrStr)
 {
-    char *start = str;
-    while (*start)
+    char *pstrStart = pstrStr;
+    while (*pstrStart)
 	{
-        if (start[0] == '\x1B' && start[1] == '[')
+        if (pstrStart[0] == '\x1B' && pstrStart[1] == '[')
 		{
             /* 跳过ANSI转义序列 */
-            start += 2;
-            while (*start && *start != 'm')
+            pstrStart += 2;
+            while (*pstrStart && *pstrStart != 'm')
 			{
-                start++;
+                pstrStart++;
             }
             /* 跳过m字符 */
-            start++;
+            pstrStart++;
         }
         else
         {
             /* 如果是普通字符，复制到新字符串 */
-            char *dest = str;
-            while (*start && *start != '\x1B')
+            char *pstrDest = pstrStr;
+            while (*pstrStart && *pstrStart != '\x1B')
 			{
-                *dest++ = *start++;
+                *pstrDest++ = *pstrStart++;
             }
 			/* 添加字符串终止符 */
-            *dest = '\0';
+            *pstrDest = '\0';
             return;
         }
     }
@@ -428,27 +428,27 @@ void skip_ansi_escape_sequences(char *str)
  * @return 返回该处理的状态或结果。
  */
 
-int netSdk_log(int level,\
-		const char *filename_in, int line_in, const char *funcname_in,\
-		const char *format, ...)
+int netSdk_log(int nLevel,\
+		const char *pstrFileName, int nLine, const char *pstrFuncName,\
+		const char *pstrFormat, ...)
 {
 	const std::shared_ptr<DlogInnerHandle_S> pLogHandle = SdkLogGetHandle();
 
-    std::string strFileName  = filename_in;
+    std::string strFileName  = pstrFileName;
 
 	if(!pLogHandle)
 	{
 		/*return 0; */
 		/* 没有初始化日志，默认输出到控制台 */
 		va_list ap;
-		va_start(ap, format);
-		printf("[%s:%d,%s] ", strFileName.c_str(), line_in,funcname_in);
-		vprintf(format, ap);
+		va_start(ap, pstrFormat);
+		printf("[%s:%d,%s] ", strFileName.c_str(), nLine,pstrFuncName);
+		vprintf(pstrFormat, ap);
 		printf("\n");
 		va_end(ap);
 	}else
 	{
-		char* ptrFmt = NULL;
+		char* pstrFmt = NULL;
 		char defaultStr[4096] = {0};
 		char strMsg[4096] = {0};
 		char sendMsg[8192] = {0};
@@ -456,22 +456,22 @@ int netSdk_log(int level,\
 		std::string str;
 
 		va_list args0, args1;
-		va_start(args0, format);
+		va_start(args0, pstrFormat);
 		va_copy(args1, args0);
-		size_t num_of_chars = std::vsnprintf(nullptr, 0, format, args0);
+		size_t uNumOfChars = std::vsnprintf(nullptr, 0, pstrFormat, args0);
 
 		va_end(args0);
 
-		if((num_of_chars+1) > 4096)
+		if((uNumOfChars+1) > 4096)
 		{
-			str.resize(num_of_chars + 1, '\0');
-			std::vsnprintf(const_cast<char*>(str.data()), str.size(), format, args1);
-			str.resize(num_of_chars);
-			ptrFmt = const_cast<char*>(str.data());
+			str.resize(uNumOfChars + 1, '\0');
+			std::vsnprintf(const_cast<char*>(str.data()), str.size(), pstrFormat, args1);
+			str.resize(uNumOfChars);
+			pstrFmt = const_cast<char*>(str.data());
 		}else
 		{
-			std::vsnprintf(defaultStr, num_of_chars+1, format, args1);
-			ptrFmt = defaultStr;
+			std::vsnprintf(defaultStr, uNumOfChars+1, pstrFormat, args1);
+			pstrFmt = defaultStr;
 
 			strncpy(strMsg, defaultStr, sizeof(strMsg));
 			skip_ansi_escape_sequences(strMsg);
@@ -503,22 +503,22 @@ int netSdk_log(int level,\
         }
 
         if (pTargetLogger) {
-            switch(level)
+            switch(nLevel)
             {
             case NETSDK_LOG_TRACE:
-                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::trace, ptrFmt);
+                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), nLine, pstrFuncName}, spdlog::level::trace, pstrFmt);
                 break;
             case NETSDK_LOG_DEBUG:
-                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::debug, ptrFmt);
+                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), nLine, pstrFuncName}, spdlog::level::debug, pstrFmt);
                 break;
             case NETSDK_LOG_INFO:
-                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::info, ptrFmt);
+                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), nLine, pstrFuncName}, spdlog::level::info, pstrFmt);
                 break;
             case NETSDK_LOG_WARN:
-                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::warn, ptrFmt);
+                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), nLine, pstrFuncName}, spdlog::level::warn, pstrFmt);
                 break;
             case NETSDK_LOG_ERROR:
-                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), line_in, funcname_in}, spdlog::level::err, ptrFmt);
+                pTargetLogger->log(spdlog::source_loc{strFileName.c_str(), nLine, pstrFuncName}, spdlog::level::err, pstrFmt);
                 break;
             }
 			/* 手动刷新确保日志写入文件。 */
@@ -532,9 +532,9 @@ int netSdk_log(int level,\
 		{
 			char timeBuf[64];
 			getCurrTime(timeBuf, NULL);
-			size_t lastSlash = strFileName.find_last_of("/\\");
-			std::string fileNameOnly = (lastSlash != std::string::npos) ? strFileName.substr(lastSlash + 1) : strFileName;
-			printf("%s[%s:%d] %s\n", timeBuf, fileNameOnly.c_str(), line_in, ptrFmt);
+			size_t uLastSlash = strFileName.find_last_of("/\\");
+			std::string strFileNameOnly = (uLastSlash != std::string::npos) ? strFileName.substr(uLastSlash + 1) : strFileName;
+			printf("%s[%s:%d] %s\n", timeBuf, strFileNameOnly.c_str(), nLine, pstrFmt);
 			fflush(stdout);
 		}
 #else
@@ -543,7 +543,7 @@ int netSdk_log(int level,\
 		{
 			char timeBuf[64];
 			getCurrTime(timeBuf, NULL);
-			printf("%s[%s:%d] %s\n", timeBuf, strFileName.c_str(), line_in, ptrFmt);
+			printf("%s[%s:%d] %s\n", timeBuf, strFileName.c_str(), nLine, pstrFmt);
 			fflush(stdout);
 		}
 #endif
@@ -572,26 +572,26 @@ int syncPrintf(bool bStatus)
 /**
  * @author tianl (tianl@kfb.cn)
  * @brief 查询或校验 getCurrTime 对应的数据。
- * @param [out] outputBuf 函数处理参数。
- * @param [in,out] timeFormat 函数处理参数。
+ * @param [out] pstrOutputBuf 函数处理参数。
+ * @param [in,out] pstrTimeFormat 函数处理参数。
  * @return 返回该处理的状态或结果。
  */
 
-int getCurrTime(char* outputBuf,char* timeFormat)
+int getCurrTime(char* pstrOutputBuf,char* pstrTimeFormat)
 {
-	if(outputBuf == NULL){
+	if(pstrOutputBuf == NULL){
 		return -1;/*无输出源进入*/
 	}
 	/*默认格式*/
-	char format[32] = "[%Y-%m-%d %H:%M:%S.%e]";
-	if(timeFormat == NULL){
-		timeFormat = format;
+	char strFormat[32] = "[%Y-%m-%d %H:%M:%S.%e]";
+	if(pstrTimeFormat == NULL){
+		pstrTimeFormat = strFormat;
 	}
-	struct tm *newtime;
-	time_t lt1;
-	time(&lt1);
-	newtime = localtime(&lt1);
-	strftime(outputBuf, 64, timeFormat, newtime);
+	struct tm *pstNewTime;
+	time_t lTime;
+	time(&lTime);
+	pstNewTime = localtime(&lTime);
+	strftime(pstrOutputBuf, 64, pstrTimeFormat, pstNewTime);
     return 0;
 }
 /**

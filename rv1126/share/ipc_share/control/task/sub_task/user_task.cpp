@@ -1,10 +1,10 @@
-/***
+/**
  * @FilePath     : user_task.cpp
- * @Author       : zhangjc (zhangjc@kfb.cn)
- * @Date         : 2024-10-06 15:16:08
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-03-28 15:17:05
- * @Description  :
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-10-28 17:31:57
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-10-29 15:17:54
+ * @Description  : 用户管理相关任务
  */
 
 #include "user_task.h"
@@ -76,7 +76,6 @@ void Task::User::Login::handle()
 /* 获取登录错误信息 */
 void Task::User::GetLoginErrorInfo::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     /* 取出用户信息 */
     ::User::UserInfo_S stUserInfo;
     Convert::to_struct(m_taskData, stUserInfo);
@@ -107,7 +106,6 @@ void Task::User::Find::handle()
 /* 修改用户信息 */
 void Task::User::Update::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     /* 取出账号信息 */
     ::User::UpdateInfo_S stUserUpdateInfo;
     int nRet;
@@ -183,7 +181,6 @@ void Task::User::Update::handle()
 /* 更新用户状态 -当前仅仅解锁作用*/
 void Task::User::UpdateStatus::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     ::User::UserInfo_S stUserInfo;
     Convert::to_struct(m_taskData, stUserInfo);
 
@@ -195,7 +192,6 @@ void Task::User::UpdateStatus::handle()
 /* 添加用户 */
 void Task::User::Add::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     /* 取出用户信息 */
     ::User::UserInfo_S stUserInfo;
     Convert::to_struct(m_taskData, stUserInfo);
@@ -231,7 +227,6 @@ void Task::User::Add::handle()
 /* 删除用户 */
 void Task::User::Del::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     ::User::UserInfo_S stUserInfo;
     Convert::to_struct(m_taskData, stUserInfo);
 
@@ -306,7 +301,6 @@ void Task::User::UpdateLocalOnlineUser::handle()
 /* 重置密码信息 */
 void Task::User::ResetPassword::handle()
 {
-    dlog_debug("m_taskData %s] ", m_taskData.c_str());
     ::User::UserInfo_S stUserInfo;
     Convert::to_struct(m_taskData, stUserInfo);
 
@@ -321,18 +315,6 @@ void Task::User::ResetPassword::handle()
 
     /* 用户数据处理 */
     nRet = CUserManage::instance()->reset_password(stUserUpdateInfo,stSecurityServicesInfo);
-
-    /*如果是管理员账号*/
-    if (stUserUpdateInfo.stNewUserInfo.stAccountInfo.nAccountType == ACCOUNT_TYPE_ADMIN && nRet >= 0)
-    {
-        /*更新ssh账号信息*/
-        SystemManage::instance()->add_ssh_admin(stUserUpdateInfo.stNewUserInfo.stAccountInfo.account.c_str(),
-                                                stUserUpdateInfo.stNewUserInfo.stAccountInfo.password.c_str());
-        /* 更新RtspServer账号信息 */
-        CRtspServer::instance()->update_userInfo(stUserUpdateInfo.stNewUserInfo.stAccountInfo.account,
-                                                 stUserUpdateInfo.stNewUserInfo.stAccountInfo.password,
-                                                 true);
-    }
 
     result( nRet);
 

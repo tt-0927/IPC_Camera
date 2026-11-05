@@ -38,13 +38,13 @@ namespace tvsdk {
  * @author tianl (tianl@kfb.cn)
  * @brief 录像帧回调函数类型
  * @details 当接收到设备端发送的录像帧时调用，包含帧信息和帧数据
- * @param frame_info 帧信息结构体（序号、时间戳、媒体类型、数据长度等）
- * @param data 帧数据指针
- * @param size 帧数据大小（字节）
+ * @param stFrameInfo 帧信息结构体（序号、时间戳、媒体类型、数据长度等）
+ * @param pstrData 帧数据指针
+ * @param uSize 帧数据大小（字节）
  */
-using RecordFrameCallback = std::function<void(const NET_RecordFrameInfo_S& frame_info,
-                                               const char* data,
-                                               size_t size)>;
+using RecordFrameCallback = std::function<void(const NET_RecordFrameInfo_S& stFrameInfo,
+                                               const char* pstrData,
+                                               size_t uSize)>;
 
 /**
  * @author tianl (tianl@kfb.cn)
@@ -71,14 +71,14 @@ public:
  * @author tianl (tianl@kfb.cn)
      * @brief 连接设备录像帧端口并启动接收
      * @param host 设备IP地址
-     * @param port 设备录像帧端口号
-     * @param stream_id 流ID，标识当前播放会话
+     * @param nPort 设备录像帧端口号
+     * @param strStreamId 流ID，标识当前播放会话
      * @param callback 帧数据回调函数，用于接收设备发送的录像帧数据
      * @return true表示成功，false表示失败
      */
     bool start(const std::string& host,
-               int port,
-               const std::string& stream_id,
+               int nPort,
+               const std::string& strStreamId,
                RecordFrameCallback callback);
 
     /**

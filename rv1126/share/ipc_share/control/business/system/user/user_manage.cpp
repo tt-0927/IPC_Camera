@@ -1,10 +1,10 @@
-/***
+/**
  * @FilePath     : user_manage.cpp
- * @Author       : zhangjc (zhangjc@kfb.cn)
- * @Date         : 2024-11-14 10:22:30
- * @LastEditors  : huangjunda
- * @LastEditTime : 2025-03-28 10:23:37
- * @Description  :
+ * @Author       : zhouzr@kfb.cn
+ * @Date         : 2026-10-28 17:31:57
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-10-29 15:16:44
+ * @Description  : 用户管理
  */
 
 #include "user_manage.h"
@@ -767,6 +767,14 @@ int CUserManage::update_status(User::UserInfo_S stUserUpdateInfo, User::AccountS
  */
 int CUserManage::reset_password(User::UpdateInfo_S stUserUpdateInfo,::System::SecurityServices_S stSecurityServicesInfo)
 {
+    /* admin 与 itc 的密码不允许经网页重置：admin 一旦被重置成出厂默认口令，任何知道默认口令的人
+     * 都能以管理员身份登录设备 */
+    if (stUserUpdateInfo.stAccountInfo.account == "admin" || stUserUpdateInfo.stAccountInfo.account == "itc")
+    {
+        dlog_error("拒绝重置%s用户的密码：该账号不允许通过网页重置", stUserUpdateInfo.stAccountInfo.account.c_str());
+        return IpcRet_E::ERR_USER_PERMISSION;
+    }
+
     std::vector<User::UserInfo_S> userInfos;
     User::UserInfo_S stUserInfo;
     CUserDatabase::instance()->find(Element(USER_FIELD_ACCOUNT, stUserUpdateInfo.stAccountInfo.account), userInfos);
@@ -825,7 +833,6 @@ int CUserManage::reset_password(User::UpdateInfo_S stUserUpdateInfo,::System::Se
 
     return nRet;
 }
-
 
 /**
  * @brief 查找用户信息

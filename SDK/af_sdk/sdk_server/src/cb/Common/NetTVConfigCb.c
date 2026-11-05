@@ -440,12 +440,12 @@ NET_API BOOL STDCALL NET_serverRegisterSetUpgradeCb(NET_CB_SetDevConfigByCommand
 /**
  * @brief 执行配置获取回调（核心分发函数）
  * @param [IN] nChannelId 通道号
- * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] nCommand 命令码（标识配置类型）
  * @param [OUT] lpOutBuffer 输出缓冲区，用于存放配置数据
  * @return NET_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用回调（RTSP/回放等）> 按命令码注册的回调 > 通用回调
  */
-int executeGetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpOutBuffer)
+int executeGetDevConfigCb(INT32 nChannelId, INT32 nCommand, LPVOID lpOutBuffer)
 {
     NET_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
     if (lpOutBuffer == NULL)
@@ -454,7 +454,7 @@ int executeGetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpOutBuffer)
     }
 
     /* 查找按命令码注册的专用回调 */
-    pItem = findCmdCbItemByGetCmd(dwCommand);
+    pItem = findCmdCbItemByGetCmd(nCommand);
     if (pItem != NULL && pItem->cbGetByCmd != NULL)
     {
         return pItem->cbGetByCmd(nChannelId, lpOutBuffer);
@@ -463,12 +463,12 @@ int executeGetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpOutBuffer)
     /* 降级到通用回调 */
     if (g_stConfigCbTable.cbGet != NULL)
     {
-        return g_stConfigCbTable.cbGet(nChannelId, dwCommand, lpOutBuffer);
+        return g_stConfigCbTable.cbGet(nChannelId, nCommand, lpOutBuffer);
     }
 
     /* 无任何回调注册 */
     printf("[NetTVConfigCb] GetDevConfig callback missing, cmd=%d, item=%p, cbGetByCmd=%p, cbGet=%p\n",
-           dwCommand,
+           nCommand,
            (void*)pItem,
            pItem ? (void*)pItem->cbGetByCmd : NULL,
            (void*)g_stConfigCbTable.cbGet);
@@ -478,12 +478,12 @@ int executeGetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpOutBuffer)
 /**
  * @brief 执行配置设置回调（核心分发函数）
  * @param [IN] nChannelId 通道号
- * @param [IN] dwCommand 命令码（标识配置类型）
+ * @param [IN] nCommand 命令码（标识配置类型）
  * @param [IN] lpInBuffer 输入缓冲区，包含要设置的配置数据
  * @return NET_E_SUCCEED 成功，其他值失败
  * @note 回调执行优先级：专用回调（回放控制等）> 按命令码注册的回调 > 通用回调
  */
-int executeSetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpInBuffer)
+int executeSetDevConfigCb(INT32 nChannelId, INT32 nCommand, LPVOID lpInBuffer)
 {
     NET_CONFIG_CMD_CB_ITEM_S* pItem = NULL;
     if (lpInBuffer == NULL)
@@ -492,7 +492,7 @@ int executeSetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpInBuffer)
     }
 
     /* 查找按命令码注册的专用回调 */
-    pItem = findCmdCbItemBySetCmd(dwCommand);
+    pItem = findCmdCbItemBySetCmd(nCommand);
     if (pItem != NULL && pItem->cbSetByCmd != NULL)
     {
         return pItem->cbSetByCmd(nChannelId, lpInBuffer);
@@ -501,7 +501,7 @@ int executeSetDevConfigCb(INT32 nChannelId, INT32 dwCommand, LPVOID lpInBuffer)
     /* 降级到通用回调 */
     if (g_stConfigCbTable.cbSet != NULL)
     {
-        return g_stConfigCbTable.cbSet(nChannelId, dwCommand, lpInBuffer);
+        return g_stConfigCbTable.cbSet(nChannelId, nCommand, lpInBuffer);
     }
 
     return NET_E_NONSUPPORT;

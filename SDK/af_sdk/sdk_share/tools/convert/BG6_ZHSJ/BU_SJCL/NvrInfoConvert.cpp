@@ -21,44 +21,44 @@
 namespace SDKConvert
 {
 
-static UINT32 clamp_time_count(UINT32 count)
+static UINT32 clamp_time_count(UINT32 uCount)
 {
-    return (count > NET_PLAN_TIME_SECTION_NUM_ADAY) ? NET_PLAN_TIME_SECTION_NUM_ADAY : count;
+    return (uCount > NET_PLAN_TIME_SECTION_NUM_ADAY) ? NET_PLAN_TIME_SECTION_NUM_ADAY : uCount;
 }
 
-static void JsonToFloatArray(Json::Object* pRootJson, const char* key, FLOAT* values, int maxCount)
+static void JsonToFloatArray(Json::Object* pRootJson, const char* pstrKey, FLOAT* pfValues, int nMaxCount)
 {
-    Json::Object* pArray = Json::get(pRootJson, key);
+    Json::Object* pArray = Json::get(pRootJson, pstrKey);
     if (!pArray)
     {
         return;
     }
 
     int nSize = Json::Array::size(pArray);
-    for (int i = 0; i < nSize && i < maxCount; i++)
+    for (int i = 0; i < nSize && i < nMaxCount; i++)
     {
         Json::Object* pItem = Json::Array::get(pArray, i);
         if (pItem)
         {
             double dVal = 0.0;
             Json::Value::get(pItem, dVal);
-            values[i] = (FLOAT)dVal;
+            pfValues[i] = (FLOAT)dVal;
         }
     }
 }
 
-static void FloatArrayToJson(Json::Object* pRootJson, const char* key, const FLOAT* values, int count, int maxCount)
+static void FloatArrayToJson(Json::Object* pRootJson, const char* pstrKey, const FLOAT* pfValues, int nCount, int nMaxCount)
 {
     Json::Object* pArray = Json::Array::init();
-    if (count > maxCount)
+    if (nCount > nMaxCount)
     {
-        count = maxCount;
+        nCount = nMaxCount;
     }
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i < nCount; i++)
     {
-        Json::Array::add(pArray, static_cast<float>(values[i]));
+        Json::Array::add(pArray, static_cast<float>(pfValues[i]));
     }
-    Json::add(pRootJson, key, pArray);
+    Json::add(pRootJson, pstrKey, pArray);
 }
 
 
@@ -97,8 +97,8 @@ void deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo, bool bOutSt
 
         for (i = 0; i < nTimeCount; ++i)
         {
-            std::string key = std::to_string(i);
-            Json::Object *pTime = Json::get(pTimes, key.c_str());
+            std::string strKey = std::to_string(i);
+            Json::Object *pTime = Json::get(pTimes, strKey.c_str());
             if (pTime)
                 deal(pTime, stInfo.astTimes[i], true);
         }
@@ -113,12 +113,12 @@ void deal(Json::Object *pRootJson, NET_CaptureDaySchedule_S &stInfo, bool bOutSt
 
         for (i = 0; i < nTimeCount; ++i)
         {
-            std::string key = std::to_string(i);
+            std::string strKey = std::to_string(i);
             Json::Object *pTime = Json::init();
             if (!pTime)
                 continue;
             deal(pTime, stInfo.astTimes[i], false);
-            Json::add(pTimes, key.c_str(), pTime);
+            Json::add(pTimes, strKey.c_str(), pTime);
         }
         Json::add(pRootJson, "Times", pTimes);
     }
@@ -140,8 +140,8 @@ void deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bool bOutStruc
 
         for (i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
         {
-            std::string key = std::to_string(i);
-            Json::Object *pDay = Json::get(pDays, key.c_str());
+            std::string strKey = std::to_string(i);
+            Json::Object *pDay = Json::get(pDays, strKey.c_str());
             if (pDay)
                 SDKConvert::deal(pDay, stInfo.astDaySchedules[i], true);
         }
@@ -155,12 +155,12 @@ void deal(Json::Object *pRootJson, NET_CapturePlanInfo_S &stInfo, bool bOutStruc
 
         for (i = 0; i < NET_PLAN_DAY_NUM_AWEEK; ++i)
         {
-            std::string key = std::to_string(i);
+            std::string strKey = std::to_string(i);
             Json::Object *pDay = Json::init();
             if (!pDay)
                 continue;
             deal(pDay, stInfo.astDaySchedules[i], false);
-            Json::add(pDays, key.c_str(), pDay);
+            Json::add(pDays, strKey.c_str(), pDay);
         }
         Json::add(pRootJson, "DaySchedules", pDays);
     }
@@ -230,9 +230,9 @@ void deal(Json::Object* pRootJson, NET_TalkbackStateInfo_S& stInfo, bool bOutStr
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
-    convert.field(pRootJson, "Sdp", stInfo.szSdp);
-    convert.field(pRootJson, "Url", stInfo.szUrl);
-    convert.field(pRootJson, "LocalIp", stInfo.szLocalIP);
+    convert.field(pRootJson, "Sdp", stInfo.strSdp);
+    convert.field(pRootJson, "Url", stInfo.strUrl);
+    convert.field(pRootJson, "LocalIp", stInfo.strLocalIP);
 }
 
 
@@ -244,15 +244,15 @@ void deal(Json::Object* pRootJson, NET_TalkbackStreamInfo_S& stInfo, bool bOutSt
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "Host", stInfo.szHost);
+    convert.field(pRootJson, "Host", stInfo.strHost);
     convert.field(pRootJson, "Port", stInfo.nPort);
     convert.field(pRootJson, "ChnId", stInfo.nChnId);
     convert.field(pRootJson, "UserId", stInfo.nUserID);
     convert.field(pRootJson, "IsMainStream", stInfo.bMainStream);
-    convert.field(pRootJson, "Protocol", stInfo.szProtocol);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
-    convert.field(pRootJson, "Filename", stInfo.szFileName);
+    convert.field(pRootJson, "Protocol", stInfo.strProtocol);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
+    convert.field(pRootJson, "Filename", stInfo.strFileName);
 }
 
 
@@ -264,8 +264,8 @@ void deal(Json::Object* pRootJson, NET_ReplayTalkbackInfo_S& stInfo, bool bOutSt
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "NvrIp", stInfo.szNvrIp);
-    convert.field(pRootJson, "RemoteIp", stInfo.szRemoteIp);
+    convert.field(pRootJson, "NvrIp", stInfo.strNvrIp);
+    convert.field(pRootJson, "RemoteIp", stInfo.strRemoteIp);
     convert.structure(pRootJson, "IpcInfo", stInfo.stIPCInfo);
 }
 
@@ -332,12 +332,12 @@ void deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruc
         Json::Object* pShieldRegions = Json::get(pRootJson, "ShieldRegion");
         if (pShieldRegions)
         {
-            int count = stInfo.uShieldRegionCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uShieldRegionCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRegion = Json::get(pShieldRegions, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRegion = Json::get(pShieldRegions, strKey);
                 if (pRegion)
                 {
                     deal(pRegion, stInfo.astShieldRegion[i], bOutStruct);
@@ -348,9 +348,9 @@ void deal(Json::Object* pRootJson, NET_FaceCaptureRule_S& stInfo, bool bOutStruc
     else
     {
         Json::Object* pShieldRegions = Json::init();
-        int count = stInfo.uShieldRegionCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uShieldRegionCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRegion = Json::init();
             deal(pRegion, stInfo.astShieldRegion[i], bOutStruct);
@@ -413,8 +413,8 @@ void deal(Json::Object* pRootJson, NET_FaceLibInfo_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);          /* 原名(添加/删除/修改共用, Add/Del 使用) */
-    convert.field(pRootJson, "LibId_new", stInfo.szFaceLibNameNew);   /* 修改目标库(重命名)新名 */
+    convert.field(pRootJson, "LibId", stInfo.strFaceLibName);          /* 原名(添加/删除/修改共用, Add/Del 使用) */
+    convert.field(pRootJson, "LibId_new", stInfo.strFaceLibNameNew);   /* 修改目标库(重命名)新名 */
     convert.field(pRootJson, "TotalFace", stInfo.nTotalFace);
     convert.field(pRootJson, "NormalNum", stInfo.nNormalNum);
     convert.field(pRootJson, "AbnormalNum", stInfo.nAbnormalNum);
@@ -524,13 +524,13 @@ void deal(Json::Object* pRootJson, NET_FaceInfo_S& stInfo, bool bOutStruct)
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Id", stInfo.nId);
-    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);
-    convert.field(pRootJson, "Name", stInfo.szName);
-    convert.field(pRootJson, "PhoneNum", stInfo.szPhoneNum);
-    convert.field(pRootJson, "PicPath", stInfo.szPicPath);
-    convert.field(pRootJson, "PicType", stInfo.szPicType);
+    convert.field(pRootJson, "LibId", stInfo.strFaceLibName);
+    convert.field(pRootJson, "Name", stInfo.strName);
+    convert.field(pRootJson, "PhoneNum", stInfo.strPhoneNum);
+    convert.field(pRootJson, "PicPath", stInfo.strPicPath);
+    convert.field(pRootJson, "PicType", stInfo.strPicType);
     convert.field(pRootJson, "PicSize", stInfo.nPicSize);
-    convert.field(pRootJson, "PicDate", stInfo.szPicDate);
+    convert.field(pRootJson, "PicDate", stInfo.strPicDate);
     convert.field(pRootJson, "ModelState", stInfo.nModelState);
     convert.field(pRootJson, "RatingLevel", stInfo.nRatingLevel);
 }
@@ -544,7 +544,7 @@ void deal(Json::Object* pRootJson, NET_FaceInfoList_S& stInfo, bool bOutStruct)
     }
 
     SDKConvert::CSDKConvert convert(bOutStruct);
-    convert.field(pRootJson, "LibId", stInfo.szFaceLibName);
+    convert.field(pRootJson, "LibId", stInfo.strFaceLibName);
     convert.field(pRootJson, "FaceInfoCount", stInfo.nFaceInfoCount);
     if (bOutStruct)
     {
@@ -720,6 +720,7 @@ void deal(Json::Object* pRootJson, NET_ManholeCoverAbnormalCfg_S& stInfo, bool b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -736,6 +737,7 @@ void deal(Json::Object* pRootJson, NET_SleepOnDutyCfg_S& stInfo, bool bOutStruct
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -751,6 +753,7 @@ void deal(Json::Object* pRootJson, NET_ElectricVehicleInElevatorCfg_S& stInfo, b
 
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     Json::Object *pRule = Json::get(pRootJson, "Rule");
     if (bOutStruct)
     {
@@ -788,6 +791,7 @@ void deal(Json::Object* pRootJson, NET_PersonFallDownCfg_S& stInfo, bool bOutStr
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -817,6 +821,7 @@ void deal(Json::Object* pRootJson, NET_ConstructionOccupyRoadCfg_S& stInfo, bool
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -833,6 +838,7 @@ void deal(Json::Object* pRootJson, NET_CongestionCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -849,6 +855,7 @@ void deal(Json::Object* pRootJson, NET_LicensePlateRecognitionCfg_S& stInfo, boo
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -865,6 +872,7 @@ void deal(Json::Object* pRootJson, NET_HighAltitudeSeatbeltCfg_S& stInfo, bool b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -881,6 +889,7 @@ void deal(Json::Object* pRootJson, NET_SafetyHelmetCfg_S& stInfo, bool bOutStruc
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -897,6 +906,7 @@ void deal(Json::Object* pRootJson, NET_PersonFallCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -913,6 +923,7 @@ void deal(Json::Object* pRootJson, NET_PhoneUsageCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -929,6 +940,7 @@ void deal(Json::Object* pRootJson, NET_SmokingCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -945,6 +957,7 @@ void deal(Json::Object* pRootJson, NET_OpenFlameCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -961,6 +974,7 @@ void deal(Json::Object* pRootJson, NET_BareSoilCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -977,6 +991,7 @@ void deal(Json::Object* pRootJson, NET_HoleProtectionBarCfg_S& stInfo, bool bOut
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -993,6 +1008,7 @@ void deal(Json::Object* pRootJson, NET_ReflectiveClothingCfg_S& stInfo, bool bOu
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -1009,6 +1025,7 @@ void deal(Json::Object* pRootJson, NET_PetRecognitionInfo_S& stInfo, bool bOutSt
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "DynamicAnalysisEnable", stInfo.bDynamicAnalysisEnable);
     convert.field(pRootJson, "Sensitivity", stInfo.nSensitivity);
     convert.structure(pRootJson, "Region", stInfo.stRegion);
@@ -1027,18 +1044,19 @@ void deal(Json::Object* pRootJson, NET_ClimbFenceInfo_S& stInfo, bool bOutStruct
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1049,9 +1067,9 @@ void deal(Json::Object* pRootJson, NET_ClimbFenceInfo_S& stInfo, bool bOutStruct
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1074,18 +1092,19 @@ void deal(Json::Object* pRootJson, NET_DimissionInfo_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1096,9 +1115,9 @@ void deal(Json::Object* pRootJson, NET_DimissionInfo_S& stInfo, bool bOutStruct)
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1121,18 +1140,19 @@ void deal(Json::Object* pRootJson, NET_IllegalLaneInfo_S& stInfo, bool bOutStruc
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1143,9 +1163,9 @@ void deal(Json::Object* pRootJson, NET_IllegalLaneInfo_S& stInfo, bool bOutStruc
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1168,18 +1188,19 @@ void deal(Json::Object* pRootJson, NET_RetrogradeInfo_S& stInfo, bool bOutStruct
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1190,9 +1211,9 @@ void deal(Json::Object* pRootJson, NET_RetrogradeInfo_S& stInfo, bool bOutStruct
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1215,18 +1236,19 @@ void deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_S& stInfo, b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1237,9 +1259,9 @@ void deal(Json::Object* pRootJson, NET_NonmotorVehicleIntrusionInfo_S& stInfo, b
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1262,18 +1284,19 @@ void deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& stInfo, bool b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1284,9 +1307,9 @@ void deal(Json::Object* pRootJson, NET_OccupationEmergencyInfo_S& stInfo, bool b
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1309,18 +1332,19 @@ void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool b
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.field(pRootJson, "RuleCount", stInfo.uRuleCount);
     if (bOutStruct)
     {
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1331,9 +1355,9 @@ void deal(Json::Object* pRootJson, NET_PedestrianIntrusionInfo_S& stInfo, bool b
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1356,6 +1380,7 @@ void deal(Json::Object* pRootJson, NET_SmokeFireCfg_S& stInfo, bool bOutStruct)
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -1372,6 +1397,7 @@ void deal(Json::Object* pRootJson, NET_RoadPondingCfg_S& stInfo, bool bOutStruct
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.uChannel);
     convert.field(pRootJson, "Enable", stInfo.bEnable);
+    convert.field(pRootJson, "Mode", stInfo.nMode);
     convert.structure(pRootJson, "Rule", stInfo.stRule);
     convert.structure(pRootJson, "AlarmSchedule", stInfo.stAlarmSchedule);
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
@@ -1441,7 +1467,7 @@ void deal(Json::Object* pRootJson, NET_ChannelNameInfo_S& stInfo, bool bOutStruc
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "uChannel", stInfo.uChannel);
-    convert.field(pRootJson, "szChannelName", stInfo.szChannelName);
+    convert.field(pRootJson, "szChannelName", stInfo.strChannelName);
 }
 
 void deal(Json::Object* pRootJson, NET_TransparentChannel_S& stInfo, bool bOutStruct)
@@ -1478,10 +1504,10 @@ void deal(Json::Object* pRootJson, NET_TransparentData_S& stInfo, bool bOutStruc
     }
     else
     {
-        UINT32 dataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
-        if (dataLen > 0)
+        UINT32 uDataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
+        if (uDataLen > 0)
         {
-            std::string strData(reinterpret_cast<const char*>(stInfo.byData), dataLen);
+            std::string strData(reinterpret_cast<const char*>(stInfo.byData), uDataLen);
             Json::add(pRootJson, "byData", strData);
         }
     }
@@ -1524,10 +1550,10 @@ void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct)
     }
     else
     {
-        UINT32 dataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
-        if (dataLen > 0)
+        UINT32 uDataLen = (std::min)(stInfo.uDataLen, static_cast<UINT32>(sizeof(stInfo.byData)));
+        if (uDataLen > 0)
         {
-            std::string strData(reinterpret_cast<const char*>(stInfo.byData), dataLen);
+            std::string strData(reinterpret_cast<const char*>(stInfo.byData), uDataLen);
             Json::add(pRootJson, "byData", strData);
         }
     }
@@ -1539,9 +1565,9 @@ void deal(Json::Object* pRootJson, NET_SerialData_S& stInfo, bool bOutStruct)
  * 输出（结构→JSON）只编码实际长度范围内的字节，避免传输 1MB 空数据。
  * 输入（JSON→结构）按 Base64 解码后拷贝，长度截断到数组容量。 */
 static void CapturePicBase64Field(Json::Object* pRootJson,
-                                  const std::string& key,
-                                  BYTE (&arr)[NET_PIC_DATA_MAX_LEN],
-                                  UINT32& len,
+                                  const std::string& strKey,
+                                  BYTE (&byArr)[NET_PIC_DATA_MAX_LEN],
+                                  UINT32& uLen,
                                   bool bOutStruct)
 {
     if (!pRootJson)
@@ -1551,36 +1577,36 @@ static void CapturePicBase64Field(Json::Object* pRootJson,
 
     if (bOutStruct)
     {
-        len = 0;
-        std::string b64;
-        if (Json::get(pRootJson, key, b64) && !b64.empty())
+        uLen = 0;
+        std::string strB64;
+        if (Json::get(pRootJson, strKey, strB64) && !strB64.empty())
         {
-            std::vector<unsigned char> decoded;
-            if (SDKConvert::Base64Decode(b64, decoded))
+            std::vector<unsigned char> vecDecoded;
+            if (SDKConvert::Base64Decode(strB64, vecDecoded))
             {
-                size_t copyLen = (std::min)(decoded.size(),
+                size_t uCopyLen = (std::min)(vecDecoded.size(),
                                             static_cast<size_t>(NET_PIC_DATA_MAX_LEN));
-                if (copyLen > 0)
+                if (uCopyLen > 0)
                 {
-                    std::memcpy(arr, decoded.data(), copyLen);
+                    std::memcpy(byArr, vecDecoded.data(), uCopyLen);
                 }
-                len = static_cast<UINT32>(copyLen);
+                uLen = static_cast<UINT32>(uCopyLen);
             }
         }
         return;
     }
 
-    UINT32 imageLen = len;
-    if (imageLen > static_cast<UINT32>(NET_PIC_DATA_MAX_LEN))
+    UINT32 uImageLen = uLen;
+    if (uImageLen > static_cast<UINT32>(NET_PIC_DATA_MAX_LEN))
     {
-        imageLen = static_cast<UINT32>(NET_PIC_DATA_MAX_LEN);
+        uImageLen = static_cast<UINT32>(NET_PIC_DATA_MAX_LEN);
     }
-    if (imageLen > 0)
+    if (uImageLen > 0)
     {
-        std::string b64 = SDKConvert::Base64Encode(
-            reinterpret_cast<const unsigned char*>(arr),
-            static_cast<size_t>(imageLen));
-        Json::add(pRootJson, key, b64);
+        std::string strB64 = SDKConvert::Base64Encode(
+            reinterpret_cast<const unsigned char*>(byArr),
+            static_cast<size_t>(uImageLen));
+        Json::add(pRootJson, strKey, strB64);
     }
 }
 
@@ -1596,7 +1622,7 @@ void deal(Json::Object* pRootJson, NET_CapturePictureInfo_S& stInfo, bool bOutSt
     convert.field(pRootJson, "PicFormat", stInfo.nPicFormat);
     convert.field(pRootJson, "OutputType", stInfo.nOutputType);
     convert.field(pRootJson, "ImageQuality", stInfo.nImageQuality);
-    convert.field(pRootJson, "FilePath", stInfo.szFilePath);
+    convert.field(pRootJson, "FilePath", stInfo.strFilePath);
     /* 图片数据最后处理：依赖 uPicLen，且只在内存输出模式下有效 */
     if (!bOutStruct && stInfo.nOutputType == NET_CAPTURE_OUTPUT_MEMORY)
     {
@@ -1619,9 +1645,9 @@ void deal(Json::Object* pRootJson, NET_RecordLockInfo_S& stInfo, bool bOutStruct
     }
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.nChannel);
-    convert.field(pRootJson, "StartTime", stInfo.szStartTime);
-    convert.field(pRootJson, "EndTime", stInfo.szEndTime);
-    convert.field(pRootJson, "FileName", stInfo.szFileName);
+    convert.field(pRootJson, "StartTime", stInfo.strStartTime);
+    convert.field(pRootJson, "EndTime", stInfo.strEndTime);
+    convert.field(pRootJson, "FileName", stInfo.strFileName);
     convert.field(pRootJson, "LockStatus", stInfo.nLockStatus);
 }
 
@@ -1634,9 +1660,9 @@ void deal(Json::Object* pRootJson, NET_ForceKeyFrameInfo_S& stInfo, bool bOutStr
     SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Channel", stInfo.nChannel);
     convert.field(pRootJson, "StreamType", stInfo.nStreamType);
-    convert.field(pRootJson, "StreamId", stInfo.szStreamId);
+    convert.field(pRootJson, "StreamId", stInfo.strStreamId);
     convert.field(pRootJson, "Result", stInfo.nResult);
-    convert.field(pRootJson, "StreamUrl", stInfo.szStreamUrl);
+    convert.field(pRootJson, "StreamUrl", stInfo.strStreamUrl);
 }
 
 /* ---- 平安校园：单区域 + 三档灵敏度事件 ---- */
@@ -1656,7 +1682,6 @@ void deal(Json::Object* pRootJson, NET_ChannelOccupationInfo_S& stInfo, bool bOu
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
-/* ---- 平安校园扩展：单区域 + 灵敏度（打架斗殴另有时间阈值） ---- */
 /**
  * @brief 排队拥挤配置的 JSON 双向序列化。
  * @param [in,out] pRootJson JSON 根对象。
@@ -1857,12 +1882,12 @@ void deal(Json::Object* pRootJson, NET_ClimbDetectionInfo_S& stInfo, bool bOutSt
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1873,9 +1898,9 @@ void deal(Json::Object* pRootJson, NET_ClimbDetectionInfo_S& stInfo, bool bOutSt
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1903,12 +1928,12 @@ void deal(Json::Object* pRootJson, NET_DangerZoneApproachInfo_S& stInfo, bool bO
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1919,9 +1944,9 @@ void deal(Json::Object* pRootJson, NET_DangerZoneApproachInfo_S& stInfo, bool bO
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1949,12 +1974,12 @@ void deal(Json::Object* pRootJson, NET_LongTimeStayInfo_S& stInfo, bool bOutStru
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1965,9 +1990,9 @@ void deal(Json::Object* pRootJson, NET_LongTimeStayInfo_S& stInfo, bool bOutStru
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -1995,12 +2020,12 @@ void deal(Json::Object* pRootJson, NET_DangerZoneStayInfo_S& stInfo, bool bOutSt
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -2011,9 +2036,9 @@ void deal(Json::Object* pRootJson, NET_DangerZoneStayInfo_S& stInfo, bool bOutSt
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -2041,12 +2066,12 @@ void deal(Json::Object* pRootJson, NET_KeyAreaAbnormalStayInfo_S& stInfo, bool b
         Json::Object* pRules = Json::get(pRootJson, "Rules");
         if (pRules)
         {
-            int count = stInfo.uRuleCount;
-            if (count > 4) count = 4;
-            for (int i = 0; i < count; i++)
+            int nCount = stInfo.uRuleCount;
+            if (nCount > 4) nCount = 4;
+            for (int i = 0; i < nCount; i++)
             {
-                std::string key = std::to_string(i);
-                Json::Object* pRule = Json::get(pRules, key);
+                std::string strKey = std::to_string(i);
+                Json::Object* pRule = Json::get(pRules, strKey);
                 if (pRule)
                 {
                     deal(pRule, stInfo.stRule[i], bOutStruct);
@@ -2057,9 +2082,9 @@ void deal(Json::Object* pRootJson, NET_KeyAreaAbnormalStayInfo_S& stInfo, bool b
     else
     {
         Json::Object* pRules = Json::init();
-        int count = stInfo.uRuleCount;
-        if (count > 4) count = 4;
-        for (int i = 0; i < count; i++)
+        int nCount = stInfo.uRuleCount;
+        if (nCount > 4) nCount = 4;
+        for (int i = 0; i < nCount; i++)
         {
             Json::Object* pRule = Json::init();
             deal(pRule, stInfo.stRule[i], bOutStruct);

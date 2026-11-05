@@ -7,7 +7,7 @@
  * @Description  : SJCL 配置域实现
  *                 注册 NVR/录播命令码→处理函数映射。
  * @FileName     : SjclDomain.cpp
- * @Change       : 2026-10-10，报警输入输出列表拆分委托 AlarmIoBusiness 处理。
+ * @Change       : 2026-10-09，保持报警输入输出命令归属，委托独立业务入口兼容单路和列表设置，避免重复注册覆盖。
  */
 #ifndef BU_SJCL_EXCLUDE
 
@@ -30,22 +30,22 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_CAPTURE_PLAN_INFO]   = &CSjclDomain::TemplatedGet<NET_CapturePlanInfo_S>;
     m_getTable[NET_GET_CAPTURE_PARAM_INFO] = &CSjclDomain::TemplatedGet<NET_CaptureParamInfo_S>;
 
-    /* ===== 传统报警 ===== */
-    m_getTable[NET_GET_TAMPERALARM]            = &CSjclDomain::TemplatedGet<NET_TamperAlarmInfo_S>;
-    m_getTable[NET_GET_MOTIONALARM]             = &CSjclDomain::TemplatedGet<NET_MotionAlarmInfo_S>;
-    m_getTable[NET_GET_CROSSLINEALARM]          = &CSjclDomain::TemplatedGet<NET_CrossLineAlarmInfo_S>;
-    m_getTable[NET_GET_INTRUSIONALARM]           = &CSjclDomain::TemplatedGet<NET_IntrusionAlarmInfo_S>;
-    m_getTable[NET_GET_ENTERREGIONALARM]        = &CSjclDomain::TemplatedGet<NET_EnterRegionAlarmInfo_S>;
-    m_getTable[NET_GET_LEAVEREGIONALARM]         = &CSjclDomain::TemplatedGet<NET_LeaveRegionAlarmInfo_S>;
-    m_getTable[NET_GET_LOITERINGALARM]           = &CSjclDomain::TemplatedGet<NET_LoiteringAlarmInfo_S>;
-    m_getTable[NET_GET_SCENECHANGEALARM]         = &CSjclDomain::TemplatedGet<NET_SceneChangeAlarmInfo_S>;
-    m_getTable[NET_GET_CROWDGATHERINGALARM]      = &CSjclDomain::TemplatedGet<NET_CrowdGatheringAlarmInfo_S>;
-    m_getTable[NET_GET_GARBAGE_EXPOSURE_CFG]     = &CSjclDomain::TemplatedGet<NET_GarbageExposureCfg_S>;
-    m_getTable[NET_GET_GARBAGE_OVERFLOW_CFG]     = &CSjclDomain::TemplatedGet<NET_GarbageOverflowCfg_S>;
-    m_getTable[NET_GET_PARKINGALARM]             = &CSjclDomain::TemplatedGet<NET_ParkingAlarmInfo_S>;
-    m_getTable[NET_GET_UNATTENDEDOBJECTALARM]    = &CSjclDomain::TemplatedGet<NET_UnattendedObjectAlarmInfo_S>;
-    m_getTable[NET_GET_OBJECTREMOVALALARM]       = &CSjclDomain::TemplatedGet<NET_ObjectRemovalAlarmInfo_S>;
-    m_getTable[NET_GET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedGet<NET_AudioAnomalyAlarmInfo_S>;
+    /* ===== 传统报警（智能事件用 TemplatedGetSmart：GET 带 URL 参数 Mode=0/1 指定读取方向） ===== */
+    m_getTable[NET_GET_TAMPERALARM]            = &CSjclDomain::TemplatedGet<NET_TamperAlarmInfo_S>; /* 无前后智能模式 */
+    m_getTable[NET_GET_MOTIONALARM]             = &CSjclDomain::TemplatedGet<NET_MotionAlarmInfo_S>; /* uMode=3老协议，保持原样 */
+    m_getTable[NET_GET_CROSSLINEALARM]          = &CSjclDomain::TemplatedGetSmart<NET_CrossLineAlarmInfo_S>;
+    m_getTable[NET_GET_INTRUSIONALARM]           = &CSjclDomain::TemplatedGetSmart<NET_IntrusionAlarmInfo_S>;
+    m_getTable[NET_GET_ENTERREGIONALARM]        = &CSjclDomain::TemplatedGetSmart<NET_EnterRegionAlarmInfo_S>;
+    m_getTable[NET_GET_LEAVEREGIONALARM]         = &CSjclDomain::TemplatedGetSmart<NET_LeaveRegionAlarmInfo_S>;
+    m_getTable[NET_GET_LOITERINGALARM]           = &CSjclDomain::TemplatedGetSmart<NET_LoiteringAlarmInfo_S>;
+    m_getTable[NET_GET_SCENECHANGEALARM]         = &CSjclDomain::TemplatedGetSmart<NET_SceneChangeAlarmInfo_S>;
+    m_getTable[NET_GET_CROWDGATHERINGALARM]      = &CSjclDomain::TemplatedGetSmart<NET_CrowdGatheringAlarmInfo_S>;
+    m_getTable[NET_GET_GARBAGE_EXPOSURE_CFG]     = &CSjclDomain::TemplatedGetSmart<NET_GarbageExposureCfg_S>;
+    m_getTable[NET_GET_GARBAGE_OVERFLOW_CFG]     = &CSjclDomain::TemplatedGetSmart<NET_GarbageOverflowCfg_S>;
+    m_getTable[NET_GET_PARKINGALARM]             = &CSjclDomain::TemplatedGetSmart<NET_ParkingAlarmInfo_S>;
+    m_getTable[NET_GET_UNATTENDEDOBJECTALARM]    = &CSjclDomain::TemplatedGetSmart<NET_UnattendedObjectAlarmInfo_S>;
+    m_getTable[NET_GET_OBJECTREMOVALALARM]       = &CSjclDomain::TemplatedGetSmart<NET_ObjectRemovalAlarmInfo_S>;
+    m_getTable[NET_GET_AUDIOANOMALYALARM]        = &CSjclDomain::TemplatedGetSmart<NET_AudioAnomalyAlarmInfo_S>;
     m_getTable[NET_GET_AUDIO_ANOMALY_CURRENT_DB] = &CSjclDomain::TemplatedGet<NET_AudioAnomalyCurrentDb_S>;
     m_getTable[NET_GET_AUDIBLE_ALARM_INFO]      = &CSjclDomain::TemplatedGet<NET_AudibleAlarmInfo_S>;
     m_getTable[NET_GET_AUDIBLE_ALARM_CUSTOM_INFO] = &CSjclDomain::TemplatedGet<NET_AudibleAlarmCustomAudioList_S>;
@@ -66,35 +66,35 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_FACECAPTUREINFO]   = &CSjclDomain::TemplatedGet<NET_FaceCaptureInfo_S>;
     m_getTable[NET_GET_FACE_INFO]         = &CSjclDomain::TemplatedGet<NET_FaceInfoList_S>;
 
-    /* ===== AI 分析配置 ===== */
+    /* ===== AI 分析配置（智能事件用 TemplatedGetSmart，同传统报警） ===== */
     m_getTable[NET_GET_PEOPLE_FLOW_STATISTICS_CFG]        = &CSjclDomain::TemplatedGet<NET_PeopleFlowStatisticsCfg_S>;
     m_getTable[NET_GET_PEOPLE_DENSITY_DETECTION_CFG]      = &CSjclDomain::TemplatedGet<NET_PeopleDensityDetectionCfg_S>;
-    m_getTable[NET_GET_MANHOLE_COVER_ABNORMAL_CFG]        = &CSjclDomain::TemplatedGet<NET_ManholeCoverAbnormalCfg_S>;
-    m_getTable[NET_GET_SLEEP_ON_DUTY_CFG]                  = &CSjclDomain::TemplatedGet<NET_SleepOnDutyCfg_S>;
-    m_getTable[NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG]  = &CSjclDomain::TemplatedGet<NET_ElectricVehicleInElevatorCfg_S>;
-    m_getTable[NET_GET_PERSON_FALL_DOWN_CFG]              = &CSjclDomain::TemplatedGet<NET_PersonFallDownCfg_S>;
-    m_getTable[NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG]      = &CSjclDomain::TemplatedGet<NET_ConstructionOccupyRoadCfg_S>;
-    m_getTable[NET_GET_CONGESTION_CFG]                    = &CSjclDomain::TemplatedGet<NET_CongestionCfg_S>;
-    m_getTable[NET_GET_LICENSE_PLATE_RECOGNITION_CFG]    = &CSjclDomain::TemplatedGet<NET_LicensePlateRecognitionCfg_S>;
-    m_getTable[NET_GET_HIGH_ALTITUDE_SEATBELT_CFG]       = &CSjclDomain::TemplatedGet<NET_HighAltitudeSeatbeltCfg_S>;
-    m_getTable[NET_GET_SAFETY_HELMET_CFG]                 = &CSjclDomain::TemplatedGet<NET_SafetyHelmetCfg_S>;
-    m_getTable[NET_GET_PERSON_FALL_CFG]                   = &CSjclDomain::TemplatedGet<NET_PersonFallCfg_S>;
-    m_getTable[NET_GET_PHONE_USAGE_CFG]                   = &CSjclDomain::TemplatedGet<NET_PhoneUsageCfg_S>;
-    m_getTable[NET_GET_SMOKING_CFG]                       = &CSjclDomain::TemplatedGet<NET_SmokingCfg_S>;
-    m_getTable[NET_GET_OPEN_FLAME_CFG]                    = &CSjclDomain::TemplatedGet<NET_OpenFlameCfg_S>;
-    m_getTable[NET_GET_BARE_SOIL_CFG]                     = &CSjclDomain::TemplatedGet<NET_BareSoilCfg_S>;
-    m_getTable[NET_GET_HOLE_PROTECTION_BAR_CFG]           = &CSjclDomain::TemplatedGet<NET_HoleProtectionBarCfg_S>;
-    m_getTable[NET_GET_REFLECTIVE_CLOTHING_CFG]           = &CSjclDomain::TemplatedGet<NET_ReflectiveClothingCfg_S>;
-    m_getTable[NET_GET_PET_RECOGNITION_INFO]              = &CSjclDomain::TemplatedGet<NET_PetRecognitionInfo_S>;
-    m_getTable[NET_GET_CLIMB_FENCE_INFO]                  = &CSjclDomain::TemplatedGet<NET_ClimbFenceInfo_S>;
-    m_getTable[NET_GET_DIMISSION_INFO]                     = &CSjclDomain::TemplatedGet<NET_DimissionInfo_S>;
-    m_getTable[NET_GET_ILLEGAL_LANE_INFO]                  = &CSjclDomain::TemplatedGet<NET_IllegalLaneInfo_S>;
-    m_getTable[NET_GET_RETROGRADE_INFO]                    = &CSjclDomain::TemplatedGet<NET_RetrogradeInfo_S>;
-    m_getTable[NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO]   = &CSjclDomain::TemplatedGet<NET_NonmotorVehicleIntrusionInfo_S>;
-    m_getTable[NET_GET_OCCUPATION_EMERGENCY_INFO]         = &CSjclDomain::TemplatedGet<NET_OccupationEmergencyInfo_S>;
-    m_getTable[NET_GET_PEDESTRIAN_INTRUSION_INFO]         = &CSjclDomain::TemplatedGet<NET_PedestrianIntrusionInfo_S>;
-    m_getTable[NET_GET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedGet<NET_SmokeFireCfg_S>;
-    m_getTable[NET_GET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedGet<NET_RoadPondingCfg_S>;
+    m_getTable[NET_GET_MANHOLE_COVER_ABNORMAL_CFG]        = &CSjclDomain::TemplatedGetSmart<NET_ManholeCoverAbnormalCfg_S>;
+    m_getTable[NET_GET_SLEEP_ON_DUTY_CFG]                  = &CSjclDomain::TemplatedGetSmart<NET_SleepOnDutyCfg_S>;
+    m_getTable[NET_GET_ELECTRIC_VEHICLE_IN_ELEVATOR_CFG]  = &CSjclDomain::TemplatedGetSmart<NET_ElectricVehicleInElevatorCfg_S>;
+    m_getTable[NET_GET_PERSON_FALL_DOWN_CFG]              = &CSjclDomain::TemplatedGetSmart<NET_PersonFallDownCfg_S>;
+    m_getTable[NET_GET_CONSTRUCTION_OCCUPY_ROAD_CFG]      = &CSjclDomain::TemplatedGetSmart<NET_ConstructionOccupyRoadCfg_S>;
+    m_getTable[NET_GET_CONGESTION_CFG]                    = &CSjclDomain::TemplatedGetSmart<NET_CongestionCfg_S>;
+    m_getTable[NET_GET_LICENSE_PLATE_RECOGNITION_CFG]    = &CSjclDomain::TemplatedGetSmart<NET_LicensePlateRecognitionCfg_S>;
+    m_getTable[NET_GET_HIGH_ALTITUDE_SEATBELT_CFG]       = &CSjclDomain::TemplatedGetSmart<NET_HighAltitudeSeatbeltCfg_S>;
+    m_getTable[NET_GET_SAFETY_HELMET_CFG]                 = &CSjclDomain::TemplatedGetSmart<NET_SafetyHelmetCfg_S>;
+    m_getTable[NET_GET_PERSON_FALL_CFG]                   = &CSjclDomain::TemplatedGetSmart<NET_PersonFallCfg_S>;
+    m_getTable[NET_GET_PHONE_USAGE_CFG]                   = &CSjclDomain::TemplatedGetSmart<NET_PhoneUsageCfg_S>;
+    m_getTable[NET_GET_SMOKING_CFG]                       = &CSjclDomain::TemplatedGetSmart<NET_SmokingCfg_S>;
+    m_getTable[NET_GET_OPEN_FLAME_CFG]                    = &CSjclDomain::TemplatedGetSmart<NET_OpenFlameCfg_S>;
+    m_getTable[NET_GET_BARE_SOIL_CFG]                     = &CSjclDomain::TemplatedGetSmart<NET_BareSoilCfg_S>;
+    m_getTable[NET_GET_HOLE_PROTECTION_BAR_CFG]           = &CSjclDomain::TemplatedGetSmart<NET_HoleProtectionBarCfg_S>;
+    m_getTable[NET_GET_REFLECTIVE_CLOTHING_CFG]           = &CSjclDomain::TemplatedGetSmart<NET_ReflectiveClothingCfg_S>;
+    m_getTable[NET_GET_PET_RECOGNITION_INFO]              = &CSjclDomain::TemplatedGetSmart<NET_PetRecognitionInfo_S>;
+    m_getTable[NET_GET_CLIMB_FENCE_INFO]                  = &CSjclDomain::TemplatedGetSmart<NET_ClimbFenceInfo_S>;
+    m_getTable[NET_GET_DIMISSION_INFO]                     = &CSjclDomain::TemplatedGetSmart<NET_DimissionInfo_S>;
+    m_getTable[NET_GET_ILLEGAL_LANE_INFO]                  = &CSjclDomain::TemplatedGetSmart<NET_IllegalLaneInfo_S>;
+    m_getTable[NET_GET_RETROGRADE_INFO]                    = &CSjclDomain::TemplatedGetSmart<NET_RetrogradeInfo_S>;
+    m_getTable[NET_GET_NONMOTOR_VEHICLE_INTRUSION_INFO]   = &CSjclDomain::TemplatedGetSmart<NET_NonmotorVehicleIntrusionInfo_S>;
+    m_getTable[NET_GET_OCCUPATION_EMERGENCY_INFO]         = &CSjclDomain::TemplatedGetSmart<NET_OccupationEmergencyInfo_S>;
+    m_getTable[NET_GET_PEDESTRIAN_INTRUSION_INFO]         = &CSjclDomain::TemplatedGetSmart<NET_PedestrianIntrusionInfo_S>;
+    m_getTable[NET_GET_SMOKE_FIRE_CFG]                    = &CSjclDomain::TemplatedGetSmart<NET_SmokeFireCfg_S>;
+    m_getTable[NET_GET_ROAD_PONDING_CFG]                  = &CSjclDomain::TemplatedGetSmart<NET_RoadPondingCfg_S>;
 
     /* ===== 平安校园智能事件（对齐 IPC 2798~2815） ===== */
     m_getTable[NET_GET_CHANNEL_OCCUPATION_INFO]      = &CSjclDomain::TemplatedGet<NET_ChannelOccupationInfo_S>;
@@ -120,14 +120,14 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_SERIAL_PORT_PARAM] = &CSjclDomain::TemplatedGet<NET_SerialPortParam_S>;
 
     /* ===== NVR 专属（委托 CNvrBusiness） ===== */
-    m_getTable[NET_FIND_RECORD_FILE_INFO] = [](INT32 ch, INT32 cmd, const std::string&, const std::string& url) -> std::string {
-        return CNvrBusiness::instance()->HandleGetRecordFileList(ch, cmd, url);
+    m_getTable[NET_FIND_RECORD_FILE_INFO] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string& url) -> std::string {
+        return CNvrBusiness::instance()->HandleGetRecordFileList(ch, nCmd, url);
     };
-    m_getTable[NET_GET_CHANNEL_INFO] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CNvrBusiness::instance()->HandleGetChannelInfo(ch, cmd);
+    m_getTable[NET_GET_CHANNEL_INFO] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CNvrBusiness::instance()->HandleGetChannelInfo(ch, nCmd);
     };
-    m_getTable[NET_GET_RTSPURLCFG] = [](INT32 ch, INT32 cmd, const std::string& req_data, const std::string&) -> std::string {
-        return CNvrBusiness::instance()->HandleGetRtspUrl(ch, cmd, req_data);
+    m_getTable[NET_GET_RTSPURLCFG] = [](INT32 ch, INT32 nCmd, const std::string& req_data, const std::string&) -> std::string {
+        return CNvrBusiness::instance()->HandleGetRtspUrl(ch, nCmd, req_data);
     };
 
     /* ===== 抓图 / 录像锁定 / 强制I帧（580~584，通用 Get 通道） ===== */

@@ -31,22 +31,22 @@ CCommonDomain::CCommonDomain()
     m_getTable[NET_GET_REGISTERINFO]          = &CCommonDomain::TemplatedGet<NET_RegisterInfo_S>;
 
     /* 日志查询（委托 DeviceBusiness，需要 url_param 分页参数） */
-    m_getTable[NET_FIND_LOG] = [](INT32 ch, INT32 cmd, const std::string&, const std::string& url) -> std::string {
-        return CDeviceBusiness::instance()->HandleGetLogList(ch, cmd, url);
+    m_getTable[NET_FIND_LOG] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string& url) -> std::string {
+        return CDeviceBusiness::instance()->HandleGetLogList(ch, nCmd, url);
     };
-    m_getTable[NET_EXPORT_LOG] = [](INT32 ch, INT32 cmd, const std::string&, const std::string& url) -> std::string {
-        return CDeviceBusiness::instance()->HandleGetLogList(ch, cmd, url);
+    m_getTable[NET_EXPORT_LOG] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string& url) -> std::string {
+        return CDeviceBusiness::instance()->HandleGetLogList(ch, nCmd, url);
     };
 
     /* 日志服务器 */
     m_getTable[NET_GET_LOG_SERVER]            = &CCommonDomain::TemplatedGet<NET_LogServerInfo_S>;
 
     /* 升级状态/版本（委托 DeviceBusiness） */
-    m_getTable[NET_GET_UPGRADESTATUS] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CDeviceBusiness::instance()->HandleGetUpgradeStatus(ch, cmd);
+    m_getTable[NET_GET_UPGRADESTATUS] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CDeviceBusiness::instance()->HandleGetUpgradeStatus(ch, nCmd);
     };
-    m_getTable[NET_GET_UPGRADEVERSION] = [](INT32 ch, INT32 cmd, const std::string&, const std::string&) -> std::string {
-        return CDeviceBusiness::instance()->HandleGetUpgradeVersion(ch, cmd);
+    m_getTable[NET_GET_UPGRADEVERSION] = [](INT32 ch, INT32 nCmd, const std::string&, const std::string&) -> std::string {
+        return CDeviceBusiness::instance()->HandleGetUpgradeVersion(ch, nCmd);
     };
 
     /* ===== Set 命令注册 ===== */
@@ -73,8 +73,8 @@ CCommonDomain::CCommonDomain()
     m_setTable[NET_TEST_LOG_SERVER]           = &CCommonDomain::TemplatedSet<NET_LogServerInfo_S>;
 
     /* 升级（委托 DeviceBusiness） */
-    m_setTable[NET_SET_UPGRADE] = [](INT32 ch, INT32 cmd, const std::string& req, const std::string&) -> std::string {
-        return CDeviceBusiness::instance()->HandleSetUpgrade(ch, cmd, req);
+    m_setTable[NET_SET_UPGRADE] = [](INT32 ch, INT32 nCmd, const std::string& req, const std::string&) -> std::string {
+        return CDeviceBusiness::instance()->HandleSetUpgrade(ch, nCmd, req);
     };
 
     /* 设备控制 (重启/关机/格式化/恢复默认) */

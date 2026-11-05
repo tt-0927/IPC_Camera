@@ -59,17 +59,17 @@ typedef struct
  */
 static NET_Capability_CbItem g_capCbTable[NET_CB_TYPE_CAP_MAX] = {0};
 
-static INT32 ClampFrameRateNum(INT32 frameRateNum)
+static INT32 ClampFrameRateNum(INT32 nFrameRateNum)
 {
-    if (frameRateNum < 0)
+    if (nFrameRateNum < 0)
     {
         return 0;
     }
-    if (frameRateNum > NET_VIDEO_FRAME_RATE_MAX_NUM)
+    if (nFrameRateNum > NET_VIDEO_FRAME_RATE_MAX_NUM)
     {
         return NET_VIDEO_FRAME_RATE_MAX_NUM;
     }
-    return frameRateNum;
+    return nFrameRateNum;
 }
 
 static void NormalizeResolutionFrameRate(pNET_VideoResolution_S pResolution)
@@ -95,25 +95,25 @@ static void FillEncodeAbilityFromOption(const NET_VideoEncodeOption_S* pOption,
     switch (pOption->enVideoCodec)
     {
         case NET_VIDEO_CODE_H264:
-            strncpy(pAbility->szVideoCodec, "H.264", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "H.264", sizeof(pAbility->strVideoCodec) - 1);
             break;
         case NET_VIDEO_CODE_H265:
-            strncpy(pAbility->szVideoCodec, "H.265", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "H.265", sizeof(pAbility->strVideoCodec) - 1);
             break;
         case NET_VIDEO_CODE_JPEG:
-            strncpy(pAbility->szVideoCodec, "JPEG", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "JPEG", sizeof(pAbility->strVideoCodec) - 1);
             break;
         case NET_VIDEO_CODE_MJPEG:
-            strncpy(pAbility->szVideoCodec, "MJPEG", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "MJPEG", sizeof(pAbility->strVideoCodec) - 1);
             break;
         case NET_VIDEO_CODE_SVAC3:
-            strncpy(pAbility->szVideoCodec, "SVAC3", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "SVAC3", sizeof(pAbility->strVideoCodec) - 1);
             break;
         case NET_VIDEO_CODE_MPEG4:
-            strncpy(pAbility->szVideoCodec, "MPEG4", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "MPEG4", sizeof(pAbility->strVideoCodec) - 1);
             break;
         default:
-            strncpy(pAbility->szVideoCodec, "UNKNOWN", sizeof(pAbility->szVideoCodec) - 1);
+            strncpy(pAbility->strVideoCodec, "UNKNOWN", sizeof(pAbility->strVideoCodec) - 1);
             break;
     }
     pAbility->nEncodeComplexityNum = 1;
@@ -123,17 +123,17 @@ static void FillEncodeAbilityFromOption(const NET_VideoEncodeOption_S* pOption,
     pAbility->bSupportStreamSmooth = pOption->nBitrateSmoothing > 0 ? 1 : 0;
 }
 
-static INT32 ClampEncodeComplexityNum(INT32 complexityNum)
+static INT32 ClampEncodeComplexityNum(INT32 nComplexityNum)
 {
-    if (complexityNum < 0)
+    if (nComplexityNum < 0)
     {
         return 0;
     }
-    if (complexityNum > NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
+    if (nComplexityNum > NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM)
     {
         return NET_VIDEO_ENCODE_COMPLEXITY_MAX_NUM;
     }
-    return complexityNum;
+    return nComplexityNum;
 }
 
 static void NormalizeVideoEncodeCap(pNET_VideoEncodeCap_S pCap)
@@ -226,9 +226,9 @@ static void NormalizeVideoEncodeCap(pNET_VideoEncodeCap_S pCap)
     }
 }
 
-static UINT32 ClampUint32(UINT32 value, UINT32 maxValue)
+static UINT32 ClampUint32(UINT32 uValue, UINT32 uMaxValue)
 {
-    return (value > maxValue) ? maxValue : value;
+    return (uValue > uMaxValue) ? uMaxValue : uValue;
 }
 
 static void NormalizeOsdCap(pNET_OsdCap_S pCap)
@@ -350,12 +350,12 @@ int executeGetVideoEncodeCapCb(INT32 nChannelId, pNET_VideoEncodeCap_S pCap)
     }
 
     // 执行对应回调（类型安全）
-    int ret = pItem->unFunc.GetVideoEncodeCap(nChannelId, pCap);
-    if (ret == NET_E_SUCCEED)
+    int nRet = pItem->unFunc.GetVideoEncodeCap(nChannelId, pCap);
+    if (nRet == NET_E_SUCCEED)
     {
         NormalizeVideoEncodeCap(pCap);
     }
-    return ret;
+    return nRet;
 }
 
 int executeGetAudioCapCb(INT32 nChannelId, pNET_AudioCap_S pCap)
@@ -389,12 +389,12 @@ int executeGetOsdCapCb(INT32 nChannelId, pNET_OsdCap_S pCap)
     }
 
     // 执行对应回调（类型安全）
-    int ret = pItem->unFunc.GetOsdCap(nChannelId, pCap);
-    if (ret == NET_E_SUCCEED)
+    int nRet = pItem->unFunc.GetOsdCap(nChannelId, pCap);
+    if (nRet == NET_E_SUCCEED)
     {
         NormalizeOsdCap(pCap);
     }
-    return ret;
+    return nRet;
 }
 
 int executeGetSysCapCb(INT32 nChannelId, pNET_SysCapability_S pCap)

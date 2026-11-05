@@ -35,7 +35,7 @@
 
 /**
  * @brief 设备配置查询单例
- * @details 根据 dwCommand 命令码将 GetDevConfig / SetDevConfig / GetDeviceCapability
+ * @details 根据 nCommand 命令码将 GetDevConfig / SetDevConfig / GetDeviceCapability
  *          请求路由到对应的结构体类型，通过 CCommandExecutor 执行 HTTP 请求
  */
 class CConfigQuery : public CSingleton<CConfigQuery>
@@ -48,20 +48,20 @@ public:
     /**
      * @brief 获取设备能力集
      */
-    BOOL GetDeviceCapability(LPVOID lpUserID, INT32 dwChannelID, INT32 dwCommand,
-                             LPVOID lpOutBuffer, INT32 dwOutBufferSize, INT32 *pdwBytesReturned);
+    BOOL GetDeviceCapability(LPVOID lpUserID, INT32 nChannelID, INT32 nCommand,
+                             LPVOID lpOutBuffer, INT32 nOutBufferSize, INT32 *pnBytesReturned);
 
     /**
      * @brief 获取设备配置（通用分发）
      */
-    BOOL GetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwCommand,
-                      LPVOID lpOutBuffer, INT32 dwOutBufferSize, INT32 *pdwBytesReturned);
+    BOOL GetDevConfig(LPVOID lpUserID, INT32 nChannelID, INT32 nCommand,
+                      LPVOID lpOutBuffer, INT32 nOutBufferSize, INT32 *pnBytesReturned);
 
     /**
      * @brief 设置设备配置（通用分发）
      */
-    BOOL SetDevConfig(LPVOID lpUserID, INT32 dwChannelID, INT32 dwCommand,
-                      LPVOID lpInBuffer, INT32 dwInBufferSize, INT32 *pdwBytesReturned);
+    BOOL SetDevConfig(LPVOID lpUserID, INT32 nChannelID, INT32 nCommand,
+                      LPVOID lpInBuffer, INT32 nInBufferSize, INT32 *pnBytesReturned);
 
 private:
     /* 通用模板：获取配置
@@ -70,16 +70,16 @@ private:
      *                   少数命令（如 RTSP）需要 body 传递 Channel/StreamIndex 等参数 */
     template <typename T_CFG, bool WithBody = false>
     static BOOL GetDevConfig_Impl(LPVOID lpUserID,
-                                  INT32 dwChannelID, INT32 dwCommand,
-                                  LPVOID lpOutBuffer, INT32 dwOutBufferSize,
-                                  INT32 *pdwBytesReturned);
+                                  INT32 nChannelID, INT32 nCommand,
+                                  LPVOID lpOutBuffer, INT32 nOutBufferSize,
+                                  INT32 *pnBytesReturned);
 
     /* 通用模板：设置配置 */
     template <typename T_CFG>
     static BOOL SetDevConfig_Impl(LPVOID lpUserID,
-                                  INT32 dwChannelID, INT32 dwCommand,
-                                  LPVOID lpInBuffer, INT32 dwInBufferSize,
-                                  INT32 *pdwBytesReturned);
+                                  INT32 nChannelID, INT32 nCommand,
+                                  LPVOID lpInBuffer, INT32 nInBufferSize,
+                                  INT32 *pnBytesReturned);
 };
 
 /* ========================================================================== */
@@ -88,23 +88,23 @@ private:
 
 template <typename T_CFG, bool WithBody>
 BOOL CConfigQuery::GetDevConfig_Impl(LPVOID lpUserID,
-                                           INT32 dwChannelID, INT32 dwCommand,
-                                           LPVOID lpOutBuffer, INT32 dwOutBufferSize,
-                                           INT32 *pdwBytesReturned)
+                                           INT32 nChannelID, INT32 nCommand,
+                                           LPVOID lpOutBuffer, INT32 nOutBufferSize,
+                                           INT32 *pnBytesReturned)
 {
-    if (!lpOutBuffer || dwOutBufferSize <= 0)
+    if (!lpOutBuffer || nOutBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (dwOutBufferSize < (INT32)sizeof(T_CFG))
+    if (nOutBufferSize < (INT32)sizeof(T_CFG))
     {
         CErrorManage::instance()->SetLastError(NET_E_NOENOUGH_BUF);
         return FALSE;
     }
 
-    std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = NET_API_URL_DEVICE_GET_DEV_CONFIG(nChannelID, nCommand);
 
     /* WithBody: 将输入结构体序列化为 JSON body，供服务端解析请求参数 */
     std::string body;
@@ -113,32 +113,32 @@ BOOL CConfigQuery::GetDevConfig_Impl(LPVOID lpUserID,
     }
 
     return CCommandExecutor::instance()->ExecuteGet<T_CFG>(
-        lpUserID, url, lpOutBuffer, pdwBytesReturned, body) ? TRUE : FALSE;
+        lpUserID, url, lpOutBuffer, pnBytesReturned, body) ? TRUE : FALSE;
 }
 
 template <typename T_CFG>
 BOOL CConfigQuery::SetDevConfig_Impl(LPVOID lpUserID,
-                                           INT32 dwChannelID, INT32 dwCommand,
-                                           LPVOID lpInBuffer, INT32 dwInBufferSize,
-                                           INT32 *pdwBytesReturned)
+                                           INT32 nChannelID, INT32 nCommand,
+                                           LPVOID lpInBuffer, INT32 nInBufferSize,
+                                           INT32 *pnBytesReturned)
 {
-    if (!lpInBuffer || dwInBufferSize <= 0)
+    if (!lpInBuffer || nInBufferSize <= 0)
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
-    if (dwInBufferSize < (INT32)sizeof(T_CFG))
+    if (nInBufferSize < (INT32)sizeof(T_CFG))
     {
         CErrorManage::instance()->SetLastError(NET_E_INVALID_PARAM);
         return FALSE;
     }
 
-    std::string url = NET_API_URL_DEVICE_SET_DEV_CONFIG(dwChannelID, dwCommand);
+    std::string url = NET_API_URL_DEVICE_SET_DEV_CONFIG(nChannelID, nCommand);
     BOOL bRet = CCommandExecutor::instance()->ExecuteSet<T_CFG>(lpUserID, "POST", url, lpInBuffer) ? TRUE : FALSE;
-    if (bRet && pdwBytesReturned != NULL)
+    if (bRet && pnBytesReturned != NULL)
     {
-        *pdwBytesReturned = 0;
+        *pnBytesReturned = 0;
     }
     return bRet;
 }

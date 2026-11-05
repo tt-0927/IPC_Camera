@@ -20,33 +20,33 @@ static std::unique_ptr<CNetTVSDKServerImpl> g_pServerImpl;
 extern "C" {
 #endif
 
-NET_API BOOL STDCALL NET_serverInit(IN UINT32 udwPort,IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132],IN CHAR szDeviceName[NET_LEN_132])
+NET_API BOOL STDCALL NET_serverInit(IN UINT32 uPort,IN CHAR strUserName[NET_LEN_132],IN CHAR strPassword[NET_LEN_132],IN CHAR strDeviceName[NET_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoInit(udwPort, szUserName, szPassword, szDeviceName);
+	return g_pServerImpl->DoInit(uPort, strUserName, strPassword, strDeviceName);
 }
 
 NET_API BOOL STDCALL NET_serverCleanup(void)
 {
 	if (g_pServerImpl)
 	{
-		BOOL ret = g_pServerImpl->DoCleanup();
+		BOOL bRet = g_pServerImpl->DoCleanup();
 		g_pServerImpl.reset();
-		return ret;
+		return bRet;
 	}
 	return TRUE;
 }
 
-NET_API BOOL STDCALL NET_serverSetLogToFile(IN INT32 dwLogLevel,IN CHAR  *strLogDir,IN INT32 nLogFileSize,IN INT32 dwLogFileNum)
+NET_API BOOL STDCALL NET_serverSetLogToFile(IN INT32 nLogLevel,IN CHAR  *pstrLogDir,IN INT32 nLogFileSize,IN INT32 nLogFileNum)
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoSetLogToFile(dwLogLevel, strLogDir, nLogFileSize, dwLogFileNum);
+	return g_pServerImpl->DoSetLogToFile(nLogLevel, pstrLogDir, nLogFileSize, nLogFileNum);
 }
 
 NET_API INT32 STDCALL NET_serverGetSdkVersion(void)
@@ -67,25 +67,25 @@ NET_API INT32 STDCALL NET_serverGetClientCount(void)
 	return g_pServerImpl->DoGetClientCount();
 }
 
-NET_API BOOL STDCALL NET_serverSetUserPassword(IN CHAR szUserName[NET_LEN_132],IN CHAR szPassword[NET_LEN_132])
+NET_API BOOL STDCALL NET_serverSetUserPassword(IN CHAR strUserName[NET_LEN_132],IN CHAR strPassword[NET_LEN_132])
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoSetUserPasswd(szUserName, szPassword);
+	return g_pServerImpl->DoSetUserPasswd(strUserName, strPassword);
 }
 
 NET_API BOOL STDCALL NET_serverPushAlarmInfo(IN NET_Alarmer_S *pAlarmer,
-                                                    IN INT32 lCommand,
+                                                    IN INT32 nCommand,
                                                     IN LPVOID pAlarmInfo,
-                                                    IN INT32 dwBufLen)
+                                                    IN INT32 nBufLen)
 {
 	if (!g_pServerImpl)
 	{
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, lCommand, pAlarmInfo, dwBufLen);
+	return g_pServerImpl->DoPushAlarmInfo(pAlarmer, nCommand, pAlarmInfo, nBufLen);
 }
 
 NET_API BOOL STDCALL NET_serverPushChannelStatusInfo(IN NET_ChannelInfo_S *pChannelInfo)
@@ -173,12 +173,12 @@ NET_serverRegisterGetDiscoveryDeviceInfoCb(
 }
 
 NET_API BOOL STDCALL
-NET_serverStartDiscovery(IN const CHAR* szInterfaceName)
+NET_serverStartDiscovery(IN const CHAR* pstrInterfaceName)
 {
 	if (!g_pServerImpl) {
 		g_pServerImpl = std::make_unique<CNetTVSDKServerImpl>();
 	}
-	return g_pServerImpl->DoDiscoveryStart(szInterfaceName);
+	return g_pServerImpl->DoDiscoveryStart(pstrInterfaceName);
 }
 
 NET_API BOOL STDCALL
