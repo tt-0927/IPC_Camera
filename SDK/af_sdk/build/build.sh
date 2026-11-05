@@ -22,6 +22,9 @@ TOOLCHAIN_32_NAME="gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf"
 TOOLCHAIN_64_NAME="gcc-linaro-7.5.0-2019.12-x86_64_aarch64-linux-gnu"
 TOOLCHAIN_32_FILE="${TOOLCHAIN_ROOT}/../toolchain-arm32.cmake"
 TOOLCHAIN_HISI32_FILE="${TOOLCHAIN_ROOT}/../toolchain-hisi32.cmake"
+TOOLCHAIN_FULLHAN_FILE="${TOOLCHAIN_ROOT}/../toolchain-fullhan.cmake"
+# Fullhan 工具链根目录，默认 /opt/fullhan/toolchain，可用环境变量覆盖
+FULLHAN_TOOLCHAIN_ROOT="${FULLHAN_TOOLCHAIN_ROOT:-/opt/fullhan/toolchain}"
 TOOLCHAIN_64_FILE="${TOOLCHAIN_ROOT}/../toolchain-aarch64.cmake"
 TOOLCHAIN_64_FT_FILE="${TOOLCHAIN_ROOT}/../toolchain-aarch64-ft.cmake"
 TOOLCHAIN_WIN64_FILE="${TOOLCHAIN_ROOT}/../toolchain-win64.cmake"
@@ -37,8 +40,8 @@ usage() {
     echo_green "  <编译端>   必须，可选值："
     echo_green "             ${YELLOW}server${GREEN} <位数>      （服务端库，32或64位）"
     echo_green "             ${YELLOW}client${GREEN} <位数>      （客户端库，32或64位）"
-    echo_green "             可选平台：32 / hisi32 / 64 / 64_ft / linux64 / win64"
-    echo_green "             其中：32=arm32(RK), hisi32=arm32(Hisi), 64=aarch64(RK), 64_ft=aarch64(飞腾), linux64=x86_64 Linux, win64=x86_64 Windows-mingw"
+    echo_green "             可选平台：32 / hisi32 / fullhan / 64 / 64_ft / linux64 / win64"
+    echo_green "             其中：32=arm32(RK), hisi32=arm32(Hisi), fullhan=arm32(Fullhan), 64=aarch64(RK), 64_ft=aarch64(飞腾), linux64=x86_64 Linux, win64=x86_64 Windows-mingw"
     echo_green "             ${YELLOW}all${GREEN}                （编译所有库并打包）"
     echo_green "             ${YELLOW}all_32${GREEN}             （仅编译并打包32位 server/client）"
     echo_green "             ${YELLOW}all_64${GREEN}             （仅编译并打包64位 server/client）"
@@ -174,6 +177,15 @@ build_project() {
         WORK_BUILD_DIR="$BUILD_ROOT/${TARGET_NAME}_hisi32"
         LIB_OUT_DIR="$CURRENT_ROOT/${TARGET_NAME}/lib_hisi32"
         # BIN_OUT_DIR="$BUILD_ROOT/bin/${TARGET_NAME}_hisi32"
+    elif [ "$BIT_MODE" = "fullhan" ]; then
+        TOOLCHAIN_FILE="$TOOLCHAIN_FULLHAN_FILE"
+        WORK_BUILD_DIR="$BUILD_ROOT/${TARGET_NAME}_fullhan"
+        LIB_OUT_DIR="$CURRENT_ROOT/${TARGET_NAME}/lib_fullhan"
+        # Fullhan 工具链不在本地 environment/toolchain 下，默认 /opt/fullhan/toolchain
+        if [ ! -d "$FULLHAN_TOOLCHAIN_ROOT" ]; then
+            echo_red "错误：Fullhan 工具链不存在！路径: $FULLHAN_TOOLCHAIN_ROOT"
+            return 1
+        fi
     elif [ "$BIT_MODE" = "64" ]; then
         TOOLCHAIN_FILE="$TOOLCHAIN_64_FILE"
         WORK_BUILD_DIR="$BUILD_ROOT/${TARGET_NAME}_64"
@@ -212,7 +224,7 @@ build_project() {
             return 1
         fi
     else
-        echo_red "错误：位数/平台必须是 32、hisi32、64、64_ft、linux64 或 win64！"
+        echo_red "错误：位数/平台必须是 32、hisi32、fullhan、64、64_ft、linux64 或 win64 ！"
         return 1
     fi
     
@@ -279,6 +291,7 @@ build_project() {
         cd "$WORK_BUILD_DIR"
         cmake ../../"$TARGET_NAME" \
             -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
+            -DFULLHAN_TOOLCHAIN_ROOT="$FULLHAN_TOOLCHAIN_ROOT" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_VERBOSE_MAKEFILE=OFF \
             -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY="$LIB_OUT_DIR" \
@@ -710,8 +723,8 @@ else
     fi
     BIT_ARG="$2"
     
-    if [ "$BIT_ARG" != "32" ] && [ "$BIT_ARG" != "hisi32" ] && [ "$BIT_ARG" != "64" ] && [ "$BIT_ARG" != "64_ft" ] && [ "$BIT_ARG" != "linux64" ] && [ "$BIT_ARG" != "win64" ]; then
-        echo_red "错误：位数/平台必须是 32、hisi32、64、64_ft、linux64 或 win64！"
+    if [ "$BIT_ARG" != "32" ] && [ "$BIT_ARG" != "hisi32" ] && [ "$BIT_ARG" != "fullhan" ] && [ "$BIT_ARG" != "64" ] && [ "$BIT_ARG" != "64_ft" ] && [ "$BIT_ARG" != "linux64" ] && [ "$BIT_ARG" != "win64" ]; then
+        echo_red "错误：位数/平台必须是 32、hisi32、fullhan、64、64_ft、linux64 或 win64 ！"
         usage
     fi
     
