@@ -30,11 +30,12 @@ file(GLOB_RECURSE LIB_SRC
     "${SDK_SHARE_PATH}/*.cpp"
 )
 
-# RecordFrameHub/VoiceComHub 在 Common 与 BG6_ZHSJ/BU_SJCL 下各有一份内容完全相同的
-# 实现，GLOB_RECURSE 会把两份都编入，导致共享库链接时 multiple definition。
-# 保留 Common 版本（业务无关的公共实现），排除 BU_SJCL 下的重复副本。
+# RecordFrameHub/VoiceComHub 在 Common 与 BG6_ZHSJ/BU_SJCL 下各有一份同名实现，
+# GLOB_RECURSE 会把两份都编入，导致共享库链接时 multiple definition。
+# 保留 BG6_ZHSJ/BU_SJCL 版本（与当前 NetTVSDKCommon.h 的 str* 字段同步），
+# 排除 Common 下的旧副本（仍使用已改名的 sz* 字段，编译不过）。
 list(FILTER LIB_SRC EXCLUDE REGEX
-    "/business/BG6_ZHSJ/BU_SJCL/(RecordFrameHub|VoiceComHub)\\.cpp$")
+    "/business/Common/(RecordFrameHub|VoiceComHub)\\.cpp$")
 
 # 收集头文件（用于依赖追踪，修改头文件时触发重新编译）
 file(GLOB_RECURSE LIB_HEADERS
