@@ -268,7 +268,8 @@ UINT32 get_ai_object_alarm_type(Event::Type_E enEventType)
     case Event::Type_E::BARE_SOIL:                    return NET_ALARM_BARE_SOIL;
     case Event::Type_E::CHANNEL_OCCUPATION:           return NET_ALARM_CHANNEL_OCCUPATION;
     case Event::Type_E::QUEUE_CROWDING:               return NET_ALARM_QUEUE_CROWDING;
-    case Event::Type_E::SOCIAL_RELATIONSHIP_ANALYSIS: return NET_ALARM_SOCIAL_RELATIONSHIP;
+    /* 社交关系分析改由 ai_app 直接推送 0x6105 抓拍报文（1 张全景 + 多张目标特写），
+     * 事件通道不再重复上报空载荷。 */
     case Event::Type_E::FIGHT_DETECTION:              return NET_ALARM_FIGHT_DETECTION;
     case Event::Type_E::FIRE_EQUIPMENT_ABNORMAL:      return NET_ALARM_FIRE_EQUIPMENT_ABNORMAL;
     case Event::Type_E::MOUSE_INFESTATION:            return NET_ALARM_MOUSE_INFESTATION;
