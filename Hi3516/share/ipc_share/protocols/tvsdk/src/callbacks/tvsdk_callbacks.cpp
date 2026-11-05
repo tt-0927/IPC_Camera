@@ -2590,6 +2590,14 @@ static NET_COMMON_ECODE_E cb_set_image_cfg(INT32 dwChannelID, LPVOID lpInBuffer)
         return NET_E_INVALID_PARAM;
 
     const NET_ImageSetting_S *pIn = (const NET_ImageSetting_S *)lpInBuffer;
+    /* 契约范围统一为 [0,100]：越界值不再交给 ISP 层静默裁剪，直接返回参数错误。 */
+    if (pIn->nBrightness > 100 || pIn->nContrast > 100 ||
+        pIn->nSaturation > 100 || pIn->nSharpness > 100)
+    {
+        dlog_warn("TVSDK设置图像配置失败: 参数越界 brightness[%u] contrast[%u] saturation[%u] sharpness[%u]",
+                  pIn->nBrightness, pIn->nContrast, pIn->nSaturation, pIn->nSharpness);
+        return NET_E_INVALID_PARAM;
+    }
     ISP::ImageParam_S stCfg;
     TvSdkConvert::ToImageParam(*pIn, stCfg);
 
