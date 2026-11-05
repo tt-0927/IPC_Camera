@@ -2110,7 +2110,8 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &d
 {
      memset(&dst, 0, sizeof(dst));
     dst.bEnable = src.bEnable ? TRUE : FALSE;
-    dst.uSensitivity = (INT32)src.nSensitivity;
+    /* IPC 1/2/3 档回读为对外三档 0/1/2；IPC 0（关闭）按最低档 0 处理。 */
+    dst.uSensitivity = (src.nSensitivity >= 1) ? static_cast<INT32>(src.nSensitivity) - 1 : 0;
     dst.nRectLeft   = src.stRect.nX;
     dst.nRectTop    = src.stRect.nY;
     dst.nRectRight  = src.stRect.nX + src.stRect.nWidth;
@@ -2139,7 +2140,17 @@ void FillTamperAlarmInfo(const Alarm::HideAlarm_S &src, NET_TamperAlarmInfo_S &d
 void ToHideAlarm(const NET_TamperAlarmInfo_S &src, Alarm::HideAlarm_S &dst)
 {
     dst.bEnable = (src.bEnable == TRUE);
-    dst.nSensitivity = (unsigned int)src.uSensitivity;
+    /* 对外三档（0低/1中/2高）映射到 IPC 的 1/2/3 档，IPC 的 0 档为关闭档不使用。 */
+    INT32 nSensitivity = src.uSensitivity;
+    if (nSensitivity < 0)
+    {
+        nSensitivity = 0;
+    }
+    else if (nSensitivity > 2)
+    {
+        nSensitivity = 2;
+    }
+    dst.nSensitivity = static_cast<unsigned int>(nSensitivity) + 1;
     dst.stRect.nX = src.nRectLeft;
     dst.stRect.nY = src.nRectTop;
     dst.stRect.nWidth  = src.nRectRight - src.nRectLeft;

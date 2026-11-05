@@ -5193,7 +5193,7 @@ typedef struct tagNET_TamperAlarmInfo
 {
     UINT32              uChannel;        /* 通道号，IPC单通道设备填0  Channel ID, 0 for IPC */
     BOOL                bEnable;         /* 是否启用 0-不启用 1-启用 */
-    INT32               uSensitivity;    /* 遮挡报警灵敏度[0,3]，值越大越灵敏 */
+    INT32               uSensitivity;    /* 遮挡报警灵敏度[0,2]，0-低 1-中 2-高，值越大越灵敏 */
     INT32               nRectLeft;       /* 遮挡区域左坐标 */
     INT32               nRectTop;        /* 遮挡区域上坐标 */
     INT32               nRectRight;      /* 遮挡区域右坐标 */

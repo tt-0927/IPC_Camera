@@ -3009,9 +3009,10 @@ static NET_COMMON_ECODE_E cb_set_tamper_alarm(INT32 dwChannelID, LPVOID lpInBuff
     }
     const NET_TamperAlarmInfo_S *pIn = static_cast<const NET_TamperAlarmInfo_S *>(lpInBuffer);
 
-    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置也不下发算法。 */
+    /* 开关、灵敏度、布防时间与联动在转换前校验，非法参数不写配置也不下发算法。
+     * 灵敏度按低/中/高三档（0/1/2）对外，IPC 侧 3 为最高档、0 为关闭档不使用。 */
     if ((pIn->bEnable != 0 && pIn->bEnable != 1) ||
-        pIn->uSensitivity < 0 || pIn->uSensitivity > 3 ||
+        pIn->uSensitivity < 0 || pIn->uSensitivity > 2 ||
         !tvsdk_valid_alarm_schedule(pIn->stAlarmSchedule) ||
         !tvsdk_valid_linkage_list(pIn->stLinkageList))
     {
