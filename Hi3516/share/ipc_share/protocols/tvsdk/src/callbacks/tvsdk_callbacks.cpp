@@ -1640,6 +1640,44 @@ static NET_COMMON_ECODE_E cb_set_device_basic_info(pNET_DeviceBasicInfo_S pInfo)
     if (nNameLen == 0 || nNameLen >= sizeof(pInfo->strDeviceName))
         return NET_E_INVALID_PARAM;
 
+    /* 只读身份字段（型号/序列号/版本/MAC/厂商/设备类型）不允许修改：请求值非空且与
+     * 当前值不一致时直接拒绝，避免"NVR 改了只读字段却返回成功"的假象。 */
+    NET_DeviceBasicInfo_S stCurrent{};
+    if (cb_get_device_cfg(0, static_cast<LPVOID>(&stCurrent)) != NET_E_SUCCEED)
+    {
+        dlog_error("TVSDK设置设备基本信息失败: 读取当前设备信息失败");
+        return NET_E_GET_CFG_FAILED;
+    }
+    const auto readonly_changed = [](const CHAR *pField, std::size_t nFieldSize,
+                                     const CHAR *pCurrent, std::size_t nCurrentSize) {
+        if (!pField || !pCurrent)
+            return false;
+        const std::size_t nFieldLen = strnlen(pField, nFieldSize);
+        /* 空字符串表示调用方未提供该字段，按"不修改"处理。 */
+        if (nFieldLen == 0)
+            return false;
+        const std::size_t nCurrentLen = strnlen(pCurrent, nCurrentSize);
+        return nFieldLen != nCurrentLen || std::memcmp(pField, pCurrent, nFieldLen) != 0;
+    };
+    if (readonly_changed(pInfo->strDevModel, sizeof(pInfo->strDevModel),
+                         stCurrent.strDevModel, sizeof(stCurrent.strDevModel)) ||
+        readonly_changed(pInfo->strSerialNum, sizeof(pInfo->strSerialNum),
+                         stCurrent.strSerialNum, sizeof(stCurrent.strSerialNum)) ||
+        readonly_changed(pInfo->strFirmwareVersion, sizeof(pInfo->strFirmwareVersion),
+                         stCurrent.strFirmwareVersion, sizeof(stCurrent.strFirmwareVersion)) ||
+        readonly_changed(pInfo->strWebVersion, sizeof(pInfo->strWebVersion),
+                         stCurrent.strWebVersion, sizeof(stCurrent.strWebVersion)) ||
+        readonly_changed(pInfo->strMacAddress, sizeof(pInfo->strMacAddress),
+                         stCurrent.strMacAddress, sizeof(stCurrent.strMacAddress)) ||
+        readonly_changed(pInfo->strManufacturer, sizeof(pInfo->strManufacturer),
+                         stCurrent.strManufacturer, sizeof(stCurrent.strManufacturer)) ||
+        readonly_changed(pInfo->strDeviceTypeV2, sizeof(pInfo->strDeviceTypeV2),
+                         stCurrent.strDeviceTypeV2, sizeof(stCurrent.strDeviceTypeV2)))
+    {
+        dlog_warn("TVSDK设置设备基本信息被拒绝: 请求修改只读字段");
+        return NET_E_INVALID_PARAM;
+    }
+
     ::System::DeviceInfo_S stDeviceInfo{};
     if (SystemManage::instance()->get_device_info(stDeviceInfo) != 0)
     {
