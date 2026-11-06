@@ -700,6 +700,23 @@ void manifest_reconcile_web_directory(const char *pchInstallRoot, const char *pc
         return;
     }
 
+    /* 新清单不含任何网页文件（例如只升级业务二进制的包）时，网页白名单为空，
+       继续对账会把现有网页全部删除——此时保留旧网页，只做跳过处理。 */
+    const std::string strWebManifestPrefix = "var/www/html/";
+    size_t unWebEntryCount = 0;
+    for (ManifestEntryMap_T::const_iterator it = mapCurrent.begin(); it != mapCurrent.end(); ++it)
+    {
+        if (0 == it->first.compare(0, strWebManifestPrefix.size(), strWebManifestPrefix))
+        {
+            ++unWebEntryCount;
+        }
+    }
+    if (0 == unWebEntryCount)
+    {
+        dlog_info("新清单不含网页文件，保留现有网页目录不做删除");
+        return;
+    }
+
     int nRemoved = 0;
     int nKept = 0;
     cleanup_web_dir_recursive(strInstallRoot, strWebRoot, "", mapCurrent, &nRemoved, &nKept);
