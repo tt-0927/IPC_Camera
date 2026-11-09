@@ -11,6 +11,7 @@
 
 #include <cstring>
 
+#include "dlog.h"
 #include "duration_gate.h"
 
 namespace Classroom
@@ -145,6 +146,87 @@ const char *statsAlertCnName(StatsAlert_E enAlert)
         return "未知";
     }
     return AST_ALERT_CN[nIdx];
+}
+
+/* 标志位的中文取值，便于日志直接阅读 */
+static const char *flagYesNo(uint32_t u32Flags, uint32_t u32Bit)
+{
+    return (0 != (u32Flags & u32Bit)) ? "是" : "否";
+}
+
+/**
+ * @brief 打印 0x6200 累计计数报文（字段翻译成中文，便于现场核对）
+ * @param [in] stMsg 待推送的计数报文
+ * @return 无
+ */
+static void logCountersPacket(const CStatsCountersMsg_S &stMsg)
+{
+    const CStatsHead_S &stHead = stMsg.stHead;
+    dlog_info("[课堂统计0x6200] seq=%u 会话=%lld 角色=%d 标志=0x%x{考勤启用:%s 应到已知:%s 已上课:%s "
+              "教师在场:%s 教师已识别:%s 专注有效:%s 考勤封口:%s 会话封口:%s}",
+              stHead.u32MsgSeq, static_cast<long long>(stHead.llSessionId), stHead.nDeviceRole,
+              stHead.u32Flags,
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ATTEND_ENABLE),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ABSENT_KNOWN),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_CLASS_STARTED),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_TEACHER_PRESENT),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_TEACHER_SEEN),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ATTENTION_KNOWN),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ATTEND_CLOSED),
+              flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_SESSION_FINAL));
+
+    dlog_info("[课堂统计0x6200] 出勤: 实到=%d 已识别=%d 应到=%d 缺勤=%d 开课时刻=%lld",
+              stMsg.nPresentNum, stMsg.nNamedNum, stMsg.nExpectedNum, stMsg.nAbsentNum,
+              static_cast<long long>(stMsg.llClassStartWallMs));
+
+    dlog_info("[课堂统计0x6200] 画面: 峰值=%d 当前=%d 学生=%d 教师=%d 有骨骼证据=%d",
+              stMsg.nPersonMax, stMsg.nPersonNum, stMsg.nStudentNum, stMsg.nTeacherNum,
+              stMsg.nStuEvidence);
+
+    dlog_info("[课堂统计0x6200] 动作次数: 低头=%d 抬头=%d 转头=%d 举手=%d 站立=%d 讨论=%d",
+              stMsg.nActionBegin[0], stMsg.nActionBegin[1], stMsg.nActionBegin[2],
+              stMsg.nActionBegin[3], stMsg.nActionBegin[4], stMsg.nActionBegin[5]);
+
+    dlog_info("[课堂统计0x6200] 表情次数: 愤怒=%d 厌恶=%d 恐惧=%d 快乐=%d 中性=%d 悲伤=%d 惊喜=%d",
+              stMsg.nExprBegin[0], stMsg.nExprBegin[1], stMsg.nExprBegin[2],
+              stMsg.nExprBegin[3], stMsg.nExprBegin[4], stMsg.nExprBegin[5], stMsg.nExprBegin[6]);
+
+    dlog_info("[课堂统计0x6200] 教学行为: 讲授=%d(%lldms) 指导=%d(%lldms) 板书=%d(%lldms) "
+              "互动=%d(%lldms) 巡视=%d(%lldms)",
+              stMsg.nTeachBegin[0], static_cast<long long>(stMsg.llTeachActiveMs[0]),
+              stMsg.nTeachBegin[1], static_cast<long long>(stMsg.llTeachActiveMs[1]),
+              stMsg.nTeachBegin[2], static_cast<long long>(stMsg.llTeachActiveMs[2]),
+              stMsg.nTeachBegin[3], static_cast<long long>(stMsg.llTeachActiveMs[3]),
+              stMsg.nTeachBegin[4], static_cast<long long>(stMsg.llTeachActiveMs[4]));
+
+    dlog_info("[课堂统计0x6200] 学生行为: 听讲=%d(%lldms) 实践=%d(%lldms) 演示=%d(%lldms) "
+              "阅读=%d(%lldms) 讨论=%d(%lldms)",
+              stMsg.nStudyBegin[0], static_cast<long long>(stMsg.llStudyActiveMs[0]),
+              stMsg.nStudyBegin[1], static_cast<long long>(stMsg.llStudyActiveMs[1]),
+              stMsg.nStudyBegin[2], static_cast<long long>(stMsg.llStudyActiveMs[2]),
+              stMsg.nStudyBegin[3], static_cast<long long>(stMsg.llStudyActiveMs[3]),
+              stMsg.nStudyBegin[4], static_cast<long long>(stMsg.llStudyActiveMs[4]));
+
+    /* 预警类别较多，按两行输出，名字取自 stats_protocol.h 的类别表 */
+    dlog_info("[课堂统计0x6200] 预警次数(上): %s=%d %s=%d %s=%d %s=%d %s=%d %s=%d",
+              statsAlertCnName(static_cast<StatsAlert_E>(0)), stMsg.nAlertBegin[0],
+              statsAlertCnName(static_cast<StatsAlert_E>(1)), stMsg.nAlertBegin[1],
+              statsAlertCnName(static_cast<StatsAlert_E>(2)), stMsg.nAlertBegin[2],
+              statsAlertCnName(static_cast<StatsAlert_E>(3)), stMsg.nAlertBegin[3],
+              statsAlertCnName(static_cast<StatsAlert_E>(4)), stMsg.nAlertBegin[4],
+              statsAlertCnName(static_cast<StatsAlert_E>(5)), stMsg.nAlertBegin[5]);
+    dlog_info("[课堂统计0x6200] 预警次数(下): %s=%d %s=%d %s=%d %s=%d %s=%d %s=%d",
+              statsAlertCnName(static_cast<StatsAlert_E>(6)), stMsg.nAlertBegin[6],
+              statsAlertCnName(static_cast<StatsAlert_E>(7)), stMsg.nAlertBegin[7],
+              statsAlertCnName(static_cast<StatsAlert_E>(8)), stMsg.nAlertBegin[8],
+              statsAlertCnName(static_cast<StatsAlert_E>(9)), stMsg.nAlertBegin[9],
+              statsAlertCnName(static_cast<StatsAlert_E>(10)), stMsg.nAlertBegin[10],
+              statsAlertCnName(static_cast<StatsAlert_E>(11)), stMsg.nAlertBegin[11]);
+
+    dlog_info("[课堂统计0x6200] 当前读数: 中途离课=%d 专注度=%d%% 违纪占比=%d%% 聚集=%d "
+              "伏桌=%d 距上次巡视=%ds 预警激活掩码=0x%x",
+              stMsg.nLeftMid, stMsg.nStuAttentionPct, stMsg.nDisciplinePct, stMsg.nGatherNum,
+              stMsg.nDeskLeanNum, stMsg.nPatrolAgeSec, stMsg.u32AlertActiveMask);
 }
 
 int32_t CStatsHub::maxStandingCluster(const CStatsPerson_S *pstPersons, int32_t nNum,
@@ -398,6 +480,14 @@ bool CStatsHub::pushMsg(StatsTopic_E enTopic, const void *pData, uint32_t u32Len
     {
         return false;
     }
+
+    /* 0x6200 计数报文按字段翻译后打印，便于与 NVR 侧收到的 JSON 对照 */
+    if (StatsTopic_E::STATS_TOPIC_COUNTERS == enTopic &&
+        u32Len >= static_cast<uint32_t>(sizeof(CStatsCountersMsg_S)))
+    {
+        logCountersPacket(*static_cast<const CStatsCountersMsg_S *>(pData));
+    }
+
     bool bOk = false;
     try
     {
