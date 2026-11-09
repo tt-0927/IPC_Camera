@@ -208,11 +208,42 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
         }
         else if (nAlarmBase == NET_ALARM_CLASSROOM_STATS_BASE)
         {
-            /* 课堂统计子段（0x6200~0x620F，码值 0x6200/0x6201/0x6202）：
+            /* 课堂统计子段（0x6200 累计计数 / 0x6201 行为段 / 0x6202 预警）：
                载荷为自描述二进制报文（魔数 CST1 + 版本 + 消息类型），不套用
-               NET_AlarmStatisticsInfo_S；魔数/版本/长度不符时只回传命令码。 */
-            if (!SDKConvert::dealClassroomStats(pInfoJson, static_cast<UINT32>(nCommand),
-                                                pAlarmInfo, nBufLen))
+               NET_AlarmStatisticsInfo_S；头非法或长度不足时只回传命令码。 */
+            bool bParsed = false;
+            if (nBufLen >= (INT32)sizeof(NET_ClassroomStatsHead_S))
+            {
+                NET_ClassroomStatsHead_S& stHead = *(NET_ClassroomStatsHead_S*)pAlarmInfo;
+                /* 先做有符号差值并确认非负，再与无符号 payloadLen 比较，
+                   避免 short buffer 下 signed→unsigned 转换绕过长度校验 */
+                const INT32 nRemain = nBufLen - (INT32)sizeof(NET_ClassroomStatsHead_S);
+                if (nRemain >= 0 &&
+                    stHead.u32Magic == NET_CLASSROOM_STATS_MAGIC &&
+                    stHead.u16Version == NET_CLASSROOM_STATS_VERSION &&
+                    stHead.u32PayloadLen <= static_cast<UINT32>(nRemain))
+                {
+                    if (nCommand == NET_ALARM_CLASSROOM_STATS_COUNTERS &&
+                        nBufLen >= (INT32)sizeof(NET_ClassroomStatsCounters_S))
+                    {
+                        SDKConvert::deal(pInfoJson, *(NET_ClassroomStatsCounters_S*)pAlarmInfo, false);
+                        bParsed = true;
+                    }
+                    else if (nCommand == NET_ALARM_CLASSROOM_STATS_SEGMENTS &&
+                             nBufLen >= (INT32)sizeof(NET_ClassroomStatsSegments_S))
+                    {
+                        SDKConvert::deal(pInfoJson, *(NET_ClassroomStatsSegments_S*)pAlarmInfo, false);
+                        bParsed = true;
+                    }
+                    else if (nCommand == NET_ALARM_CLASSROOM_STATS_ALERTS &&
+                             nBufLen >= (INT32)sizeof(NET_ClassroomStatsAlerts_S))
+                    {
+                        SDKConvert::deal(pInfoJson, *(NET_ClassroomStatsAlerts_S*)pAlarmInfo, false);
+                        bParsed = true;
+                    }
+                }
+            }
+            if (!bParsed)
             {
                 Json::add(pInfoJson, "AlarmType", (long long)nCommand);
             }

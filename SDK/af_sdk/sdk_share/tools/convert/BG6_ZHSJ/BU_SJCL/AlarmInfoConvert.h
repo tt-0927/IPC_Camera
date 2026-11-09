@@ -39,14 +39,31 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct);
 
     /**
-     * @brief 课堂 AI 分析统计报文（0x62xx 子段）转 JSON
+     * @brief 课堂 AI 分析统计报文（0x6200 累计计数）转 JSON
      * @param [in,out] pRootJson 目标 JSON 对象
-     * @param [in] uCommand 命令码 0x6200/0x6201/0x6202
-     * @param [in] pData 原始报文指针，起始为 NET_ClassroomStatsHead_S
-     * @param [in] nDataLen 报文总长度
-     * @return true 解析成功；false 报文非法（长度/魔数/版本/类型不符）
+     * @param [in] stInfo 报文结构体
+     * @param [in] bOutStruct 固定为 false：该报文仅设备→平台
+     * @return 无
      */
-    bool dealClassroomStats(Json::Object* pRootJson, UINT32 uCommand, const void* pData, int nDataLen);
+    void deal(Json::Object* pRootJson, NET_ClassroomStatsCounters_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 课堂 AI 分析行为段报文（0x6201）转 JSON
+     * @param [in,out] pRootJson 目标 JSON 对象
+     * @param [in] stInfo 报文结构体
+     * @param [in] bOutStruct 固定为 false：该报文仅设备→平台
+     * @return 无
+     */
+    void deal(Json::Object* pRootJson, NET_ClassroomStatsSegments_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 课堂 AI 分析预警报文（0x6202）转 JSON
+     * @param [in,out] pRootJson 目标 JSON 对象
+     * @param [in] stInfo 报文结构体
+     * @param [in] bOutStruct 固定为 false：该报文仅设备→平台
+     * @return 无
+     */
+    void deal(Json::Object* pRootJson, NET_ClassroomStatsAlerts_S& stInfo, bool bOutStruct);
     /** 通用抓拍告警及人脸/行人/车辆扩展属性转换。 */
     void deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct);
 
