@@ -20,10 +20,6 @@
 #include "stream_handler.hpp"
 #include "algorithm.hpp"
 
-#ifdef DEVICE_TV_3882TI
-#include "visionText_manage.hpp"
-#endif
-
 
 
 class CAlgoStreamDeal : public CSingleton<CAlgoStreamDeal>
@@ -180,98 +176,9 @@ private:
     //info /*----------------------- 模块句柄 -----------------------*/
     /*音视频流处理句柄*/
     std::shared_ptr<CAVHandler> m_StreamHandler;
-    /**
-    * @brief   : 普通事件
-    */
-    /* 移动侦测句柄 */
-    std::shared_ptr<CAlgorithm> m_pMotionAlgo;
-    /* 遮挡侦测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pHideAlgo;
 
-    /**
-    * @brief   : 周界事件、Smart事件
-    */
-    /* notHelmet(未戴安全帽)、helmet(安全帽)、reflective(反光衣)、safetyRope(安全绳)、exposedSoil(泥土裸露)、person(人) */
-    std::shared_ptr<CAlgorithm> m_pGroup1Algo;
-    /* penson(人)、Car(机动车)、NonCar(非机动车) */
-    std::shared_ptr<CAlgorithm> m_pGroup2AndGroup4Algo;
-    /* Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
-    std::shared_ptr<CAlgorithm> m_pGroup3Algo;
-    /* smoke(烟雾)、fire(火焰)（专用 FirePersonDetect 模型：烟雾/火焰/行人） */
-    std::shared_ptr<CAlgorithm> m_pFirePersonAlgoDetect;
-    // /* cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中) */
-    // std::shared_ptr<CAlgorithm> m_pGroup4Algo;
-    /* metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
-    std::shared_ptr<CAlgorithm> m_pGroup5Algo;
-    /* 物品检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pObjectDetectAlgo;
-    /* 场景变更侦测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pSceneChangeAlgo;
-    /* 宠物识别算法句柄*/
-    std::shared_ptr<CAlgorithm> m_pPetAlgo;
-    /* 音频异常侦测算法句柄*/
-    std::shared_ptr<CAlgorithm> m_pAudioAlgo;
-    /* 通道占用检测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pChannelOccupationAlgo;
-    /* 人车非业务检测算法句柄（攀爬识别/危险区域靠近/区域滞留类/人员徘徊/后厨穿戴规范） */
-    std::shared_ptr<CAlgorithm> m_pPMNMAlgoDetect;
-    /* 门禁异常通行检测算法句柄（攀爬检测模型 + 区域判定） */
-    std::shared_ptr<CAlgorithm> m_pAccessControlPassageAlgo;
-    /* 消防设施异常检测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pFireEquipmentAlgo;
-    /* 打架斗殴检测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pFightAlgo;
-    /* 鼠患识别检测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pMouseAlgoDetect;
-#if CAP_AI_FACE_RECOGNITION
-    /* 人脸识别句柄 */
-    std::shared_ptr<CAlgorithm> m_pFaceRecognitionAlgo;
-#else
-    /* 旧人脸侦测、抓拍和属性分析句柄 */
-    std::shared_ptr<CAlgorithm> m_pFaceDetectAlgo;
-#endif
-
-    /**
-    * @brief   : 场景智能分析事件
-    */
-    /* 画面及文字分析算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pVisionTextAlgo;
-
-
-#if 0
-    /* 行人检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pPersonDetectAlgo;
-    /* 火焰检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pFireDetectAlgo;
-    /* 街道检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pStreeDetectAlgo;
-    /* 垃圾检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pRubishDetectAlgo;
-    /* 睡岗识别句柄 */
-    std::shared_ptr<CAlgorithm> m_pSleepDetectAlgo;
-    /* 摔倒识别句柄 */
-    std::shared_ptr<CAlgorithm> m_pTripDetectAlgo;
-    // /* 玩手机识别句柄 */
-    // std::shared_ptr<CAlgorithm> m_pPhoneUsageAlgo;
-    /* 施工占道检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pConstructionEncroachmentRoadDetectAlgo;
-    /* 高空安全带黄土裸露检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pHighSafyBeltSoilDetecAlgo;
-    /* 安全帽检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pHelmetAlgo;
-    /* 反光衣检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pReflectiveAlgo;
-    /* 抽烟检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pSmokingAlgo;
-    /* 防护栏检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pFenceAlgo;
-    /* 机动车、行人、非机动车侦测算法句柄 */
-    std::shared_ptr<CAlgorithm> m_pPersonMotorNomotorAlgo;
-    /* 电瓶车检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pElectricScooterDetectAlgo;
-    /* 车辆侦测算法句柄*/
-    std::shared_ptr<CAlgorithm> m_pVehicleAlgo;
-    /* 车牌识别检测句柄 */
-    std::shared_ptr<CAlgorithm> m_pLicensePlateCognitionDetectAlgo;
+    /* 课堂分析算法句柄（仅定义课堂配置宏的型号存在） */
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    std::shared_ptr<CAlgorithm> m_pClassroomAlgo;
 #endif
 };

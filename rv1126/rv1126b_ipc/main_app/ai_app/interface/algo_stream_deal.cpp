@@ -8,45 +8,10 @@
  */
 
 #include "algo_stream_deal.h"
-#include "motion_detect.hpp"
-#include "hide_detect.hpp"
-#include "object_detect.hpp"
-#if CAP_AI_FACE_RECOGNITION
-#include "face_recognition.hpp"
-#else
-#include "face_detect.hpp"
+/* 课堂 AI 分析引擎与配置下发接口共用同一功能宏，未定义该宏的型号不装配该算法 */
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+#include "classroom_gateway.h"
 #endif
-#include "scene_change_detect.hpp"
-#include "pet_recognition.hpp"
-#include "audio_detect.hpp"
-#include "group1_detect.hpp"
-#include "group2_group4_detect.hpp"
-#include "group3_detect.hpp"
-#include "group5_detect.hpp"
-#include "channel_occupation_detect.hpp"
-#include "pmnm_algo_detect.hpp"
-#include "access_control_passage_detect.hpp"
-#include "fire_person_algo_detect.hpp"
-#include "fire_equipment_detect.hpp"
-#include "fight_algo_detect.hpp"
-#include "mouse_algo_detect.hpp"
-// #include "sleep_detect.hpp"
-// #include "trip_detect.hpp"
-// #include "phoneUsage_detect.hpp"
-// #include "person_detect.hpp"
-// #include "fire_detect.hpp"
-// #include "stree_detect.hpp"
-// #include "rubish_detect.hpp"
-// #include "constructionEncroachmentRoad_detect.hpp"
-// #include "highSafyBelt_Soil_detect.hpp"
-// #include "helmet_detect.hpp"
-// #include "reflective_detect.hpp"
-// #include "smoking_detect.hpp"
-// #include "fence_detect.hpp"
-// #include "pmnm_detect.hpp"
-// #include "electricScooter_detect.hpp"
-// #include "vehicle_detect.hpp"
-// #include "licensePlateCognition_detect.hpp"
 
 int CAlgoStreamDeal::init()
 {
@@ -64,51 +29,8 @@ void CAlgoStreamDeal::deinit()
 
     /* 统一存储需要释放的句柄 */
     std::vector<std::shared_ptr<CAlgorithm>> algos;
-#ifdef DEVICE_TV_3882TI
-    algos.emplace_back(std::move(m_pVisionTextAlgo));
-#endif
-    algos.emplace_back(std::move(m_pMotionAlgo));
-    algos.emplace_back(std::move(m_pHideAlgo));
-
-    algos.emplace_back(std::move(m_pGroup1Algo));
-    algos.emplace_back(std::move(m_pGroup2AndGroup4Algo));
-    algos.emplace_back(std::move(m_pGroup3Algo));
-    algos.emplace_back(std::move(m_pGroup5Algo));
-
-    algos.emplace_back(std::move(m_pObjectDetectAlgo));
-    // algos.emplace_back(std::move(m_pLicensePlateCognitionDetectAlgo));
-    algos.emplace_back(std::move(m_pSceneChangeAlgo));
-    algos.emplace_back(std::move(m_pPetAlgo));
-    algos.emplace_back(std::move(m_pAudioAlgo));
-#if CAP_AI_FACE_RECOGNITION
-    algos.emplace_back(std::move(m_pFaceRecognitionAlgo));
-#else
-    algos.emplace_back(std::move(m_pFaceDetectAlgo));
-#endif
-    algos.emplace_back(std::move(m_pChannelOccupationAlgo));
-    algos.emplace_back(std::move(m_pPMNMAlgoDetect));
-    algos.emplace_back(std::move(m_pAccessControlPassageAlgo));
-    algos.emplace_back(std::move(m_pFireEquipmentAlgo));
-    algos.emplace_back(std::move(m_pFightAlgo));
-    algos.emplace_back(std::move(m_pMouseAlgoDetect));
-
-#if 0
-     algos.emplace_back(std::move(m_pPersonDetectAlgo));
-     algos.emplace_back(std::move(m_pFireDetectAlgo));
-     algos.emplace_back(std::move(m_pStreeDetectAlgo));
-     algos.emplace_back(std::move(m_pRubishDetectAlgo));
-     algos.emplace_back(std::move(m_pSleepDetectAlgo));
-     algos.emplace_back(std::move(m_pTripDetectAlgo));
-     // algos.emplace_back(std::move(m_pPhoneUsageAlgo));
-     algos.emplace_back(std::move(m_pConstructionEncroachmentRoadDetectAlgo));
-     algos.emplace_back(std::move(m_pHighSafyBeltSoilDetecAlgo));
-     algos.emplace_back(std::move(m_pHelmetAlgo));
-     algos.emplace_back(std::move(m_pReflectiveAlgo));
-     algos.emplace_back(std::move(m_pSmokingAlgo));
-     algos.emplace_back(std::move(m_pFenceAlgo));
-     algos.emplace_back(std::move(m_pPersonMotorNomotorAlgo));
-     algos.emplace_back(std::move(m_pElectricScooterDetectAlgo));
-     algos.emplace_back(std::move(m_pVehicleAlgo));
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    algos.emplace_back(std::move(m_pClassroomAlgo));
 #endif
 
     /* 释放算法实例 */
@@ -168,112 +90,12 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
         return;
     }
 
-#if !CAP_AI_FACE_RECOGNITION
-    Alarm::FaceRecognition_S stFaceRecognitionConfig;
-    CEventConfigure::instance()->get_configure(stFaceRecognitionConfig);
-#endif
-
     /* 配置项和算法对象的映射 */
     std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> algoBindings =
         {
-#ifdef DEVICE_TV_3882TI
-            /*AI智能场景分析*/
-            {stAlgoConfig.nEnLLmInference || stAlgoConfig.nEnTextPreset || stAlgoConfig.nEnAISceneAnalysis, m_pVisionTextAlgo},
-#endif
-            /* 移动侦测 */
-            {stAlgoConfig.nEnMotionDetect, m_pMotionAlgo},
-            /* 遮挡侦测 */
-            {stAlgoConfig.nEnOcclusionDetect, m_pHideAlgo},
-            /* notHelmet(未戴安全帽)、helmet(安全帽)、reflective(反光衣)、safetyRope(安全绳)、exposedSoil(泥土裸露)、person(人) */
-            {stAlgoConfig.nEnSafetyHelmet || stAlgoConfig.nEnReflectiveClothing || stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil, m_pGroup1Algo},
-            /* penson(人)、Car(机动车)、NonCar(非机动车) */
-            {stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
-                 stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnPersonFallDown ||
-                 stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator ||
-                 stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
-                 stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
-                 stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
-             m_pGroup2AndGroup4Algo},
-            /* Overflow(垃圾满溢)、expose(垃圾暴露)、Complete(井盖完好)、Damaged(井盖破损)、Lost(井盖丢失)、Uncovered(未盖井盖)、BreakoutOfOuterEdge(井盖外边沿破损)、WaterAccumulation(道路积水) */
-            {stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding, m_pGroup3Algo},
-            /* smoke(烟雾)、fire(火焰)（专用 FirePersonDetect 模型） */
-            {stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnOpenFlameLeave, m_pFirePersonAlgoDetect},
-            // /* cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中)
-            // {stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip, m_pGroup4Algo},
-            /* metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
-            {stAlgoConfig.nEnHoleProtectionBar || stAlgoConfig.nEnConstructionOccupyRoad, m_pGroup5Algo},
-            /* 物品检测 */
-            {stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval, m_pObjectDetectAlgo},
-            // /* 车牌识别检测 */
-            // {stAlgoConfig.nPlateNumber, m_pLicensePlateCognitionDetectAlgo},
-            /* 场景变更识别检测 */
-            {stAlgoConfig.nEnSceneChange, m_pSceneChangeAlgo},
-            /* 宠物识别检测 */
-            {stAlgoConfig.nEnPetRecognition, m_pPetAlgo},
-#if CAP_AI_FACE_RECOGNITION
-            /* 人脸识别/社交关系分析/后厨无关人员进入 */
-            {stAlgoConfig.nEnFaceRecognition || stAlgoConfig.nSocialRelationshipAnalysis ||
-                 stAlgoConfig.nKitchenUnrelatedPersonEntry,
-             m_pFaceRecognitionAlgo},
-#else
-            /* 旧人脸侦测、抓拍和属性分析 */
-            {stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stFaceRecognitionConfig.bAttributeAnalysisEnable, m_pFaceDetectAlgo},
-#endif
-            /* 通道占用检测 */
-            {stAlgoConfig.nChannelOccupation, m_pChannelOccupationAlgo},
-            /* 门禁异常通行检测 */
-            {stAlgoConfig.nAccessControlAbnormalPassage, m_pAccessControlPassageAlgo},
-            /* 人车非业务检测（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范/人员聚集） */
-            {stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
-                stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
-                stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
-                stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding ||
-                stAlgoConfig.nKitchenClothingCompliance ||
-                stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty ||
-                stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip ||
-                stAlgoConfig.nEnCrowdGathering,
-            m_pPMNMAlgoDetect},
-            /* 消防设施异常检测 */
-            {stAlgoConfig.nEnFireEquipmentAbnormal, m_pFireEquipmentAlgo},
-            /* 打架斗殴检测 */
-            {stAlgoConfig.nEnFight, m_pFightAlgo},
-            /* 鼠患识别检测 */
-            {stAlgoConfig.nMouseDetection, m_pMouseAlgoDetect},
-
-#if 0
-         /* 行人检测相关 */
-         {stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnPhoneUsage ||
-         stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering, m_pPersonDetectAlgo},
-         /* 火焰检测 */
-         { stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame ,m_pFireDetectAlgo},
-          /* 街道检测 */
-         { stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding ,m_pStreeDetectAlgo},
-         /* 垃圾检测 */
-         { stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageExposure ,m_pRubishDetectAlgo},
-         /* 睡岗识别 */
-         { stAlgoConfig.nEnSleepOnDuty ,m_pSleepDetectAlgo},
-         /* 摔倒识别 */
-         { stAlgoConfig.nEnTrip ,m_pTripDetectAlgo},
-         // /* 玩手机识别 */
-         // { stAlgoConfig.nEnPhoneUsage ,m_pPhoneUsageAlgo},
-         /* 施工占道检测 */
-         { stAlgoConfig.nEnConstructionOccupyRoad, m_pConstructionEncroachmentRoadDetectAlgo},
-         /*高空安全带黄土裸露 */
-         { stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil ,m_pHighSafyBeltSoilDetecAlgo},
-         /* 安全帽检测 */ 
-         { stAlgoConfig.nEnSafetyHelmet ,m_pHelmetAlgo},
-         /* 反光衣检测 */ 
-         { stAlgoConfig.nEnReflectiveClothing ,m_pReflectiveAlgo},
-         /* 抽烟检测 */ 
-         { stAlgoConfig.nEnSmoking ,m_pSmokingAlgo},
-         /* 防护栏检测 */ 
-         { stAlgoConfig.nEnHoleProtectionBar ,m_pFenceAlgo},
-         /* 机动车、行人、非机动车侦测 */ 
-         {stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion || stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion, m_pPersonMotorNomotorAlgo},
-         /* 电瓶车检测 */ 
-         { stAlgoConfig.nEnElectricVehicleInElevator, m_pElectricScooterDetectAlgo},
- 
-         { stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange, m_pVehicleAlgo},
+            /* 课堂分析（仅定义课堂配置宏的型号装配） */
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+            {true, m_pClassroomAlgo},
 #endif
         };
 
@@ -286,242 +108,19 @@ void CAlgoStreamDeal::bindRecvFunc(Event::AlgorithmConfig &stAlgoConfig)
         }
     }
 
-    /* 音频 配置项和算法对象的映射 */
-    std::vector<std::pair<bool, std::shared_ptr<CAlgorithm>>> audioAlgoBindings =
-        {
-            /* 音频异常识别检测 */
-            {stAlgoConfig.nEnAudioAnomaly, m_pAudioAlgo},
-        };
-
-    for (const auto &audioBinding : audioAlgoBindings)
-    {
-        if (audioBinding.first && audioBinding.second)
-        {
-            dlog_debug("AI_APP: 绑定音频回调成功");
-            bindAudioSlot<CAlgorithm>(m_StreamHandler.get(), audioBinding.second.get(), &CAlgorithm::recvMediaData);
-        }
-    }
 }
 
 void CAlgoStreamDeal::manageAlgorithmInstances(const Event::AlgorithmConfig &stAlgoConfig)
 {
     int bIsNew = 0;
 
-#if !CAP_AI_FACE_RECOGNITION
-    Alarm::FaceRecognition_S stFaceRecognitionConfig;
-    CEventConfigure::instance()->get_configure(stFaceRecognitionConfig);
-#endif
-
-#ifdef DEVICE_TV_3882TI
-    /* 场景智能分析算法 */
-    bIsNew += manageSingleAlgorithm(m_pVisionTextAlgo, stAlgoConfig.nEnLLmInference || stAlgoConfig.nEnTextPreset || stAlgoConfig.nEnAISceneAnalysis, []() -> std::shared_ptr<CAlgorithm> {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CVisionTextManager>());
+    /* 课堂分析算法（与配置下发接口同一宏门控） */
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    bIsNew += manageSingleAlgorithm(m_pClassroomAlgo, true, [this]() {
+        return std::static_pointer_cast<CAlgorithm>(std::make_shared<Classroom::CClassroomGateway>());
     });
 #endif
-    /* 移动侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pMotionAlgo, stAlgoConfig.nEnMotionDetect, []() -> std::shared_ptr<CAlgorithm> {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CMotionDetect>());
-    });
-    /* 遮挡侦测算法 */
-    bIsNew += manageSingleAlgorithm(m_pHideAlgo, stAlgoConfig.nEnOcclusionDetect, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CHideDetect>());
-    });
 
-    /* group1：notHelmet(未戴安全帽)、helmet(安全帽)、reflective(反光衣)、safetyRope(安全绳)、exposedSoil(泥土裸露)、person(人) */
-    bIsNew += manageSingleAlgorithm(m_pGroup1Algo,
-                                    stAlgoConfig.nEnSafetyHelmet || stAlgoConfig.nEnReflectiveClothing || stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup1Detect>()); });
-
-    /* group2：penson(人)、Car(机动车)、NonCar(非机动车)   group4：cigarette(香烟)、sleep(睡觉)、phone(玩手机)、fall(摔跤)、falling(摔跤中)*/
-    bIsNew += manageSingleAlgorithm(m_pGroup2AndGroup4Algo,
-                                    stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion || stAlgoConfig.nEnLeaveRegion ||
-                                        stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPedestrianIntrusion ||
-                                        stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnEmergencyLaneOccupancy ||
-                                        stAlgoConfig.nEnNonMotorVehicleIntrusion || stAlgoConfig.nEnElectricVehicleInElevator || stAlgoConfig.nEnReverseDirection ||
-                                        stAlgoConfig.nEnCongestion || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalLaneChange ||
-                                        stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty || stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip || stAlgoConfig.nPlateNumber ||
-                                        stAlgoConfig.nEnPedestrianAttribute || stAlgoConfig.nEnMotorVehicleAttribute || stAlgoConfig.nEnNonMotorVehicleAttribute,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup2_Group4Detect>()); });
-
-    /* group3：Overflow(垃圾满溢)、expose(垃圾暴露)、井盖异常、WaterAccumulation(道路积水) */
-    bIsNew += manageSingleAlgorithm(m_pGroup3Algo,
-                                    stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageOverflow || stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup3Detect>()); });
-
-    /* 烟火识别、明火检测、明火离人算法（专用 FirePersonDetect 模型：烟雾/火焰/行人） */
-    bIsNew += manageSingleAlgorithm(m_pFirePersonAlgoDetect,
-                                    stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame || stAlgoConfig.nEnOpenFlameLeave,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFirePersonAlgoDetect>()); });
-
-    /* group5：metalFence(金属栅栏)、ConeTank(锥形桶)、CrashBarrels(防撞桶)、fence(防护栏) */
-    bIsNew += manageSingleAlgorithm(m_pGroup5Algo,
-                                    stAlgoConfig.nEnHoleProtectionBar || stAlgoConfig.nEnConstructionOccupyRoad,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CGroup5Detect>()); });
-
-#if CAP_AI_FACE_RECOGNITION
-    /* 人脸识别/社交关系分析/后厨无关人员进入算法 */
-    bIsNew += manageSingleAlgorithm(m_pFaceRecognitionAlgo,
-                                    stAlgoConfig.nEnFaceRecognition || stAlgoConfig.nSocialRelationshipAnalysis ||
-                                        stAlgoConfig.nKitchenUnrelatedPersonEntry,
-                                    []() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceRecognition>()); });
-#else
-    /* 旧人脸侦测、抓拍和属性分析算法 */
-    bIsNew += manageSingleAlgorithm(m_pFaceDetectAlgo,
-                                    stAlgoConfig.nEnFaceCapture || stAlgoConfig.nEnFaceDetect || stFaceRecognitionConfig.bAttributeAnalysisEnable,
-                                    [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>()); });
-#endif
-
-    // /* 车牌识别检测算法 */
-    // bIsNew += manageSingleAlgorithm(m_pLicensePlateCognitionDetectAlgo, stAlgoConfig.nPlateNumber, []() {
-    //     return std::static_pointer_cast<CAlgorithm>(std::make_shared<CLicensePlateCognitionDetect>());
-    // });
-
-    /* 场景变更检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pSceneChangeAlgo, stAlgoConfig.nEnSceneChange, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<SceneChangeDetect>());
-    });
-
-    bIsNew += manageSingleAlgorithm(m_pObjectDetectAlgo, 
-        stAlgoConfig.nEnUnattendedObject || stAlgoConfig.nEnObjectRemoval,
-        [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CObjectDetect>()); });
-
-    /* 宠物识别检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pPetAlgo, stAlgoConfig.nEnPetRecognition, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPetRecognition>());
-    });
-
-    /* 音频异常识别检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pAudioAlgo, stAlgoConfig.nEnAudioAnomaly, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAudioDetect>());
-    });
-
-    /* 通道占用检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pChannelOccupationAlgo, stAlgoConfig.nChannelOccupation, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CChannelOccupationDetect>());
-    });
-
-    /* 门禁异常通行检测算法（攀爬检测模型 + 区域判定） */
-    bIsNew += manageSingleAlgorithm(m_pAccessControlPassageAlgo, stAlgoConfig.nAccessControlAbnormalPassage, []() {
-        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CAccessControlPassageDetect>());
-    });
-
-    /* 人车非业务检测算法（攀爬识别/危险区域靠近/长时间滞留/危险区域滞留/重点区域异常滞留/天台滞留/人员徘徊/排队拥堵/后厨穿戴规范/抽烟/睡岗/玩手机/摔倒/人员聚集） */
-    bIsNew += manageSingleAlgorithm(m_pPMNMAlgoDetect,
-                                    stAlgoConfig.nClimbDetection || stAlgoConfig.nDangerZoneApproach ||
-                                        stAlgoConfig.nLongTimeStay || stAlgoConfig.nDangerZoneStay ||
-                                        stAlgoConfig.nKeyAreaAbnormalStay || stAlgoConfig.nRooftopStay ||
-                                        stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnQueueCrowding ||
-                                        stAlgoConfig.nKitchenClothingCompliance ||
-                                        stAlgoConfig.nEnSmoking || stAlgoConfig.nEnSleepOnDuty ||
-                                        stAlgoConfig.nEnPhoneUsage || stAlgoConfig.nEnTrip ||
-                                        stAlgoConfig.nEnCrowdGathering,
-                                    []() {
-                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPMNMAlgoDetect>());
-                                    });
-
-    /* 消防设施异常检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pFireEquipmentAlgo,
-                                    stAlgoConfig.nEnFireEquipmentAbnormal,
-                                    []() {
-                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFireEquipmentDetect>());
-                                    });
-
-    /* 打架斗殴检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pFightAlgo,
-                                    stAlgoConfig.nEnFight,
-                                    []() {
-                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFightAlgoDetect>());
-                                    });
-
-    /* 鼠患识别检测算法 */
-    bIsNew += manageSingleAlgorithm(m_pMouseAlgoDetect,
-                                    stAlgoConfig.nMouseDetection,
-                                    []() {
-                                        return std::static_pointer_cast<CAlgorithm>(std::make_shared<CMouseAlgoDetect>());
-                                    });
-
-#if 0
-     /* 行人区域检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pPersonDetectAlgo, 
-                 stAlgoConfig.nEnLeavePost || stAlgoConfig.nEnPersonFallDown || stAlgoConfig.nEnFenceClimbing || stAlgoConfig.nEnPhoneUsage
-                          || stAlgoConfig.nEnLoiteringDetect || stAlgoConfig.nEnPedestrianIntrusion || stAlgoConfig.nEnCrowdGathering,
-                          [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPersonDetect>()); });
-
-     /* 火焰检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pFireDetectAlgo, 
-                         stAlgoConfig.nEnSmokeFire || stAlgoConfig.nEnOpenFlame,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFireDetect>()); });
-     /* 街道检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pStreeDetectAlgo, 
-                         stAlgoConfig.nEnManholeCoverAbnormal || stAlgoConfig.nEnRoadPonding,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CStreeDetect>()); });
-     /* 垃圾检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pRubishDetectAlgo, 
-                         stAlgoConfig.nEnGarbageExposure || stAlgoConfig.nEnGarbageExposure,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CRubishDetect>()); });
-     /* 睡岗识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pSleepDetectAlgo, 
-                         stAlgoConfig.nEnSleepOnDuty,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CSleepDetect>()); });
-      /* 摔倒识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pTripDetectAlgo, 
-                         stAlgoConfig.nEnTrip,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CTripDetect>()); });
-     //  /* 玩手机识别算法 */
-     // bIsNew += manageSingleAlgorithm(m_pPhoneUsageAlgo, 
-     //                     stAlgoConfig.nEnPhoneUsage,
-     //                     [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPhoneUsageDetect>()); });
-     /* 施工占道检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pConstructionEncroachmentRoadDetectAlgo, stAlgoConfig.nEnConstructionOccupyRoad,
-                                     []()
-                                     {
-                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CConstructionEncroachmentRoadDetect>());
-                                     });
-     
-     /* 高空安全带黄土裸露检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pHighSafyBeltSoilDetecAlgo, 
-                         stAlgoConfig.nEnHighAltitudeSeatbelt || stAlgoConfig.nEnBareSoil,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CHighSafyBeltSoilDetect>()); });
-     /* 安全帽识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pHelmetAlgo, 
-                         stAlgoConfig.nEnSafetyHelmet,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CHelmetDetect>()); });
-      /* 反光衣识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pReflectiveAlgo, 
-                         stAlgoConfig.nEnReflectiveClothing,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CReflectiveDetect>()); });
-     /* 抽烟识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pSmokingAlgo, 
-                         stAlgoConfig.nEnSmoking,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CSmokingDetect>()); });
-     /* 防护栏识别算法 */
-     bIsNew += manageSingleAlgorithm(m_pFenceAlgo, 
-                         stAlgoConfig.nEnHoleProtectionBar,
-                         [this]() { return std::static_pointer_cast<CAlgorithm>(std::make_shared<CFenceDetect>()); });
-     
-     /* 机动车、行人、非机动车检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pPersonMotorNomotorAlgo,stAlgoConfig.nEnLineCrossing || stAlgoConfig.nEnIntrusion || stAlgoConfig.nEnEnterRegion 
-                                 || stAlgoConfig.nEnLeaveRegion || stAlgoConfig.nEnEmergencyLaneOccupancy || stAlgoConfig.nEnNonMotorVehicleIntrusion,
-                                 []()
-                                 {
-                                     return std::static_pointer_cast<CAlgorithm>(std::make_shared<CPMNMDetect>());
-                                 });
- 
-     /* 电瓶车检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pElectricScooterDetectAlgo, stAlgoConfig.nEnElectricVehicleInElevator,
-                                     []()
-                                     {
-                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CElectricScooterDetect>());
-                                     });
-     
-     /* 车辆识别检测算法 */
-     bIsNew += manageSingleAlgorithm(m_pVehicleAlgo, stAlgoConfig.nEnReverseDirection || stAlgoConfig.nEnCongestion ||
-                                     stAlgoConfig.nEnParkingDetect || stAlgoConfig.nEnIllegalParking || stAlgoConfig.nEnIllegalLaneChange,
-                                     []()
-                                     {
-                                         return std::static_pointer_cast<CAlgorithm>(std::make_shared<CVehicleDetect>());
-                                     });
-#endif
     if (bIsNew)
     {
         /* 统一获取区域配置 */
@@ -542,7 +141,7 @@ bool CAlgoStreamDeal::manageSingleAlgorithm(std::shared_ptr<CAlgorithm> &algo, b
     }
     else
     {
-        if (algo && (algo != m_pVisionTextAlgo))
+        if (algo)
         {
             algo.reset();
             dlog_debug("AI_APP: 释放算法实例 引用计数为[%d]", algo.use_count());
@@ -568,33 +167,9 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
 
     /* 通知 Algorithm 更新参数 */
     std::vector<std::shared_ptr<CAlgorithm>> algos = {
-#ifdef DEVICE_TV_3882TI
-        m_pVisionTextAlgo,
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+        m_pClassroomAlgo,
 #endif
-        m_pMotionAlgo,
-        m_pHideAlgo,
-        m_pGroup1Algo,
-        m_pGroup2AndGroup4Algo,
-        m_pGroup3Algo,
-        m_pFirePersonAlgoDetect,
-        m_pGroup5Algo,
-#if CAP_AI_FACE_RECOGNITION
-        m_pFaceRecognitionAlgo,
-#else
-        m_pFaceDetectAlgo,
-#endif
-        // m_pLicensePlateCognitionDetectAlgo,
-        m_pSceneChangeAlgo,
-        m_pPetAlgo,
-        m_pObjectDetectAlgo,
-        m_pAudioAlgo,
-        m_pChannelOccupationAlgo,
-        m_pPMNMAlgoDetect,
-        m_pFireEquipmentAlgo,
-        m_pFightAlgo,
-        m_pAccessControlPassageAlgo,
-        m_pMouseAlgoDetect
-
     };
 
     for (auto &pAlgo : algos)
@@ -606,26 +181,15 @@ void CAlgoStreamDeal::set_Algo_EnConfig(Event::AlgorithmConfig &stAlgoConfig)
     }
 }
 
-// void CAlgoStreamDeal::set_Algo_ParamConfig(Alarm::TargetDetection_S &stAlgoCfg)
-// {
-//     if (m_pFaceAlgo)
-//     {
-//         m_pFaceAlgo->setAlgoParamCfg(stAlgoCfg);
-//     }
-// }
-
 float CAlgoStreamDeal::getCurrentDb() const
 {
-    if (!m_pAudioAlgo)
-    {
-        return 0.0f;
-    }
-    return m_pAudioAlgo.get()->getCurrentDb();
+
+    return 0.0f;
 }
 
 void CAlgoStreamDeal::runOnce()
 {
-    /* 使用静态局部变量来跟踪函数是否已执行过 */
+    /* 用一张静态标记保证算法实例只装配一次：本函数被 init() 调用 */
     static bool s_bHasRun = false;
 
     /* 如果已执行过，直接返回 */
@@ -635,8 +199,8 @@ void CAlgoStreamDeal::runOnce()
     }
 
     s_bHasRun = true;
-    // if (!m_pFaceAlgo)
-    // {
-    //     m_pFaceAlgo = std::static_pointer_cast<CAlgorithm>(std::make_shared<CFaceDetect>());
-    // }
+
+    Event::AlgorithmConfig stAlgoConfig;
+    CEventConfigure::instance()->get_configure(stAlgoConfig);
+    manageAlgorithmInstances(stAlgoConfig);
 }

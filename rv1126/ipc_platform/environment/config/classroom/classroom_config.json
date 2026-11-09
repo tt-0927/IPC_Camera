@@ -1,0 +1,8 @@
+{
+    "_readme": "课堂AI分析默认配置样例：未列出的键使用引擎内置缺省（fillDefaultSnapshot）；linkage_enable 打开后即时事件(207/209)同时走事件联动（声光/邮件/录像）",
+    "enable": true,
+    "linkage_enable": false,
+    "role": "both",
+    "mirror_mode": 0,
+    "rotate": 0
+}

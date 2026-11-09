@@ -267,6 +267,17 @@ copy_app_files() {
     #拷贝config配置
     cp -a ${CONFIG_PATH}/design_data/* ${UPGRADE_PATH}/${RUN_PATH}/.config/design_data/
 
+    # 课堂 AI 分析默认配置：仅课堂型号下发；缺省 enable=false，由网页/接口显式开启
+    if [[ "$DEVICE_TYPE" == "TV-3881TJY" ]]; then
+        if [ -f "${CONFIG_PATH}/classroom/classroom_config.json" ]; then
+            cp -a "${CONFIG_PATH}/classroom/classroom_config.json" \
+                  "${UPGRADE_PATH}/${RUN_PATH}/.config/user_data/"
+            info "已下发课堂 AI 分析默认配置"
+        else
+            warn "未找到课堂 AI 分析默认配置: ${CONFIG_PATH}/classroom/classroom_config.json"
+        fi
+    fi
+
     #服务器所有执行文件到bin目录
     cp -r ${BIN_PATH:?}/* ${UPGRADE_PATH}/${RUN_PATH}/bin
 

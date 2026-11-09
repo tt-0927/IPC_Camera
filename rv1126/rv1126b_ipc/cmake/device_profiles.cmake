@@ -48,7 +48,7 @@
 #         share/ipc_share/control/business/event/event_resource.cpp
 # - CAP_STORAGE_MMCBLK1: 存储设备路径 mmcblk1 逻辑
 #   使用: share/ipc_share/control/business/storage/storage_manage.cpp
-# - CAP_STORAGE_HAS_EMMC: 内部 eMMC 始终存在（TV-3882TI），TF 卡检测需排除 eMMC 设备
+# - CAP_STORAGE_HAS_EMMC: 内部 eMMC 始终存在，TF 卡检测需排除 eMMC 设备
 #   使用: share/ipc_share/control/business/event/monitor/system_monitor.cpp
 # - CAP_PROCESS_USE_PS_GREP: 进程探测使用 ps|grep
 #   使用: share/ipc_share/public_app/daemon/process_manager.cpp
@@ -62,10 +62,6 @@
 #   使用: rv1126b_ipc/ipc.cmake, share/ipc_share/public_app/record/CMakeLists.txt
 # - CAP_AI_USE_SIMPLE_JSON: AI 使用 simple Json 头
 #   使用: share/ai_share/AiModules/Inference/Hisilicon/CVInferenceHISI.hpp
-# - CAP_AI_FACE_RECOGNITION: 人脸能力模式
-#   使用: share/ipc_share/control/business/event/event_resource.cpp,
-#         share/ipc_share/control/task/sub_task/event_task.cpp,
-#         rv1126b_ipc/main_app/ai_app/interface/algo_stream_deal.cpp
 # - CAP_EXHIBITION_OSD_PANEL: 展会版左上角 AI 汇总面板能力
 #   使用: rv1126b_ipc/main_app/ai_app/common/common_process.cpp,
 #         rv1126b_ipc/main_app/av/video/process/osd/osd_manage.cpp,
@@ -74,7 +70,7 @@
 #   使用: share/ipc_share/control/business/network/network_manage.cpp
 # - CAP_NETWORK_FTP_SERVICE: 启动 ftp 服务能力
 #   使用: share/ipc_share/control/business/network/network_manage.cpp
-# - CAP_RTSP_HIGH_CONCURRENCY: RTSP 会话高并发能力（TV-3881T/TV-3882TI 为 8 路总额）
+# - CAP_RTSP_HIGH_CONCURRENCY: RTSP 会话高并发能力（TV-3881T/TV-3882TI/TV-3881TJY 为 8 路总额）
 #   使用: share/ipc_share/push_stream/rtsp/rtsp_server.h
 # - IPC_CAP_EXHIBITION_OSD_PANEL: CMake 变量版展会面板能力
 #   使用: rv1126b_ipc/main_app/ai_app/common/common.cmake
@@ -85,17 +81,15 @@
 # - CAP_MENU_PERMISSION_FORCE_OVERRIDE: admin/itc 用户菜单权限强制修正
 #   登录接口返回的 bObjectLib 固定 false、bFaceConfig 固定 true
 #   使用: share/ipc_share/control/business/system/user/user_manage.cpp
-
+# - IPC_CAP_NETWORK_GAT1400: CMake 变量版 GA/T 1400 联网协议能力
 set(DEVICE_PROFILE_KEYS
-    TV_3881T
-    TV_3882TI
+    TV_3881TJY
 )
 
-set(DEVICE_PROFILE_TV_3881T_DEVICE_TYPE "TV-3881T")
-# TV-3881T 设备能力画像（RV1126 平台基线）
-set(DEVICE_PROFILE_TV_3881T_DEFINES
-    DEVICE_TV_3881T
-    SCENE_INTELLIGENCE                    # 场景智能能力开关（历史业务宏）
+set(DEVICE_PROFILE_TV_3881TJY_DEVICE_TYPE "TV-3881TJY")
+# TV-3881TJY 设备能力画像（RV1126B 平台基线）
+set(DEVICE_PROFILE_TV_3881TJY_DEFINES
+    DEVICE_TV_3881TJY
 
     CAP_ALARM_IO=1                        # 报警IO能力（event_task.cpp / event_alarm.cpp / share_define.h）
     CAP_AUDIO_INPUT_LINEIN=1              # LineIn 输入能力（device_capability.h）
@@ -124,7 +118,6 @@ set(DEVICE_PROFILE_TV_3881T_DEFINES
     CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1  # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     CAP_RECORD_LINK_FDK_AAC=1             # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     CAP_AI_USE_SIMPLE_JSON=0              # AI Json 头选择（CVInferenceHISI.hpp）
-    CAP_AI_FACE_RECOGNITION=1             # 使用新人脸识别
     CAP_EXHIBITION_OSD_PANEL=1            # 展会版AI左上角汇总面板能力
     CAP_PROCESS_LOG_SWITCH=0              # stream/record/operation等进程的日志开关（目前只输出error级别）
     CAP_NETWORK_TELNET_SERVICE=0         # telnet 服务能力；发布版本不启动 telnetd
@@ -132,61 +125,15 @@ set(DEVICE_PROFILE_TV_3881T_DEFINES
     CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
     CAP_RECORD_USE_MAIN_STREAM=1         # 录制使用主码流
     CAP_MENU_PERMISSION_FORCE_OVERRIDE=1 # admin/itc 强制修正菜单权限默认值
+    CAP_TV3881TJY_EVENT_ALGO=0            # 屏蔽 share/ 公共仓的事件算法接线
+    CAP_TV3881TJY_CLASSROOM_CONFIG=1       # 课堂配置下发接口
 )
-set(DEVICE_PROFILE_TV_3881T_CMAKE_VARS
+set(DEVICE_PROFILE_TV_3881TJY_CMAKE_VARS
     IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1 # record 额外 include（ipc.cmake / record/CMakeLists.txt）
     IPC_CAP_RECORD_LINK_FDK_AAC=1            # record 链接 fdk-aac（ipc.cmake / record/CMakeLists.txt）
     IPC_CAP_EXHIBITION_OSD_PANEL=1           # 展会版AI左上角汇总面板能力
-)
-
-set(DEVICE_PROFILE_TV_3882TI_DEVICE_TYPE "TV-3882TI")
-# TV-3882TI 设备能力画像：
-# - 能力值与 TV-3881T 一致
-# - 差异点：额外启用 SCENE_INTELLIGENT_ANALYSIS（大模型/智能分析相关）
-set(DEVICE_PROFILE_TV_3882TI_DEFINES
-    DEVICE_TV_3882TI
-    SCENE_INTELLIGENCE                     # 场景智能能力开关（历史业务宏）
-    SCENE_INTELLIGENT_ANALYSIS             # TV-3882TI 增强智能分析宏（历史业务宏）
-
-    CAP_ALARM_IO=1
-    CAP_AUDIO_INPUT_LINEIN=1
-    CAP_AUDIO_OUTPUT_LINEOUT=1
-    CAP_AUDIO_FMT_AAC=1
-    CAP_AUDIO_FMT_G711U=1
-    CAP_AUDIO_FMT_G711A=1
-    CAP_AUDIO_FMT_PCM=1
-    CAP_AUDIO_FMT_G726=0
-    CAP_MOTION_REGION_GRID=1
-    CAP_VIDEO_MAX_2_5K=0
-    CAP_VIDEO_MAX_4K=1
-    CAP_SMART_EVENT_PERF_LIMIT=0
-    CAP_ISP_IR_SWITCH=0
-    CAP_GPIO_LAYOUT_852_SERIES=0
-    CAP_GPIO_LAYOUT_RV1126=1
-    CAP_LIGHT_WHITE_ONLY=1
-    CAP_PWM_NEED_POLARITY=1
-    CAP_EVENT_AUDIO_PLAYBACK_V2=1
-    CAP_AUDIO_PLAYBACK_SLEEP_HALF=0
-    CAP_SYSTEM_REBOOT_MUTE=1
-    CAP_STORAGE_MMCBLK1=1
-    CAP_STORAGE_HAS_EMMC=1       # 内部 eMMC 始终存在，TF 卡检测需排除 mmcblk0
-    CAP_PROCESS_USE_PS_GREP=1
-    CAP_PROCESS_KILL_CROND_BEFORE_STREAM=1
-    CAP_DAEMON_LOG_BY_SIZE=0
-    CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1
-    CAP_RECORD_LINK_FDK_AAC=1
-    CAP_AI_USE_SIMPLE_JSON=0
-    CAP_AI_FACE_RECOGNITION=1            # 使用新人脸识别
-    CAP_NETWORK_TELNET_SERVICE=0
-    CAP_NETWORK_FTP_SERVICE=0
-    CAP_PROCESS_LOG_SWITCH=0   
-    CAP_RTSP_HIGH_CONCURRENCY=1          # RTSP 高并发能力（8 路总额）
-    CAP_RECORD_USE_MAIN_STREAM=1 # 录制使用主码流
-    CAP_MENU_PERMISSION_FORCE_OVERRIDE=1 # admin/itc 强制修正菜单权限默认值
-)
-set(DEVICE_PROFILE_TV_3882TI_CMAKE_VARS
-    IPC_CAP_RECORD_NEEDS_CAM_SHARE_INCLUDE=1
-    IPC_CAP_RECORD_LINK_FDK_AAC=1
+    IPC_CAP_NETWORK_GAT1400=0                # GA/T 1400 联网协议
+    IPC_CAP_CLASSROOM=1                      # 课堂 AI 分析引擎（与 CAP_TV3881TJY_CLASSROOM_CONFIG 同开同关）
 )
 
 function(apply_device_profile device_type)

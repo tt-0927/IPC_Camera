@@ -1,16 +1,14 @@
 # ai.cmake
 
 # 引用
-
-if(DEVICE_TYPE STREQUAL "TV-3882TI")
-include(${CMAKE_CURRENT_LIST_DIR}/analysis_mode/analysis_mode.cmake)
-endif()
-
 include(${CMAKE_CURRENT_LIST_DIR}/detect_mode/detect_mode.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/common/common.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/interface/interface.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/stream_process/stream_process.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/algorithm_mode/algorithm_mode.cmake)
+# 课堂 AI 分析：引擎源码与配置下发接口共用同一开关，未开启的型号不入编译集
+if(IPC_CAP_CLASSROOM)
+    include(${CMAKE_CURRENT_LIST_DIR}/detect_mode/classroom/classroom.cmake)
+endif()
 
 
 # 头文件
