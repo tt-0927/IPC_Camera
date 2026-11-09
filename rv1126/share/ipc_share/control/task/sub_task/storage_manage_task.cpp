@@ -1,10 +1,10 @@
-/*
- * @Author: 梁浩尧 lianghaoyao@kfb.cn
- * @Date: 2025-08-13 10:09:35
- * @LastEditors: 梁浩尧 lianghaoyao@kfb.cn
- * @LastEditTime: 2025-12-25 09:51:20
- * @FilePath: /hisi/share/ipc_share/control/task/sub_task/storage_manage_task.cpp
- * @Description: 存储管理任务
+/**
+ * @FilePath     : storage_manage_task.cpp
+ * @Author       : lianghaoyao@kfb.cn
+ * @Date         : 2025-08-13 10:09:35
+ * @LastEditors  : zhouzr@kfb.cn
+ * @LastEditTime : 2026-11-05 14:01:24
+ * @Description  : 存储管理任务
  */
 
 /* 本地 SD 存储能力裁剪：能力关闭（IPC_CAP_LOCAL_STORAGE=0）时本文件整体不参与编译 */
@@ -15,6 +15,7 @@
 #include "convert_interface.h"
 #include "action_code.h"
 #include "storage_manage_configure.h"
+#include "IpcRet.h"
 
 /* 获取储存参数 */
 void Task::StorageManage::GetStorageManageInfo::handle()
@@ -33,14 +34,13 @@ void Task::StorageManage::SetStorageManageInfo::handle()
     result(Convert::to_string(stStorageManageParam), 0);
 }
 
-/* 设置储存参数 */
+/* 格式化SD卡 */
 void Task::StorageManage::FormatSdCard::handle()
 {
     bool bIsInitSdCard = false;
     Convert::to_struct(m_taskData, bIsInitSdCard);
     int nRet = CStorageManage::instance()->format_sd_card(bIsInitSdCard);
-    std::string strRet = nRet < 0 ? "格式化失败" : "格式化成功";
-    result(Convert::to_string(strRet), nRet);
+    result(nRet == 0 ? IpcRet_E::OK : IpcRet_E::ERR);
 }
 
 /**
