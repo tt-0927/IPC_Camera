@@ -2579,15 +2579,13 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
 
 /* ==================== 课堂 AI 分析统计报文（0x62xx 子段） ==================== */
 
-namespace
-{
 /**
  * @brief 输出三类报文共用的头部字段
  * @param [in,out] pRootJson 目标 JSON 对象
  * @param [in] stHead 报文头
  * @return 无
  */
-void classroom_stats_head_fields(Json::Object *pRootJson, NET_ClassroomStatsHead_S &stHead)
+static void classroom_stats_head_fields(Json::Object *pRootJson, NET_ClassroomStatsHead_S &stHead)
 {
     SDKConvert::CSDKConvert convert(false);
     convert.field(pRootJson, "Magic", stHead.u32Magic);
@@ -2613,7 +2611,7 @@ void classroom_stats_head_fields(Json::Object *pRootJson, NET_ClassroomStatsHead
  * @param [in] nCount 元素个数
  * @return 无
  */
-void classroom_int_array(Json::Object *pRootJson, const char *pszKey, const INT32 *pValues, int nCount)
+static void classroom_int_array(Json::Object *pRootJson, const char *pszKey, const INT32 *pValues, int nCount)
 {
     if (!pRootJson || !pszKey || !pValues || nCount <= 0)
     {
@@ -2630,7 +2628,7 @@ void classroom_int_array(Json::Object *pRootJson, const char *pszKey, const INT3
  * @param [in] nCount 元素个数
  * @return 无
  */
-void classroom_ms_array(Json::Object *pRootJson, const char *pszKey, const INT64 *pValues, int nCount)
+static void classroom_ms_array(Json::Object *pRootJson, const char *pszKey, const INT64 *pValues, int nCount)
 {
     if (!pRootJson || !pszKey || !pValues || nCount <= 0)
     {
@@ -2646,7 +2644,6 @@ void classroom_ms_array(Json::Object *pRootJson, const char *pszKey, const INT64
         Json::Array::add(pArray, static_cast<int>(pValues[i]));
     }
     Json::add(pRootJson, pszKey, pArray);
-}
 }
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsCounters_S &stInfo, bool bOutStruct)
