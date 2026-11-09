@@ -37,6 +37,16 @@ namespace SDKConvert
     void deal(Json::Object* pRootJson, NET_AlarmExceptionInfo_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsTarget_S& stInfo, bool bOutStruct);
     void deal(Json::Object* pRootJson, NET_AlarmStatisticsInfo_S& stInfo, bool bOutStruct);
+
+    /**
+     * @brief 课堂 AI 分析统计报文（0x62xx 子段）转 JSON
+     * @param [in,out] pRootJson 目标 JSON 对象
+     * @param [in] uCommand 命令码 0x6200/0x6201/0x6202
+     * @param [in] pData 原始报文指针，起始为 NET_ClassroomStatsHead_S
+     * @param [in] nDataLen 报文总长度
+     * @return true 解析成功；false 报文非法（长度/魔数/版本/类型不符）
+     */
+    bool dealClassroomStats(Json::Object* pRootJson, UINT32 uCommand, const void* pData, int nDataLen);
     /** 通用抓拍告警及人脸/行人/车辆扩展属性转换。 */
     void deal(Json::Object* pRootJson, NET_AlarmCaptureInfo_S& stInfo, bool bOutStruct);
 

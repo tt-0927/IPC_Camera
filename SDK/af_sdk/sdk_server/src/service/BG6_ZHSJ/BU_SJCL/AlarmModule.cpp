@@ -206,6 +206,17 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 SDKConvert::deal(pInfoJson, *(NET_AlarmExceptionInfo_S*)pAlarmInfo, false);
             }
         }
+        else if (nAlarmBase == NET_ALARM_CLASSROOM_STATS_BASE)
+        {
+            /* 课堂统计子段（0x6200~0x620F，码值 0x6200/0x6201/0x6202）：
+               载荷为自描述二进制报文（魔数 CST1 + 版本 + 消息类型），不套用
+               NET_AlarmStatisticsInfo_S；魔数/版本/长度不符时只回传命令码。 */
+            if (!SDKConvert::dealClassroomStats(pInfoJson, static_cast<UINT32>(nCommand),
+                                                pAlarmInfo, nBufLen))
+            {
+                Json::add(pInfoJson, "AlarmType", (long long)nCommand);
+            }
+        }
         else if (nAlarmBase == NET_ALARM_BASE_STATISTICS)
         {
             if (nBufLen < (INT32)sizeof(NET_AlarmStatisticsInfo_S))
