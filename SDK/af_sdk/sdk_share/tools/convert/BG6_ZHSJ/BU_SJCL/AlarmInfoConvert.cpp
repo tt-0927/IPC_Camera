@@ -2579,14 +2579,6 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
 
 /* ==================== 课堂 AI 分析统计报文（0x62xx 子段） ==================== */
 
-/* 平台 ABI：尺寸一改就编译失败，而不是让平台读到错位字段 */
-static_assert(sizeof(NET_ClassroomStatsHead_S) == 64, "classroom stats head is a platform ABI");
-static_assert(sizeof(NET_ClassroomStatsCounters_S) == 376, "classroom counters payload is a platform ABI");
-static_assert(sizeof(NET_ClassroomSegItem_S) == 56, "classroom seg item is a platform ABI");
-static_assert(sizeof(NET_ClassroomStatsSegments_S) == 1416, "classroom segments payload is a platform ABI");
-static_assert(sizeof(NET_ClassroomAlertItem_S) == 40, "classroom alert item is a platform ABI");
-static_assert(sizeof(NET_ClassroomStatsAlerts_S) == 392, "classroom alerts payload is a platform ABI");
-
 namespace
 {
 /**

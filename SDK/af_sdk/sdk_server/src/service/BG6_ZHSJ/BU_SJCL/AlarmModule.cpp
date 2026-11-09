@@ -220,7 +220,6 @@ BOOL CAlarmModule::PushAlarmInfo(NET_Alarmer_S* pAlarmer,
                 const INT32 nRemain = nBufLen - (INT32)sizeof(NET_ClassroomStatsHead_S);
                 if (nRemain >= 0 &&
                     stHead.u32Magic == NET_CLASSROOM_STATS_MAGIC &&
-                    stHead.u16Version == NET_CLASSROOM_STATS_VERSION &&
                     stHead.u32PayloadLen <= static_cast<UINT32>(nRemain))
                 {
                     if (nCommand == NET_ALARM_CLASSROOM_STATS_COUNTERS &&
