@@ -41,8 +41,8 @@ void build_fill_light_profile(FillLightProfile_S &stProfile)
     stProfile.stWhite.nDutyOffset = WHITE_LIGHT_DUTY_OFFSET;
     stProfile.stWhite.nDutyStep = WHITE_LIGHT_DUTY_STEP;
     stProfile.stWhite.nDutyMax = WHITE_LIGHT_DUTY_MAX;
-    /* info: 切换白光前等待20毫秒，给PWM输出和灯珠驱动留下稳定时间。 */
-    stProfile.nMutualExclusionSettleMs = 20U;
+    /* info: 切换白光前等待100毫秒，给PWM输出和灯珠驱动留下稳定时间。 */
+    stProfile.nMutualExclusionSettleMs = 100U;
 }
 } // namespace
 

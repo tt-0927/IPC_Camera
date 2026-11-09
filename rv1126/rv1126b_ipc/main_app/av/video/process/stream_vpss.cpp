@@ -3,7 +3,7 @@
  * @Author       : zhouzirui
  * @Date         : 2024-09-26 11:23:29
  * @LastEditors: leiyy leiyy@kfb.cn
- * @LastEditTime: 2026-09-01 19:47:32
+ * @LastEditTime: 2026-09-16 15:46:03
  * @Description  : VPSS 视频处理
  */
 
@@ -56,8 +56,6 @@ RkVpss_S **streamVpss_init(RkVpss_S ***pHandle, const std::vector<Video_NS::Vide
                     pVpssChnAttr->nSrcFrameRate = -1;
                     pVpssChnAttr->nDstFrameRate = -1;
                     pVpssChnAttr->enChnComMode  = COMPRESSMODE;
-                    pVpssChnAttr->nDepth = 2;
-                    pVpssChnAttr->nFrameBufCnt = 6;
 
             }
             else if (nVpssChn == VPSS_CHANNEL_SUB) // 第二码流

@@ -72,6 +72,26 @@ using namespace FaceDataDB_NS;
 #define SQL_SELECT_ALL_DATA ("SELECT * FROM \"%s\";")
 
 
+/**
+ * @brief: NULL 安全地取一列文本
+ * @param [sqlite3_stmt*] pstStmt: 已 step 到某一行的语句
+ * @param [int] nCol: 列号
+ * @return std::string 该列为 NULL 时返回空串
+ */
+static std::string columnText(sqlite3_stmt* pstStmt, int nCol)
+{
+    const unsigned char* pchText = sqlite3_column_text(pstStmt, nCol);
+    return (nullptr != pchText) ? std::string(reinterpret_cast<const char*>(pchText)) : std::string();
+}
+
+
+
+const char* CFaceSqlite::dbFilePath()
+{
+    return DB_FACE_DATA_PATH;
+}
+
+
 CFaceSqlite::CFaceSqlite()
 {
     init_sql();
@@ -302,7 +322,8 @@ IpcRet_E CFaceSqlite::deleteData(int nId)
 
     char* pchDeleteSQL = nullptr;
     sqlite3_stmt* pstCountstmt = nullptr;
-    const char* pchSelectTablesSQL = "SELECT name FROM sqlite_master WHERE type='table';";
+    const char* pchSelectTablesSQL =
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*';";
     
     IpcRet_E enRetCode = OK;
 
@@ -491,14 +512,24 @@ IpcRet_E CFaceSqlite::searchDataByTable(std::string strTabName, std::list<FaceLi
             FaceLibsInfo_S stItemInfo;
             stItemInfo.strFaceLibName = strTabName;
             stItemInfo.nId = sqlite3_column_int(pstSelectStmt, 0);
-            stItemInfo.strName = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 1));
-            stItemInfo.strPhoneNum = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 2));
-            stItemInfo.strPicPath = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 3));
-            stItemInfo.strPicType = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 4));
+            stItemInfo.strName = columnText(pstSelectStmt, 1);
+            stItemInfo.strPhoneNum = columnText(pstSelectStmt, 2);
+            stItemInfo.strPicPath = columnText(pstSelectStmt, 3);
+            stItemInfo.strPicType = columnText(pstSelectStmt, 4);
             stItemInfo.nPicSize = sqlite3_column_int(pstSelectStmt, 5);
-            stItemInfo.strPicDate = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 6));
+            stItemInfo.strPicDate = columnText(pstSelectStmt, 6);
             stItemInfo.nModelState = sqlite3_column_int(pstSelectStmt, 7);
             stItemInfo.nRatingLevel = sqlite3_column_int(pstSelectStmt, 8);
+
+            /* 第 9 列 Data 是特征 BLOB。本函数原先整段漏了它 */
+            const void* pBlobData = sqlite3_column_blob(pstSelectStmt, 9);
+            int nDataSize = sqlite3_column_bytes(pstSelectStmt, 9);
+            stItemInfo.vfData.clear();
+            if (pBlobData != nullptr && nDataSize > 0)
+            {
+                const float* pfDataPtr = reinterpret_cast<const float*>(pBlobData);
+                stItemInfo.vfData.assign(pfDataPtr, pfDataPtr + nDataSize / sizeof(float));
+            }
 
             listOutInfo.push_back(stItemInfo);
         }
@@ -556,12 +587,12 @@ IpcRet_E CFaceSqlite::getAllData(std::list<FaceLibsInfo_S>& listOutInfo)
                     FaceLibsInfo_S stItemInfo;
                     stItemInfo.strFaceLibName = strTabName;
                     stItemInfo.nId = sqlite3_column_int(pstSelectStmt, 0);
-                    stItemInfo.strName = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 1));
-                    stItemInfo.strPhoneNum = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 2));
-                    stItemInfo.strPicPath = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 3));
-                    stItemInfo.strPicType = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 4));
+                    stItemInfo.strName = columnText(pstSelectStmt, 1);
+                    stItemInfo.strPhoneNum = columnText(pstSelectStmt, 2);
+                    stItemInfo.strPicPath = columnText(pstSelectStmt, 3);
+                    stItemInfo.strPicType = columnText(pstSelectStmt, 4);
                     stItemInfo.nPicSize = sqlite3_column_int(pstSelectStmt, 5);
-                    stItemInfo.strPicDate = reinterpret_cast<const char*>(sqlite3_column_text(pstSelectStmt, 6));
+                    stItemInfo.strPicDate = columnText(pstSelectStmt, 6);
                     stItemInfo.nModelState = sqlite3_column_int(pstSelectStmt, 7);
                     stItemInfo.nRatingLevel = sqlite3_column_int(pstSelectStmt, 8);
 
@@ -707,9 +738,17 @@ IpcRet_E CFaceSqlite::init_sql()
 
     /* 打开数据库 */
     nRet = sqlite3_open(DB_FACE_DATA_PATH, &pDbhandle);
-    if (nRet < 0)
+    if (SQLITE_OK != nRet)
     {
-        dlog_error("打开数据库失败-[%s]", sqlite3_errmsg(pDbhandle));
+        dlog_error("打开数据库失败-[%s] ret=%d",
+                   (nullptr != pDbhandle) ? sqlite3_errmsg(pDbhandle) : "(句柄未分配)",
+                   nRet);
+        /* 失败时必须把 sqlite3_open 自己分配的句柄关掉：它即使返回错误码，
+           也可能已经建出一个可用的对象，漏关就是一小块常驻泄漏 */
+        if (nullptr != pDbhandle)
+        {
+            sqlite3_close(pDbhandle);
+        }
         return ERR;
     }
 
@@ -945,20 +984,23 @@ IpcRet_E CFaceSqlite::search_combined_data(Event::FaceFind_S stFaceFind, std::li
     std::string query = "SELECT * FROM \"" + stFaceFind.strFaceLibName + "\" WHERE 1=1";
 
     /* 根据条件拼接查询 */
+    std::vector<std::string> vecParams;   /* 文本参数按出现次序存，bind 时按下标取 */
 
     if (!stFaceFind.strName.empty())
     {
-        query += " AND Name LIKE '%" + stFaceFind.strName + "%'";
+        query += " AND Name LIKE ?";
+        vecParams.push_back("%" + stFaceFind.strName + "%");
     }
-    
+
     if (!stFaceFind.strPhoneNum.empty())
     {
-        query += " AND PhoneNum LIKE '%" + stFaceFind.strPhoneNum + "%'";
+        query += " AND PhoneNum LIKE ?";
+        vecParams.push_back("%" + stFaceFind.strPhoneNum + "%");
     }
-    
+
     if (stFaceFind.nModelState != -1)
     {
-        query += " AND ModelState = " + std::to_string(stFaceFind.nModelState);
+        query += " AND ModelState = ?";
     }
     
     if (stFaceFind.nRatingLevel != -1) 
@@ -986,6 +1028,18 @@ IpcRet_E CFaceSqlite::search_combined_data(Event::FaceFind_S stFaceFind, std::li
     /* 执行查询 */
     if (sqlite3_prepare_v2(m_pDb, query.c_str(), -1, &pstSelectStmt, nullptr) == SQLITE_OK)
     {
+        int nParamIdx = 1;
+        for (size_t i = 0; i < vecParams.size(); ++i)
+        {
+            sqlite3_bind_text(pstSelectStmt, nParamIdx, vecParams[i].c_str(), -1, SQLITE_TRANSIENT);
+            ++nParamIdx;
+        }
+        if (stFaceFind.nModelState != -1)
+        {
+            sqlite3_bind_int(pstSelectStmt, nParamIdx, stFaceFind.nModelState);
+            ++nParamIdx;
+        }
+        /* RatingLevel 三档是常量分支，没有可注入的输入，留在 SQL 文本里 */
         while (sqlite3_step(pstSelectStmt) == SQLITE_ROW)
         {
             FaceLibsInfo_S stItemInfo;

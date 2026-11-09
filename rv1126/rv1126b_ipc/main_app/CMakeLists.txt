@@ -7,7 +7,7 @@ project(${PRO_NAME})
 
 # ipc_share
 message(${IPC_SHARE_PATH})
-if (DEVICE_TYPE STREQUAL "TV-3881T" OR DEVICE_TYPE STREQUAL "TV-3882TI")
+if(IPC_CAP_NETWORK_GAT1400)
     SET(ENABLE_GAT1400 ON)
 endif()
 include(${IPC_SHARE_PATH}/ipc_share.cmake)
@@ -37,8 +37,19 @@ include(${CAM_SHARE_PATH}/utils/curl/curl.cmake)
 
 set(SKIP_LINK_LIBROCKIT ON)
 
-include(${AI_SHARE_PATH}/AiModules/Modules/SleepOnDutyDetect/SleepOnDutyDetect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/TripDetect/TripDetect.cmake)
+# ---- 课堂分析必用：推理封装层 + 跟踪 + 人脸 + 移动侦测（单产品仓，全量编入）----
+set(AI_MODULE_TARGETS
+    ByteTrack_CPU
+    YoloUltralytics
+    Yolov5
+    Yolov5Point
+    YoloUltralyticsPoint
+    Attribute
+    MoveDetect_Module
+    FaceDetect_Module
+    FaceAttribute_Module
+)
+
 include(${AI_SHARE_PATH}/AiModules/Inference/CPU/Tracker/ByteTrack/ByteTrack.cmake)
 include(${AI_SHARE_PATH}/AiModules/Inference/RK/TargetDetection/YoloUltralytics/YoloUltralytics.cmake)
 include(${AI_SHARE_PATH}/AiModules/Inference/RK/TargetDetection/Yolov5/Yolov5.cmake)
@@ -46,36 +57,8 @@ include(${AI_SHARE_PATH}/AiModules/Inference/RK/KeyPoint/Yolov5Point/Yolov5Point
 include(${AI_SHARE_PATH}/AiModules/Inference/RK/KeyPoint/YoloUltralyticsPoint/YoloUltralyticsPoint.cmake)
 include(${AI_SHARE_PATH}/AiModules/Inference/RK/Classification/Attribute/Attribute.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/MoveDetect/MoveDetect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/CameraObstruction/CameraObstruction.cmake)
-include(${AI_SHARE_PATH}/AiModules/Inference/RK/Classification/ImageFeature/ImageFeature.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/FaceDetect/FaceDetect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/FaceQualityAssessment/FaceQualityAssessment.cmake)
 include(${AI_SHARE_PATH}/AiModules/Modules/FaceAttribute/FaceAttribute.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/HelmetDetect/HelmetDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/ReflectiveDetect/ReflectiveDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/SmokingDetect/SmokingDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/FenceDetect/FenceDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/PMNMDetect/PMNMDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/ElectricScooterDetect/ElectricScooterDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/VehicleDetect/VehicleDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/PlayPhoneDetect/PlayPhoneDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/SafetyropeAndSoilDetect/SafetyropeAndSoilDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/HumanAreaDetect/HumanAreaDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/FireDetect/FireDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/StreeDetect/StreeDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/RubishDetect/RubishDetect.cmake)
-# include(${AI_SHARE_PATH}/AiModules/Modules/ConstructionEncroachmentRoadDetect/ConstructionEncroachmentRoadDetect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/LicensePlateCognition/LicensePlateCognition.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/PetRecognition/PetRecognition.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/Group1Detect/Group1Detect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/Group2Detect/Group2Detect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/Group3Detect/Group3Detect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/Group4Detect/Group4Detect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/Group5Detect/Group5Detect.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/PresonAttribute/PresonAttribute.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/VehicleAttribute/VehicleAttribute.cmake)
-include(${AI_SHARE_PATH}/AiModules/Modules/NonMotorizedAttribute/NonMotorizedAttribute.cmake)
-include(${AI_SHARE_PATH}/AiModules/Inference/CPU/ChannelOccupationDetect/ChannelOccupationDetect.cmake)
 
 # rk_pipeline
 message(${RK_PIPELINE_PATH})
@@ -130,20 +113,6 @@ endforeach()
 
 add_executable (${PRO_NAME} ${MAIN_LIST} ${STREAM_LIST} ${SRC_LIST} ${SOURCE_PATH})
 
-# 连接库：默认 smolrtsp；旧实现只在显式 live555 回滚时连接。
-set(PROJECT_RTSP_LINK_LIBS)
-if(IPC_RTSP_BACKEND STREQUAL "smolrtsp")
-    if(NOT IPC_RTSP_LINK_LIBS)
-        message(FATAL_ERROR "smolrtsp 后端未提供 IPC_RTSP_LINK_LIBS")
-    endif()
-    set(PROJECT_RTSP_LINK_LIBS ${IPC_RTSP_LINK_LIBS})
-elseif(IPC_RTSP_BACKEND STREQUAL "live555")
-    set(PROJECT_RTSP_LINK_LIBS libRtspServer)
-else()
-    message(FATAL_ERROR
-        "IPC_RTSP_BACKEND 必须是 smolrtsp 或 live555，当前为：${IPC_RTSP_BACKEND}")
-endif()
-
 #连接库
 #查看platform下的库文件cmake
 target_link_libraries(${PROJECT_NAME} 
@@ -173,7 +142,7 @@ target_link_libraries(${PROJECT_NAME}
     libupnp
     libsnmp++
     libagent++
-    ${PROJECT_RTSP_LINK_LIBS}
+    libRtspServer
     # libtwolame
     libonvif
     # libgmssl
@@ -193,61 +162,15 @@ target_link_libraries(${PROJECT_NAME}
     libopencv
     #libopencvfont
     librknnrt
-    SleepOnDutyDetect_Module
-    TripDetect_Module
-    ByteTrack_CPU
-    YoloUltralytics
-    Yolov5
-    Yolov5Point
-    YoloUltralyticsPoint
-    Attribute
-    MoveDetect_Module
-    CameraObstruction_Module
-    ImageFeature
-    FaceDetect_Module
-    FaceQualityAssessment_Module
-    FaceAttribute_Module
-    # ConstructionEncroachmentRoadDetect_Module
-    # HelmetDetect_Module
-    # ReflectiveDetect_Module
-    # SmokingDetect_Module
-    # FenceDetectDetect_Module
-    # NPMNMDetect_Module
-    # ElectricScooterDetect_Module
-    # HumanAreaDetect_Module
-    # FireDetect_Module
-    # StreeDetect_Module
-    # RubishDetect_Module
-    # PlayPhoneDetect_Module
-    # SafetyropeAndSoilDetect_Module
-    # VehicleDetect_Module
-    LicensePlateCognition_Module
-    PetRecognition_Module
-    Group1Detect_Module
-    Group2Detect_Module
-    Group3Detect_Module
-    Group4Detect_Module
-    Group5Detect_Module
-    PresonAttribute_Module
-    VehicleAttribute_Module
-    NonMotorizedAttribute_Module
-    ChannelOccupationDetect_CPU
+    # 算法模块目标：课堂分析必用的推理/跟踪/人脸/移动侦测模块（include 与 link 同源）
+    ${AI_MODULE_TARGETS}
     libmqtt
     libcurl
 )
 
-# target_link_libraries(${PROJECT_NAME} 
+# target_link_libraries(${PROJECT_NAME}
 #     ssl
 #     crypto
 # )
-
-#TV-3882TI追加大模型所需库
-if(DEVICE_TYPE STREQUAL "TV-3882TI")
-    target_link_libraries(${PROJECT_NAME} 
-        -lrockiva
-        # libopencv
-        RKVLM
-    )
-endif()
 
 message("==========> Generate " ${PRO_NAME} " Makefile Success <==========")

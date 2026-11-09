@@ -110,3 +110,35 @@ public:
         dlog_info("定制化型号TV-3881T的设备信息...");
     }
 };
+
+/**
+* @brief   : 产品型号TV-3881TJY的设备信息策略
+* @note    : 型号TV-3881TJY
+*/
+class CDeviceInfoStrategy_TV_3881TJY : public CConfigStrategy<System::DeviceInfo_S>
+{
+public:
+    void fillDefault(System::DeviceInfo_S &config) override
+    {
+        dlog_info("填充型号TV-3881TJY的默认设备信息...");
+        
+        /* 可编辑的设备信息 */
+        config.deviceName = DEVICE_NAME; /* 设备名称 */
+        config.deviceID = 1;             /* 设备编号 */
+        /* 设备固定属性 */
+        config.strUnitTpye = DEVICE_CODE;                                       /* 设备型号 */
+        config.serialNumber = SystemManage::instance()->get_cpu_serialNumber(); /* 设备序列号 */
+        config.hardwareVersion = HARDWARE_VERSION;                              /* 硬件版本 */
+        config.systemVersion = SYSTEM_VERSION;                                  /* 系统版本 */
+        config.pluginVersion = PLUG_VERSION;                                    /* 插件版本 */
+        config.webVersion = WEB_VERSION;                                        /* web版本 */
+        /* 设备配置信息 */
+        config.nAlarmInputCount = GPIO_OUTPUT_COUNT; /* 报警输入个数 */
+        config.nAlarmOutputCount = GPIO_INPUT_COUNT; /* 报警输出个数 */
+    }
+
+    void customize(System::DeviceInfo_S &config) override
+    {
+        dlog_info("定制化型号TV-3881TJY的设备信息...");
+    }
+};

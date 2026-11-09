@@ -265,7 +265,7 @@ private:
 
     // info /*----------------------- 功放延时开启 -----------------------*/
     /*功放启动延时常量（毫秒）：等待 Codec 偏置电压稳定后再开启功放，消除开头噗声*/
-    static constexpr uint64_t PA_DELAY_ALARM_MS    = 150;  /* 声音联动报警音延时 */
+    static constexpr uint64_t PA_DELAY_ALARM_MS    = 300;  /* 声音联动报警音延时 */
     static constexpr uint64_t PA_DELAY_REALTIME_MS = 500;  /* 对讲/广播实时流延时 */
     /*当前使用的延时值（根据音频来源动态切换）*/
     uint64_t              m_paDelayMs{PA_DELAY_ALARM_MS};

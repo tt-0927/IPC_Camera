@@ -31,16 +31,10 @@
 
 
 
-
-
-
-
-
-
 /* 日志记录单个日志文件的最大大小 */
 #define MAX_LOG_SIZE  (2 * 1024 * 1024) // 2MB
 /* 日志记录最大保留的日志文件数量 */
-#define MAX_LOG_FILES (6)
+#define MAX_LOG_FILES (12)
 
 /* 进程是否捕获信号而退出标志 */
 static std::atomic<bool> g_bExit(false);
@@ -48,7 +42,7 @@ static std::atomic<bool> g_bExit(false);
 // 定义全局文件描述符
 static int g_fd_spk_val = -1;
 static int g_fd_lo_val = -1;
-extern std::atomic<bool> g_bExit;
+
 
 // Audio静音函数
 static void emergencyMute() 

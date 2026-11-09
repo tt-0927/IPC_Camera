@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -B ../clangd_build/
+cmake -DDEVICE_TYPE=TV-3881TJY -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -B ../clangd_build/

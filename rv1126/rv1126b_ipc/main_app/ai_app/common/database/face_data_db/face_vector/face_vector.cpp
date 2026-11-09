@@ -83,6 +83,10 @@ std::vector<float> CFaceVector::parseBlobToVector(const void *data, int size)
 // 计算两个128维向量之间的余弦相似度
 float CFaceVector::cosineSimilarity(const std::vector<float> &a, const std::vector<float> &b)
 {
+    if (a.empty() || b.empty() || a.size() != b.size())
+    {
+        return -1.0f;
+    }
     float dot = 0.0f, normA = 0.0f, normB = 0.0f;
     for (size_t i = 0; i < a.size(); ++i)
     {
@@ -90,7 +94,13 @@ float CFaceVector::cosineSimilarity(const std::vector<float> &a, const std::vect
         normA += a[i] * a[i];
         normB += b[i] * b[i];
     }
-    return dot / (std::sqrt(normA) * std::sqrt(normB) + 1e-6f);
+    /* 1e-12f 而不是 1e-6f：1e-6f 在 float 累加里会被
+       "真实的小模长向量"（例如整行同一个极小值）吃掉，把该判不可比的行判成可比 */
+    if (!(normA > 1e-12f) || !(normB > 1e-12f))
+    {
+        return -1.0f;
+    }
+    return dot / (std::sqrt(normA) * std::sqrt(normB));
 }
 
 // 在指定表中查找最相似的记录

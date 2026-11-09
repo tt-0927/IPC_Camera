@@ -45,6 +45,10 @@ public:
         {
             return std::make_unique<CDeviceInfoStrategy_TV_3881T>();
         }
+        else if (strModelName == "TV-3881TJY")
+        {
+            return std::make_unique<CDeviceInfoStrategy_TV_3881TJY>();
+        }
         else
         {
             dlog_warn("未知的设备型号 [%s], 使用默认设备信息策略。", strModelName.c_str());

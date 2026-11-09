@@ -49,17 +49,28 @@ extern "C"{
 #define MQTT_MODEL      DEVICE_CODE
 /* 设备运维管理平台-设备唯一code码 */
 #define MQTT_CODE       "sGhe1x9c9CiaqH0xBa3pTQk0Vle5y0WN"
-#else
+#elif DEVICE_TV_3881TJY
 /* 设备代码 */
-#define DEVICE_CODE     "TV-3881T"
+#define DEVICE_CODE     "TV-3881TJY"
 /* 升级包前缀校验ID，不能超过3个字符, 修改后需要重新编译所有程序，包括mkpack */
-#define UPGRADE_ID      ("881")
+#define UPGRADE_ID      ("81J")
 /* 设备运维管理平台-设备编号 */
-#define MQTT_PROJECT_ID 1722
+#define MQTT_PROJECT_ID 3131
 /* 设备运维管理平台-设备型号 */
 #define MQTT_MODEL      DEVICE_CODE
 /* 设备运维管理平台-设备唯一code码 */
-#define MQTT_CODE       "sGhe1x9c9CiaqH0xBa3pTQk0Vle5y0WN"
+#define MQTT_CODE       "aB3dE9fG7hJ2kL5mN8pQ4rS6tU1vW0xY"
+#else
+/* 设备代码 */
+#define DEVICE_CODE     "TV-3881TJY"
+/* 升级包前缀校验ID，不能超过3个字符, 修改后需要重新编译所有程序，包括mkpack */
+#define UPGRADE_ID      ("81J")
+/* 设备运维管理平台-设备编号 */
+#define MQTT_PROJECT_ID 3131
+/* 设备运维管理平台-设备型号 */
+#define MQTT_MODEL      DEVICE_CODE
+/* 设备运维管理平台-设备唯一code码 */
+#define MQTT_CODE       "aB3dE9fG7hJ2kL5mN8pQ4rS6tU1vW0xY"
 #endif
 
 /* 软件项目类型 */
@@ -87,13 +98,13 @@ extern "C"{
 /* 软著版本号的前缀v1.0.0 */
 #define PREFIX_VERSION       "V3.357"
 /* 固件版本 */
-#define FIRMWARE_VERSION     "V1.0.9"
+#define FIRMWARE_VERSION     "V1.0.1"
 /* 硬件版本 */
 #define HARDWARE_VERSION     "V1.0.0"
 /* 系统版本 */
-#define SYSTEM_VERSION       "V1.0.10"
+#define SYSTEM_VERSION       "V1.0.1"
 /* 插件版本 */
-#define PLUG_VERSION         "V2.0.27"
+#define PLUG_VERSION         "V2.0.25"
 /* web版本 */
 #define WEB_VERSION          "V1.0.1"
 /* 报警输入GPIO个数 */

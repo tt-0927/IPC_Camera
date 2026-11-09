@@ -29,6 +29,12 @@ namespace FaceDataDB_NS
         ~CFaceSqlite();
 
         /**
+         * @brief 本类实际打开的库文件路径（与构造时用的是同一个常量）
+         * @return const char* 绝对路径，永不为空
+         */
+        static const char* dbFilePath();
+
+        /**
          * @brief 插入数据
          * @param [FaceLibsInfo_S&] stInfo: 数据
          * @return [*] 成功 >= IpcRet_E::OK   其他失败

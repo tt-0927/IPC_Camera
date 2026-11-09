@@ -61,8 +61,13 @@ namespace BQ_NS
                 else if (nTimeOutMs < 0)
                 {
                     m_condition.wait(lock, [this] {
-                        return m_queue.size() < m_nMaxSize;
+                        return m_queue.size() < m_nMaxSize || m_bShutdown.load();
                     });
+                    /* 被 shutdown 唤醒而队列仍满 ⇒ 这一条插不进去，按失败返回而不是假装成功 */
+                    if (m_bShutdown.load() && m_queue.size() >= m_nMaxSize)
+                    {
+                        return false;
+                    }
                 }
                 else
                 {
@@ -175,7 +180,8 @@ namespace BQ_NS
                     m_releaseFunc(value);
                 }
             }
-            // m_condition.notify_all();
+            
+            m_condition.notify_all();
         }
 
          /**
