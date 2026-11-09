@@ -478,6 +478,8 @@
 #define AI_FACE_RUBISH_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "aiRknnConfig.json"
 /* 人脸特征 */
 #define AI_FACE_FEATURE_CONFIG_FILE         DESIGN_DATA_PATH "ai_mobileface.json"
+/* 人脸属性 */
+#define AI_FACE_ATTRIBUTE_CONFIG_FILE       DESIGN_DATA_PATH "ai_face_attribute.json"
 /* 人头侦测 */
 #define AI_HEAD_DETECTION_CONFIG_FILE       DESIGN_DATA_PATH "ai_head_detection.json"
 /* 展馆人流统计侦测（YOLOV8n-exhibition，person/head 两类） */
