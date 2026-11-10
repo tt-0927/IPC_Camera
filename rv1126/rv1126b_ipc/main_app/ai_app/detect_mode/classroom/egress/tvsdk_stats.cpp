@@ -162,9 +162,10 @@ static const char *flagYesNo(uint32_t u32Flags, uint32_t u32Bit)
 static void logCountersPacket(const CStatsCountersMsg_S &stMsg)
 {
     const CStatsHead_S &stHead = stMsg.stHead;
-    dlog_info("[课堂统计0x6200] seq=%u 会话=%lld 角色=%d 标志=0x%x{考勤启用:%s 应到已知:%s 已上课:%s "
+    dlog_info("[课堂统计0x6200] seq=%u 会话=%lld 通道=%u 角色=%d 标志=0x%x{考勤启用:%s 应到已知:%s 已上课:%s "
               "教师在场:%s 教师已识别:%s 专注有效:%s 考勤封口:%s 会话封口:%s}",
-              stHead.u32MsgSeq, static_cast<long long>(stHead.llSessionId), stHead.nDeviceRole,
+              stHead.u32MsgSeq, static_cast<long long>(stHead.llSessionId), stHead.u32Channel,
+              stHead.nDeviceRole,
               stHead.u32Flags,
               flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ATTEND_ENABLE),
               flagYesNo(stHead.u32Flags, CLASSROOM_STATS_FLAG_ABSENT_KNOWN),
@@ -458,6 +459,11 @@ int32_t CStatsHub::deviceRoleCode() const
     }
 }
 
+void CStatsHub::setChannel(uint32_t u32Channel)
+{
+    m_u32Channel = u32Channel;
+}
+
 void CStatsHub::fillHead(CStatsHead_S &rstHead, uint16_t u16Type, int64_t llMonoMs,
                          int64_t llWallMs, uint32_t u32Flags)
 {
@@ -471,6 +477,7 @@ void CStatsHub::fillHead(CStatsHead_S &rstHead, uint16_t u16Type, int64_t llMono
     rstHead.llSessionWallMs = m_llSessionWallMs;
     rstHead.llWallMs = llWallMs;
     rstHead.llMonoMs = llMonoMs;
+    rstHead.u32Channel = m_u32Channel;
     rstHead.nDeviceRole = deviceRoleCode();
 }
 

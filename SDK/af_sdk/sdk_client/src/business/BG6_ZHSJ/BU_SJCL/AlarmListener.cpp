@@ -547,6 +547,38 @@ void CAlarmListener::AlarmLoop()
             INT32 nLen = (INT32)sizeof(*info);
             m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
         }
+        /* 课堂统计子段（0x6200/0x6201/0x6202）：基址 0x6200 不等于 STATISTICS 的 0x6000，
+           必须单独还原，否则会落到最后的 else 把整段 JSON 文本交给应用层 */
+        else if (nAlarmBase == NET_ALARM_CLASSROOM_STATS_BASE)
+        {
+            if (lCommand == NET_ALARM_CLASSROOM_STATS_COUNTERS)
+            {
+                auto info = std::make_unique<NET_ClassroomStatsCounters_S>();
+                SDKConvert::deal(alarmInfoObj, *info, true);
+                NETSDK_LOG_MESSAGE_INFO("[DIAG-ALARM] User-%p classroom counters parsed: cmd=0x%llX, magic=0x%X, "
+                              "msgType=%u, seq=%u, channel=%u, present=%d, expected=%d, flags=0x%X",
+                              m_hUser, lCommand, info->stHead.u32Magic,
+                              (unsigned)info->stHead.u16MsgType, info->stHead.u32MsgSeq,
+                              info->stHead.u32Channel, info->nPresentNum, info->nExpectedNum,
+                              info->stHead.u32Flags);
+                INT32 nLen = (INT32)sizeof(*info);
+                m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
+            }
+            else if (lCommand == NET_ALARM_CLASSROOM_STATS_SEGMENTS)
+            {
+                auto info = std::make_unique<NET_ClassroomStatsSegments_S>();
+                SDKConvert::deal(alarmInfoObj, *info, true);
+                INT32 nLen = (INT32)sizeof(*info);
+                m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
+            }
+            else if (lCommand == NET_ALARM_CLASSROOM_STATS_ALERTS)
+            {
+                auto info = std::make_unique<NET_ClassroomStatsAlerts_S>();
+                SDKConvert::deal(alarmInfoObj, *info, true);
+                INT32 nLen = (INT32)sizeof(*info);
+                m_fnAlarmCallback(lCommand, &alarmer, (CHAR*)info.get(), &nLen, m_pAlarmUserData);
+            }
+        }
         else if (lCommand == NET_NOTICE_DOWNLOAD_RECORD_PROGRESS)
         {
             NET_RecordDownloadProgress_S info = {0};

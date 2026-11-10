@@ -4426,7 +4426,8 @@ typedef struct tagNET_ClassroomStatsHead
     UINT16 u16MsgType;      /* 消息类型：1-计数 2-行为段 3-预警 */
     UINT32 u32MsgSeq;       /* 会话内 1 起单调递增，三类报文共用 */
     UINT32 u32PayloadLen;   /* 头之后的字节数 */
-    UINT32 u32Flags;        /* 计数报文位定义见 NET_CLASSROOM_STATS_FLAG_*，其余填 0 */
+    UINT32 u32Flags;        /* 计数报文位定义见 NET_CLASSROOM_STATS_FLAG_* ，其余填 0 */
+    UINT32 u32Channel;      /* 通道号；单通道设备填 0（占用原有对齐填充位，头长度不变） */
     INT64  llSessionId;     /* 会话起点（单调毫秒） */
     INT64  llSessionWallMs; /* 会话起点（墙钟毫秒） */
     INT64  llWallMs;        /* 本包生成时刻（墙钟毫秒） */

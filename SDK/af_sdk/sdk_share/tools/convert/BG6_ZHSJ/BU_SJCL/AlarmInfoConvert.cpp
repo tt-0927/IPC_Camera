@@ -2580,22 +2580,28 @@ void SDKConvert::deal(Json::Object* pRootJson, NET_AlarmSchedule_S& stInfo, bool
 /* ==================== 课堂 AI 分析统计报文（0x62xx 子段） ==================== */
 
 /**
- * @brief 输出三类报文共用的头部字段
+ * @brief 双向转换三类报文共用的头部字段
  * @param [in,out] pRootJson 目标 JSON 对象
- * @param [in] stHead 报文头
+ * @param [in,out] stHead 报文头
+ * @param [in] bOutStruct true 表示 JSON 转结构体，false 表示结构体转 JSON
  * @return 无
  */
-static void classroom_stats_head_fields(Json::Object *pRootJson, NET_ClassroomStatsHead_S &stHead)
+static void classroom_stats_head_fields(Json::Object *pRootJson, NET_ClassroomStatsHead_S &stHead,
+                                        bool bOutStruct)
 {
-    SDKConvert::CSDKConvert convert(false);
+    SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "Magic", stHead.u32Magic);
+    /* UINT16 没有对应的 field 重载，统一经 int 中转，两个方向都安全 */
     int nVersion = static_cast<int>(stHead.u16Version);
     int nMsgType = static_cast<int>(stHead.u16MsgType);
     convert.field(pRootJson, "Version", nVersion);
     convert.field(pRootJson, "MsgType", nMsgType);
+    stHead.u16Version = static_cast<UINT16>(nVersion);
+    stHead.u16MsgType = static_cast<UINT16>(nMsgType);
     convert.field(pRootJson, "MsgSeq", stHead.u32MsgSeq);
     convert.field(pRootJson, "PayloadLen", stHead.u32PayloadLen);
     convert.field(pRootJson, "Flags", stHead.u32Flags);
+    convert.field(pRootJson, "Channel", stHead.u32Channel);
     convert.field(pRootJson, "SessionId", stHead.llSessionId);
     convert.field(pRootJson, "SessionWallMs", stHead.llSessionWallMs);
     convert.field(pRootJson, "WallMs", stHead.llWallMs);
@@ -2646,15 +2652,75 @@ static void classroom_ms_array(Json::Object *pRootJson, const char *pszKey, cons
     Json::add(pRootJson, pszKey, pArray);
 }
 
-void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsCounters_S &stInfo, bool bOutStruct)
+/**
+ * @brief 从 JSON 读回 int32 定长数组，缺省元素保持调用方预置值
+ * @param [in] pRootJson 源 JSON 对象
+ * @param [in] pszKey JSON 键名
+ * @param [out] pValues 数组首地址
+ * @param [in] nCount 数组容量
+ * @return 无
+ */
+static void classroom_int_array_read(Json::Object *pRootJson, const char *pszKey,
+                                     INT32 *pValues, int nCount)
 {
-    /* 课堂统计只有设备→平台一个方向，反向不提供 */
-    if (!pRootJson || bOutStruct)
+    if (!pRootJson || !pszKey || !pValues || nCount <= 0)
     {
         return;
     }
-    classroom_stats_head_fields(pRootJson, stInfo.stHead);
-    SDKConvert::CSDKConvert convert(false);
+    Json::Object *pArray = Json::get(pRootJson, pszKey);
+    const int nSize = Json::Array::size(pArray);
+    for (int i = 0; i < nSize && i < nCount; ++i)
+    {
+        Json::Object *pItem = Json::Array::get(pArray, i);
+        if (!pItem)
+        {
+            continue;
+        }
+        int nValue = 0;
+        Json::Value::get(pItem, nValue);
+        pValues[i] = static_cast<INT32>(nValue);
+    }
+}
+
+/**
+ * @brief 从 JSON 读回 int64 定长数组（毫秒量级 < 2^53，double 中转可精确还原）
+ * @param [in] pRootJson 源 JSON 对象
+ * @param [in] pszKey JSON 键名
+ * @param [out] pValues 数组首地址
+ * @param [in] nCount 数组容量
+ * @return 无
+ */
+static void classroom_ms_array_read(Json::Object *pRootJson, const char *pszKey,
+                                    INT64 *pValues, int nCount)
+{
+    if (!pRootJson || !pszKey || !pValues || nCount <= 0)
+    {
+        return;
+    }
+    Json::Object *pArray = Json::get(pRootJson, pszKey);
+    const int nSize = Json::Array::size(pArray);
+    for (int i = 0; i < nSize && i < nCount; ++i)
+    {
+        Json::Object *pItem = Json::Array::get(pArray, i);
+        if (!pItem)
+        {
+            continue;
+        }
+        double dValue = 0.0;
+        Json::Value::get(pItem, dValue);
+        pValues[i] = static_cast<INT64>(dValue);
+    }
+}
+
+void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsCounters_S &stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+    classroom_stats_head_fields(pRootJson, stInfo.stHead, bOutStruct);
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
     convert.field(pRootJson, "PresentNum", stInfo.nPresentNum);
     convert.field(pRootJson, "NamedNum", stInfo.nNamedNum);
     convert.field(pRootJson, "ExpectedNum", stInfo.nExpectedNum);
@@ -2666,13 +2732,6 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsCounters_S &stI
     convert.field(pRootJson, "StudentNum", stInfo.nStudentNum);
     convert.field(pRootJson, "TeacherNum", stInfo.nTeacherNum);
     convert.field(pRootJson, "StuEvidence", stInfo.nStuEvidence);
-    classroom_int_array(pRootJson, "ActionBegin", stInfo.nActionBegin, 6);
-    classroom_int_array(pRootJson, "ExprBegin", stInfo.nExprBegin, 7);
-    classroom_int_array(pRootJson, "TeachBegin", stInfo.nTeachBegin, 5);
-    classroom_ms_array(pRootJson, "TeachActiveMs", stInfo.llTeachActiveMs, 5);
-    classroom_int_array(pRootJson, "StudyBegin", stInfo.nStudyBegin, 5);
-    classroom_ms_array(pRootJson, "StudyActiveMs", stInfo.llStudyActiveMs, 5);
-    classroom_int_array(pRootJson, "AlertBegin", stInfo.nAlertBegin, NET_CLASSROOM_STATS_ALERT_NUM);
     convert.field(pRootJson, "LeftMid", stInfo.nLeftMid);
     convert.field(pRootJson, "StuAttentionPct", stInfo.nStuAttentionPct);
     convert.field(pRootJson, "DisciplinePct", stInfo.nDisciplinePct);
@@ -2680,82 +2739,200 @@ void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsCounters_S &stI
     convert.field(pRootJson, "DeskLeanNum", stInfo.nDeskLeanNum);
     convert.field(pRootJson, "PatrolAgeSec", stInfo.nPatrolAgeSec);
     convert.field(pRootJson, "AlertActiveMask", stInfo.u32AlertActiveMask);
+
+    if (bOutStruct)
+    {
+        classroom_int_array_read(pRootJson, "ActionBegin", stInfo.nActionBegin, 6);
+        classroom_int_array_read(pRootJson, "ExprBegin", stInfo.nExprBegin, 7);
+        classroom_int_array_read(pRootJson, "TeachBegin", stInfo.nTeachBegin, 5);
+        classroom_int_array_read(pRootJson, "StudyBegin", stInfo.nStudyBegin, 5);
+        classroom_int_array_read(pRootJson, "AlertBegin", stInfo.nAlertBegin,
+                                 NET_CLASSROOM_STATS_ALERT_NUM);
+        classroom_ms_array_read(pRootJson, "TeachActiveMs", stInfo.llTeachActiveMs, 5);
+        classroom_ms_array_read(pRootJson, "StudyActiveMs", stInfo.llStudyActiveMs, 5);
+    }
+    else
+    {
+        classroom_int_array(pRootJson, "ActionBegin", stInfo.nActionBegin, 6);
+        classroom_int_array(pRootJson, "ExprBegin", stInfo.nExprBegin, 7);
+        classroom_int_array(pRootJson, "TeachBegin", stInfo.nTeachBegin, 5);
+        classroom_int_array(pRootJson, "StudyBegin", stInfo.nStudyBegin, 5);
+        classroom_int_array(pRootJson, "AlertBegin", stInfo.nAlertBegin,
+                            NET_CLASSROOM_STATS_ALERT_NUM);
+        classroom_ms_array(pRootJson, "TeachActiveMs", stInfo.llTeachActiveMs, 5);
+        classroom_ms_array(pRootJson, "StudyActiveMs", stInfo.llStudyActiveMs, 5);
+    }
 }
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsSegments_S &stInfo, bool bOutStruct)
 {
-    if (!pRootJson || bOutStruct)
+    if (!pRootJson)
     {
         return;
     }
-    classroom_stats_head_fields(pRootJson, stInfo.stHead);
-    UINT32 uCount = std::min<UINT32>(stInfo.u32Count, static_cast<UINT32>(NET_CLASSROOM_STATS_SEG_MAX));
-    Json::add(pRootJson, "Count", uCount);
-    Json::Object *pItems = Json::Array::init();
-    if (!pItems)
+    classroom_stats_head_fields(pRootJson, stInfo.stHead, bOutStruct);
+    SDKConvert::CSDKConvert convert(bOutStruct);
+
+    if (bOutStruct)
     {
-        return;
-    }
-    SDKConvert::CSDKConvert convert(false);
-    for (UINT32 i = 0; i < uCount; ++i)
-    {
-        NET_ClassroomSegItem_S stItem = stInfo.arrItems[i];
-        Json::Object *pItem = Json::init();
-        if (!pItem)
+        Json::Object *pItems = Json::get(pRootJson, "Items");
+        const UINT32 uJsonCount = pItems ? static_cast<UINT32>(Json::Array::size(pItems)) : 0;
+        UINT32 uCount = stInfo.u32Count;
+        if (0 == uCount || uCount > uJsonCount)
         {
-            continue;
+            uCount = uJsonCount;
         }
-        int nKind = static_cast<int>(stItem.u8Kind);
-        int nPhase = static_cast<int>(stItem.u8Phase);
-        int nBehavior = static_cast<int>(stItem.u16Behavior);
-        convert.field(pItem, "Kind", nKind);
-        convert.field(pItem, "Phase", nPhase);
-        convert.field(pItem, "Behavior", nBehavior);
-        convert.field(pItem, "PersonID", stItem.nPersonID);
-        convert.field(pItem, "SeatID", stItem.nSeatID);
-        convert.field(pItem, "ExprClass", stItem.nExprClass);
-        convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
-        convert.field(pItem, "EndWallMs", stItem.llEndWallMs);
-        convert.field(pItem, "DurationMs", stItem.llDurationMs);
-        convert.field(pItem, "EventSeq", stItem.llEventSeq);
-        Json::Array::add(pItems, pItem);
+        if (uCount > NET_CLASSROOM_STATS_SEG_MAX)
+        {
+            uCount = NET_CLASSROOM_STATS_SEG_MAX;
+        }
+
+        for (UINT32 i = 0; i < uCount; ++i)
+        {
+            Json::Object *pItem = Json::Array::get(pItems, static_cast<int>(i));
+            if (!pItem)
+            {
+                continue;
+            }
+            NET_ClassroomSegItem_S stItem = stInfo.arrItems[i];
+            int nKind = static_cast<int>(stItem.u8Kind);
+            int nPhase = static_cast<int>(stItem.u8Phase);
+            int nBehavior = static_cast<int>(stItem.u16Behavior);
+            convert.field(pItem, "Kind", nKind);
+            convert.field(pItem, "Phase", nPhase);
+            convert.field(pItem, "Behavior", nBehavior);
+            stItem.u8Kind = static_cast<BYTE>(nKind);
+            stItem.u8Phase = static_cast<BYTE>(nPhase);
+            stItem.u16Behavior = static_cast<UINT16>(nBehavior);
+            convert.field(pItem, "PersonID", stItem.nPersonID);
+            convert.field(pItem, "SeatID", stItem.nSeatID);
+            convert.field(pItem, "ExprClass", stItem.nExprClass);
+            convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
+            convert.field(pItem, "EndWallMs", stItem.llEndWallMs);
+            convert.field(pItem, "DurationMs", stItem.llDurationMs);
+            convert.field(pItem, "EventSeq", stItem.llEventSeq);
+            stInfo.arrItems[i] = stItem;
+        }
+        stInfo.u32Count = uCount;
     }
-    Json::add(pRootJson, "Items", pItems);
+    else
+    {
+        UINT32 uCount = stInfo.u32Count;
+        if (uCount > NET_CLASSROOM_STATS_SEG_MAX)
+        {
+            uCount = NET_CLASSROOM_STATS_SEG_MAX;
+        }
+        Json::add(pRootJson, "Count", uCount);
+        Json::Object *pItems = Json::Array::init();
+        if (!pItems)
+        {
+            return;
+        }
+        for (UINT32 i = 0; i < uCount; ++i)
+        {
+            NET_ClassroomSegItem_S stItem = stInfo.arrItems[i];
+            Json::Object *pItem = Json::init();
+            if (!pItem)
+            {
+                continue;
+            }
+            int nKind = static_cast<int>(stItem.u8Kind);
+            int nPhase = static_cast<int>(stItem.u8Phase);
+            int nBehavior = static_cast<int>(stItem.u16Behavior);
+            convert.field(pItem, "Kind", nKind);
+            convert.field(pItem, "Phase", nPhase);
+            convert.field(pItem, "Behavior", nBehavior);
+            convert.field(pItem, "PersonID", stItem.nPersonID);
+            convert.field(pItem, "SeatID", stItem.nSeatID);
+            convert.field(pItem, "ExprClass", stItem.nExprClass);
+            convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
+            convert.field(pItem, "EndWallMs", stItem.llEndWallMs);
+            convert.field(pItem, "DurationMs", stItem.llDurationMs);
+            convert.field(pItem, "EventSeq", stItem.llEventSeq);
+            Json::Array::add(pItems, pItem);
+        }
+        Json::add(pRootJson, "Items", pItems);
+    }
 }
 
 void SDKConvert::deal(Json::Object *pRootJson, NET_ClassroomStatsAlerts_S &stInfo, bool bOutStruct)
 {
-    if (!pRootJson || bOutStruct)
+    if (!pRootJson)
     {
         return;
     }
-    classroom_stats_head_fields(pRootJson, stInfo.stHead);
-    UINT32 uCount = std::min<UINT32>(stInfo.u32Count, static_cast<UINT32>(NET_CLASSROOM_STATS_ALERT_MAX));
-    Json::add(pRootJson, "Count", uCount);
-    Json::Object *pItems = Json::Array::init();
-    if (!pItems)
+    classroom_stats_head_fields(pRootJson, stInfo.stHead, bOutStruct);
+    SDKConvert::CSDKConvert convert(bOutStruct);
+
+    if (bOutStruct)
     {
-        return;
-    }
-    SDKConvert::CSDKConvert convert(false);
-    for (UINT32 i = 0; i < uCount; ++i)
-    {
-        NET_ClassroomAlertItem_S stItem = stInfo.arrItems[i];
-        Json::Object *pItem = Json::init();
-        if (!pItem)
+        Json::Object *pItems = Json::get(pRootJson, "Items");
+        const UINT32 uJsonCount = pItems ? static_cast<UINT32>(Json::Array::size(pItems)) : 0;
+        UINT32 uCount = stInfo.u32Count;
+        if (0 == uCount || uCount > uJsonCount)
         {
-            continue;
+            uCount = uJsonCount;
         }
-        int nType = static_cast<int>(stItem.u16Type);
-        int nPhase = static_cast<int>(stItem.u16Phase);
-        convert.field(pItem, "Type", nType);
-        convert.field(pItem, "Phase", nPhase);
-        convert.field(pItem, "Value", stItem.nValue);
-        convert.field(pItem, "WallMs", stItem.llWallMs);
-        convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
-        convert.field(pItem, "DurationMs", stItem.llDurationMs);
-        convert.field(pItem, "EventSeq", stItem.llEventSeq);
-        Json::Array::add(pItems, pItem);
+        if (uCount > NET_CLASSROOM_STATS_ALERT_MAX)
+        {
+            uCount = NET_CLASSROOM_STATS_ALERT_MAX;
+        }
+
+        for (UINT32 i = 0; i < uCount; ++i)
+        {
+            Json::Object *pItem = Json::Array::get(pItems, static_cast<int>(i));
+            if (!pItem)
+            {
+                continue;
+            }
+            NET_ClassroomAlertItem_S stItem = stInfo.arrItems[i];
+            int nType = static_cast<int>(stItem.u16Type);
+            int nPhase = static_cast<int>(stItem.u16Phase);
+            convert.field(pItem, "Type", nType);
+            convert.field(pItem, "Phase", nPhase);
+            stItem.u16Type = static_cast<UINT16>(nType);
+            stItem.u16Phase = static_cast<UINT16>(nPhase);
+            convert.field(pItem, "Value", stItem.nValue);
+            convert.field(pItem, "WallMs", stItem.llWallMs);
+            convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
+            convert.field(pItem, "DurationMs", stItem.llDurationMs);
+            convert.field(pItem, "EventSeq", stItem.llEventSeq);
+            stInfo.arrItems[i] = stItem;
+        }
+        stInfo.u32Count = uCount;
     }
-    Json::add(pRootJson, "Items", pItems);
+    else
+    {
+        UINT32 uCount = stInfo.u32Count;
+        if (uCount > NET_CLASSROOM_STATS_ALERT_MAX)
+        {
+            uCount = NET_CLASSROOM_STATS_ALERT_MAX;
+        }
+        Json::add(pRootJson, "Count", uCount);
+        Json::Object *pItems = Json::Array::init();
+        if (!pItems)
+        {
+            return;
+        }
+        for (UINT32 i = 0; i < uCount; ++i)
+        {
+            NET_ClassroomAlertItem_S stItem = stInfo.arrItems[i];
+            Json::Object *pItem = Json::init();
+            if (!pItem)
+            {
+                continue;
+            }
+            int nType = static_cast<int>(stItem.u16Type);
+            int nPhase = static_cast<int>(stItem.u16Phase);
+            convert.field(pItem, "Type", nType);
+            convert.field(pItem, "Phase", nPhase);
+            convert.field(pItem, "Value", stItem.nValue);
+            convert.field(pItem, "WallMs", stItem.llWallMs);
+            convert.field(pItem, "BeginWallMs", stItem.llBeginWallMs);
+            convert.field(pItem, "DurationMs", stItem.llDurationMs);
+            convert.field(pItem, "EventSeq", stItem.llEventSeq);
+            Json::Array::add(pItems, pItem);
+        }
+        Json::add(pRootJson, "Items", pItems);
+    }
 }

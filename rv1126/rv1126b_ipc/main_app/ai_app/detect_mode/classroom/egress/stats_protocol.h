@@ -114,7 +114,8 @@ typedef struct _StatsHead_
     uint16_t u16MsgType;      /* StatsMsgType_E */
     uint32_t u32MsgSeq;       /* 会话内 1 起单调递增，三类报文共用一条序列 */
     uint32_t u32PayloadLen;   /* 头之后的字节数 */
-    uint32_t u32Flags;        /* 计数报文的位定义见 CLASSROOM_STATS_FLAG_*；段/预警报文填 0 */
+    uint32_t u32Flags;        /* 计数报文的位定义见 CLASSROOM_STATS_FLAG_*；段/ 预警报文填 0 */
+    uint32_t u32Channel;      /* 通道号；单通道 IPC 填 0（占用原有对齐填充位，头长度不变） */
     int64_t  llSessionId;     /* 会话起点（单调毫秒） */
     int64_t  llSessionWallMs; /* 会话起点（墙钟毫秒） */
     int64_t  llWallMs;        /* 本包生成时刻（墙钟毫秒） */
