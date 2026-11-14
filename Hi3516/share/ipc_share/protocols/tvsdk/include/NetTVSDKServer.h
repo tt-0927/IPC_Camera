@@ -1634,6 +1634,69 @@ typedef enum tagNETTVBitrateType
 }NET_BITRATE_TYPE_E;
 
 /**
+ * @macro NET_FRAME_RATE_NUM
+ * @brief 分数帧率编码：高 16 位为分母，低 16 位为分子。
+ * @note  与设备侧 FrameRate_E 的 getFrameRateAsInt() 编码保持一致。
+ */
+#define NET_FRAME_RATE_NUM(numerator, denominator) \
+    ((INT32)(((INT32)(numerator)) | (((INT32)(denominator)) << 16)))
+
+/**
+ * @enum tagNETFrameRate
+ * @brief 视频帧率 枚举定义 Video frame rate Enumeration definition
+ * @note  整数档直接使用 fps 数值；分数档使用 NET_FRAME_RATE_NUM 编码。
+ *        与设备侧 Video_NS::FrameRate_E 一一对应，新增档位需两侧同步。
+ * @attention 无 None
+ */
+typedef enum tagNETFrameRate
+{
+    NET_FRAME_RATE_ALL   = 0,                            /* 所有帧率 */
+    NET_FRAME_RATE_1_16  = NET_FRAME_RATE_NUM(1, 16),    /* 1/16 fps */
+    NET_FRAME_RATE_1_8   = NET_FRAME_RATE_NUM(1, 8),     /* 1/8 fps */
+    NET_FRAME_RATE_1_4   = NET_FRAME_RATE_NUM(1, 4),     /* 1/4 fps */
+    NET_FRAME_RATE_1_2   = NET_FRAME_RATE_NUM(1, 2),     /* 1/2 fps */
+    NET_FRAME_RATE_8_3   = NET_FRAME_RATE_NUM(25, 3),    /* 8.3 fps（25/3） */
+    NET_FRAME_RATE_1     = 1,                            /* 1 fps */
+    NET_FRAME_RATE_2     = 2,                            /* 2 fps */
+    NET_FRAME_RATE_3     = 3,                            /* 3 fps */
+    NET_FRAME_RATE_4     = 4,                            /* 4 fps */
+    NET_FRAME_RATE_5     = 5,                            /* 5 fps */
+    NET_FRAME_RATE_6     = 6,                            /* 6 fps */
+    NET_FRAME_RATE_7     = 7,                            /* 7 fps */
+    NET_FRAME_RATE_8     = 8,                            /* 8 fps */
+    NET_FRAME_RATE_9     = 9,                            /* 9 fps */
+    NET_FRAME_RATE_10    = 10,                           /* 10 fps */
+    NET_FRAME_RATE_12    = 12,                           /* 12 fps */
+    NET_FRAME_RATE_13    = 13,                           /* 13 fps */
+    NET_FRAME_RATE_14    = 14,                           /* 14 fps */
+    NET_FRAME_RATE_15    = 15,                           /* 15 fps */
+    NET_FRAME_RATE_16    = 16,                           /* 16 fps */
+    NET_FRAME_RATE_17    = 17,                           /* 17 fps */
+    NET_FRAME_RATE_18    = 18,                           /* 18 fps */
+    NET_FRAME_RATE_19    = 19,                           /* 19 fps */
+    NET_FRAME_RATE_20    = 20,                           /* 20 fps */
+    NET_FRAME_RATE_21    = 21,                           /* 21 fps */
+    NET_FRAME_RATE_22    = 22,                           /* 22 fps */
+    NET_FRAME_RATE_23    = 23,                           /* 23 fps */
+    NET_FRAME_RATE_24    = 24,                           /* 24 fps */
+    NET_FRAME_RATE_25    = 25,                           /* 25 fps */
+    NET_FRAME_RATE_26    = 26,                           /* 26 fps */
+    NET_FRAME_RATE_27    = 27,                           /* 27 fps */
+    NET_FRAME_RATE_28    = 28,                           /* 28 fps */
+    NET_FRAME_RATE_29    = 29,                           /* 29 fps */
+    NET_FRAME_RATE_30    = 30,                           /* 30 fps */
+    NET_FRAME_RATE_35    = 35,                           /* 35 fps */
+    NET_FRAME_RATE_40    = 40,                           /* 40 fps */
+    NET_FRAME_RATE_45    = 45,                           /* 45 fps */
+    NET_FRAME_RATE_48    = 48,                           /* 48 fps */
+    NET_FRAME_RATE_50    = 50,                           /* 50 fps */
+    NET_FRAME_RATE_55    = 55,                           /* 55 fps */
+    NET_FRAME_RATE_60    = 60,                           /* 60 fps */
+    NET_FRAME_RATE_100   = 100,                          /* 100 fps */
+    NET_FRAME_RATE_120   = 120                           /* 120 fps */
+}NET_FRAME_RATE_E;
+
+/**
  * @enum tagNET_AudioInputType
  * @brief 音频输入类型 枚举定义 Audio input type Enumeration definition
  * @attention 无 None
@@ -5803,7 +5866,7 @@ typedef struct tagNET_VideoEncodeOption
     NET_VideoResolution_S   stVideoResolution;                                 /* 视频分辨率 */
     INT32                       enBitrateType;                                     /* 码率类型 */
     INT32                       enImageQuality;                                    /* 图像质量 */
-    INT32                       enFrameRate;                                       /* 视频帧率fps */
+    INT32                       enFrameRate;                                       /* 视频帧率 NET_FRAME_RATE_E（整数档为fps，分数档用 NET_FRAME_RATE_NUM 编码） */
     INT32                       nBitrateUpperLimit;                                /* 码率上限kbps */
     INT32                       nAverageBitrate;                                   /* 平均码率kbps */
     INT32                       enVideoCodec;                                      /* 视频编码 NET_VIDEO_CODE_TYPE_E */

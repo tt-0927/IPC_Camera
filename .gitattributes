@@ -49,3 +49,10 @@ Hi3516/share/ai_share/AiAlgorithm/** filter=lfs diff=lfs merge=lfs -text
 Hi3516/share/ai_share/opencv4.5.5/** filter=lfs diff=lfs merge=lfs -text
 rv1126/share/ai_share/AiModules/** filter=lfs diff=lfs merge=lfs -text
 rv1126/ipc_platform/environment/TV_3881TJY_model/** filter=lfs diff=lfs merge=lfs -text
+
+# 以下 4 个文件在 LFS 规则修正前已作为普通 Git 对象入库，
+# 保持普通对象管理，避免与 LFS 指针语义冲突（迁移需 HTTPS LFS 凭据后另行执行）。
+SDK/af_sdk/build/client/lib/libNetTVSDK.a -filter -diff -merge
+SDK/af_sdk/build/client/lib/libNetTVSDK.so -filter -diff -merge
+SDK/af_sdk/build/server/lib/libNetTVSDKServer.a -filter -diff -merge
+SDK/af_sdk/build/server/lib/libNetTVSDKServer.so -filter -diff -merge

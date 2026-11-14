@@ -74,6 +74,10 @@ static void FillDetectionTargets(const std::vector<int> &src, INT32 &nCount, INT
 
 }
 
+/* 帧率枚举与 SDK 帧率编码的双向转换，定义见文件后部。 */
+static INT32 FrameRateEnumToSdk(Video_NS::FrameRate_E enFrameRate);
+static Video_NS::FrameRate_E SdkFrameRateToEnum(INT32 nFrameRate);
+
 /* 将 SDK 目标数组展开为 IPC 使用的检测目标集合。 */
 static void ToDetectionTargets(const INT32 *pTargets, INT32 nCount, std::vector<int> &dst)
 {
@@ -1051,7 +1055,7 @@ void FillVideoEncodeOption(const Video_NS::VideoConfig_S &src, NET_VideoEncodeOp
     dst.stVideoResolution.uHeight = (INT32)src.stVideoResolution.nHeight;
     dst.enBitrateType = (INT32)src.enBitrateType;
     dst.enImageQuality = (INT32)src.enImageQuality;
-    dst.enFrameRate = (INT32)src.getFrameRateAsInt();
+    dst.enFrameRate = FrameRateEnumToSdk(src.enFrameRate);
     dst.nBitrateUpperLimit = (INT32)src.nBitrateUpperLimit;
     dst.nAverageBitrate = (INT32)src.nAverageBitrate;
     dst.enVideoCodec = ToSdkVideoCodec(src.enVideoCodec);
@@ -1070,7 +1074,7 @@ void ToVideoConfig(const NET_VideoEncodeOption_S &src, Video_NS::VideoConfig_S &
     dst.stVideoResolution.nHeight = (int)src.stVideoResolution.uHeight;
     dst.enBitrateType = (Video_NS::BitrateType_E)src.enBitrateType;
     dst.enImageQuality = (Video_NS::ImageQuality_E)src.enImageQuality;
-    dst.setFrameRate((int)src.enFrameRate);
+    dst.enFrameRate = SdkFrameRateToEnum(src.enFrameRate);
     dst.nBitrateUpperLimit = (int)src.nBitrateUpperLimit;
     dst.nAverageBitrate = (int)src.nAverageBitrate;
     dst.enVideoCodec = ToIpcVideoCodec(src.enVideoCodec);
@@ -1347,6 +1351,120 @@ static FLOAT FrameRateEnumToFloat(Video_NS::FrameRate_E enFrameRate)
 }
 
 /**
+ * @brief 将 IPC 帧率枚举转换为 SDK 帧率编码。
+ * @param [in] enFrameRate IPC 帧率枚举。
+ * @return SDK 帧率编码（整数档为 fps，分数档为 NET_FRAME_RATE_NUM 编码）；未匹配时回退 30fps。
+ */
+static INT32 FrameRateEnumToSdk(Video_NS::FrameRate_E enFrameRate)
+{
+    switch (enFrameRate)
+    {
+        case Video_NS::FRAME_RATE_ALL:   return NET_FRAME_RATE_ALL;
+        case Video_NS::FRAME_RATE_1_16:  return NET_FRAME_RATE_1_16;
+        case Video_NS::FRAME_RATE_1_8:   return NET_FRAME_RATE_1_8;
+        case Video_NS::FRAME_RATE_1_4:   return NET_FRAME_RATE_1_4;
+        case Video_NS::FRAME_RATE_1_2:   return NET_FRAME_RATE_1_2;
+        case Video_NS::FRAME_RATE_8_3:   return NET_FRAME_RATE_8_3;
+        case Video_NS::FRAME_RATE_1:     return NET_FRAME_RATE_1;
+        case Video_NS::FRAME_RATE_2:     return NET_FRAME_RATE_2;
+        case Video_NS::FRAME_RATE_3:     return NET_FRAME_RATE_3;
+        case Video_NS::FRAME_RATE_4:     return NET_FRAME_RATE_4;
+        case Video_NS::FRAME_RATE_5:     return NET_FRAME_RATE_5;
+        case Video_NS::FRAME_RATE_6:     return NET_FRAME_RATE_6;
+        case Video_NS::FRAME_RATE_7:     return NET_FRAME_RATE_7;
+        case Video_NS::FRAME_RATE_8:     return NET_FRAME_RATE_8;
+        case Video_NS::FRAME_RATE_9:     return NET_FRAME_RATE_9;
+        case Video_NS::FRAME_RATE_10:    return NET_FRAME_RATE_10;
+        case Video_NS::FRAME_RATE_12:    return NET_FRAME_RATE_12;
+        case Video_NS::FRAME_RATE_13:    return NET_FRAME_RATE_13;
+        case Video_NS::FRAME_RATE_14:    return NET_FRAME_RATE_14;
+        case Video_NS::FRAME_RATE_15:    return NET_FRAME_RATE_15;
+        case Video_NS::FRAME_RATE_16:    return NET_FRAME_RATE_16;
+        case Video_NS::FRAME_RATE_17:    return NET_FRAME_RATE_17;
+        case Video_NS::FRAME_RATE_18:    return NET_FRAME_RATE_18;
+        case Video_NS::FRAME_RATE_19:    return NET_FRAME_RATE_19;
+        case Video_NS::FRAME_RATE_20:    return NET_FRAME_RATE_20;
+        case Video_NS::FRAME_RATE_21:    return NET_FRAME_RATE_21;
+        case Video_NS::FRAME_RATE_22:    return NET_FRAME_RATE_22;
+        case Video_NS::FRAME_RATE_23:    return NET_FRAME_RATE_23;
+        case Video_NS::FRAME_RATE_24:    return NET_FRAME_RATE_24;
+        case Video_NS::FRAME_RATE_25:    return NET_FRAME_RATE_25;
+        case Video_NS::FRAME_RATE_26:    return NET_FRAME_RATE_26;
+        case Video_NS::FRAME_RATE_27:    return NET_FRAME_RATE_27;
+        case Video_NS::FRAME_RATE_28:    return NET_FRAME_RATE_28;
+        case Video_NS::FRAME_RATE_29:    return NET_FRAME_RATE_29;
+        case Video_NS::FRAME_RATE_30:    return NET_FRAME_RATE_30;
+        case Video_NS::FRAME_RATE_35:    return NET_FRAME_RATE_35;
+        case Video_NS::FRAME_RATE_40:    return NET_FRAME_RATE_40;
+        case Video_NS::FRAME_RATE_45:    return NET_FRAME_RATE_45;
+        case Video_NS::FRAME_RATE_48:    return NET_FRAME_RATE_48;
+        case Video_NS::FRAME_RATE_50:    return NET_FRAME_RATE_50;
+        case Video_NS::FRAME_RATE_55:    return NET_FRAME_RATE_55;
+        case Video_NS::FRAME_RATE_60:    return NET_FRAME_RATE_60;
+        case Video_NS::FRAME_RATE_100:   return NET_FRAME_RATE_100;
+        case Video_NS::FRAME_RATE_120:   return NET_FRAME_RATE_120;
+        default:                         return NET_FRAME_RATE_30;
+    }
+}
+
+/**
+ * @brief 将 SDK 帧率编码转换为 IPC 帧率枚举。
+ * @param [in] nFrameRate SDK 帧率编码（NET_FRAME_RATE_E）。
+ * @return IPC 帧率枚举；未匹配时回退 30fps。
+ */
+static Video_NS::FrameRate_E SdkFrameRateToEnum(INT32 nFrameRate)
+{
+    switch (nFrameRate)
+    {
+        case NET_FRAME_RATE_ALL:   return Video_NS::FRAME_RATE_ALL;
+        case NET_FRAME_RATE_1_16:  return Video_NS::FRAME_RATE_1_16;
+        case NET_FRAME_RATE_1_8:   return Video_NS::FRAME_RATE_1_8;
+        case NET_FRAME_RATE_1_4:   return Video_NS::FRAME_RATE_1_4;
+        case NET_FRAME_RATE_1_2:   return Video_NS::FRAME_RATE_1_2;
+        case NET_FRAME_RATE_8_3:   return Video_NS::FRAME_RATE_8_3;
+        case NET_FRAME_RATE_1:     return Video_NS::FRAME_RATE_1;
+        case NET_FRAME_RATE_2:     return Video_NS::FRAME_RATE_2;
+        case NET_FRAME_RATE_3:     return Video_NS::FRAME_RATE_3;
+        case NET_FRAME_RATE_4:     return Video_NS::FRAME_RATE_4;
+        case NET_FRAME_RATE_5:     return Video_NS::FRAME_RATE_5;
+        case NET_FRAME_RATE_6:     return Video_NS::FRAME_RATE_6;
+        case NET_FRAME_RATE_7:     return Video_NS::FRAME_RATE_7;
+        case NET_FRAME_RATE_8:     return Video_NS::FRAME_RATE_8;
+        case NET_FRAME_RATE_9:     return Video_NS::FRAME_RATE_9;
+        case NET_FRAME_RATE_10:    return Video_NS::FRAME_RATE_10;
+        case NET_FRAME_RATE_12:    return Video_NS::FRAME_RATE_12;
+        case NET_FRAME_RATE_13:    return Video_NS::FRAME_RATE_13;
+        case NET_FRAME_RATE_14:    return Video_NS::FRAME_RATE_14;
+        case NET_FRAME_RATE_15:    return Video_NS::FRAME_RATE_15;
+        case NET_FRAME_RATE_16:    return Video_NS::FRAME_RATE_16;
+        case NET_FRAME_RATE_17:    return Video_NS::FRAME_RATE_17;
+        case NET_FRAME_RATE_18:    return Video_NS::FRAME_RATE_18;
+        case NET_FRAME_RATE_19:    return Video_NS::FRAME_RATE_19;
+        case NET_FRAME_RATE_20:    return Video_NS::FRAME_RATE_20;
+        case NET_FRAME_RATE_21:    return Video_NS::FRAME_RATE_21;
+        case NET_FRAME_RATE_22:    return Video_NS::FRAME_RATE_22;
+        case NET_FRAME_RATE_23:    return Video_NS::FRAME_RATE_23;
+        case NET_FRAME_RATE_24:    return Video_NS::FRAME_RATE_24;
+        case NET_FRAME_RATE_25:    return Video_NS::FRAME_RATE_25;
+        case NET_FRAME_RATE_26:    return Video_NS::FRAME_RATE_26;
+        case NET_FRAME_RATE_27:    return Video_NS::FRAME_RATE_27;
+        case NET_FRAME_RATE_28:    return Video_NS::FRAME_RATE_28;
+        case NET_FRAME_RATE_29:    return Video_NS::FRAME_RATE_29;
+        case NET_FRAME_RATE_30:    return Video_NS::FRAME_RATE_30;
+        case NET_FRAME_RATE_35:    return Video_NS::FRAME_RATE_35;
+        case NET_FRAME_RATE_40:    return Video_NS::FRAME_RATE_40;
+        case NET_FRAME_RATE_45:    return Video_NS::FRAME_RATE_45;
+        case NET_FRAME_RATE_48:    return Video_NS::FRAME_RATE_48;
+        case NET_FRAME_RATE_50:    return Video_NS::FRAME_RATE_50;
+        case NET_FRAME_RATE_55:    return Video_NS::FRAME_RATE_55;
+        case NET_FRAME_RATE_60:    return Video_NS::FRAME_RATE_60;
+        case NET_FRAME_RATE_100:   return Video_NS::FRAME_RATE_100;
+        case NET_FRAME_RATE_120:   return Video_NS::FRAME_RATE_120;
+        default:                   return Video_NS::FRAME_RATE_30;
+    }
+}
+
+/**
  * @brief 将 IPC 侧 Resolution_S 转换为 SDK 侧 NET_VideoResolution_S
  */
 static void FillOneResolution(const Video_NS::Resolution_S &src, NET_VideoResolution_S &dst)
@@ -1398,7 +1516,7 @@ static void FillOneEncodeOption(const Video_NS::VideoCapability_S &src,
     if (!src.aResolution.empty())
     {
         ParseResolutionName(src.aResolution[0].strName, dst.stVideoResolution);
-        dst.enFrameRate = (INT32)FrameRateEnumToFloat(src.aResolution[0].enFrameRateMax);
+        dst.enFrameRate = FrameRateEnumToSdk(src.aResolution[0].enFrameRateMax);
         dst.nAverageBitrate = (INT32)src.aResolution[0].nBitRateMin;
         dst.nBitrateUpperLimit = (INT32)src.aResolution[0].nBitRateMax;
     }
