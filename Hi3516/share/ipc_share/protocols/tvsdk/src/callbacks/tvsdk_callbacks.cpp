@@ -370,7 +370,67 @@ static bool is_valid_date_time(const char *pDateTime, INT32 nDateFormat)
            nMinute == stParsedTime.tm_min && nSecond == stParsedTime.tm_sec;
 }
 
-/* 校验视频分辨率必须存在于 IPC 当前上报的编码能力列表中。 */
+/**
+ * @brief 校验 SDK 帧率编码是否为 NET_FRAME_RATE_E 的合法成员。
+ * @param [in] nFrameRate SDK 帧率编码。
+ * @return true 合法；false 非法。
+ * @note 未匹配的值在 SdkFrameRateToEnum 中会回退 30fps，必须在校验层提前拒绝。
+ */
+static bool is_valid_sdk_frame_rate(INT32 nFrameRate)
+{
+    switch (nFrameRate)
+    {
+        case NET_FRAME_RATE_ALL:
+        case NET_FRAME_RATE_1_16:
+        case NET_FRAME_RATE_1_8:
+        case NET_FRAME_RATE_1_4:
+        case NET_FRAME_RATE_1_2:
+        case NET_FRAME_RATE_8_3:
+        case NET_FRAME_RATE_1:
+        case NET_FRAME_RATE_2:
+        case NET_FRAME_RATE_3:
+        case NET_FRAME_RATE_4:
+        case NET_FRAME_RATE_5:
+        case NET_FRAME_RATE_6:
+        case NET_FRAME_RATE_7:
+        case NET_FRAME_RATE_8:
+        case NET_FRAME_RATE_9:
+        case NET_FRAME_RATE_10:
+        case NET_FRAME_RATE_12:
+        case NET_FRAME_RATE_13:
+        case NET_FRAME_RATE_14:
+        case NET_FRAME_RATE_15:
+        case NET_FRAME_RATE_16:
+        case NET_FRAME_RATE_17:
+        case NET_FRAME_RATE_18:
+        case NET_FRAME_RATE_19:
+        case NET_FRAME_RATE_20:
+        case NET_FRAME_RATE_21:
+        case NET_FRAME_RATE_22:
+        case NET_FRAME_RATE_23:
+        case NET_FRAME_RATE_24:
+        case NET_FRAME_RATE_25:
+        case NET_FRAME_RATE_26:
+        case NET_FRAME_RATE_27:
+        case NET_FRAME_RATE_28:
+        case NET_FRAME_RATE_29:
+        case NET_FRAME_RATE_30:
+        case NET_FRAME_RATE_35:
+        case NET_FRAME_RATE_40:
+        case NET_FRAME_RATE_45:
+        case NET_FRAME_RATE_48:
+        case NET_FRAME_RATE_50:
+        case NET_FRAME_RATE_55:
+        case NET_FRAME_RATE_60:
+        case NET_FRAME_RATE_100:
+        case NET_FRAME_RATE_120:
+            return true;
+        default:
+            return false;
+    }
+}
+
+/* 校验视频分辨率必须存在于 IPC 当前上报的编码能力列表中，并检查帧率不超过该分辨率上限。 */
 static NET_COMMON_ECODE_E validate_video_resolution(const NET_VideoEncodeOption_S &stConfig)
 {
     std::string strResult;
@@ -418,6 +478,25 @@ static NET_COMMON_ECODE_E validate_video_resolution(const NET_VideoEncodeOption_
         if (nWidth == stConfig.stVideoResolution.uWidth &&
             nHeight == stConfig.stVideoResolution.uHeight)
         {
+            if (stConfig.enFrameRate == NET_FRAME_RATE_ALL)
+            {
+                return NET_E_SUCCEED;
+            }
+
+            /* 能力集的帧率上限是 FrameRate_E 枚举，需换算成 fps 比较（枚举编号顺序不代表帧率大小）。 */
+            Video_NS::VideoConfig_S stCapabilityCfg;
+            stCapabilityCfg.enFrameRate = pCapability->aResolution[nIndex].enFrameRateMax;
+            const float fMaxFrameRate = stCapabilityCfg.getFrameRateAsFloat();
+
+            Video_NS::VideoConfig_S stRequestCfg;
+            TvSdkConvert::ToVideoConfig(stConfig, stRequestCfg);
+            const float fRequestFrameRate = stRequestCfg.getFrameRateAsFloat();
+            if (fRequestFrameRate > fMaxFrameRate)
+            {
+                dlog_warn("TVSDK设置视频编码参数失败: 帧率[%.2f]超过分辨率[%d*%d]支持上限[%.2f]",
+                          fRequestFrameRate, nWidth, nHeight, fMaxFrameRate);
+                return NET_E_INVALID_PARAM;
+            }
             return NET_E_SUCCEED;
         }
     }
@@ -1076,6 +1155,12 @@ static NET_COMMON_ECODE_E validate_set_stream_cfg(const NET_VideoEncodeOption_S 
     if (!is_valid_bitrate_type(cfg.enBitrateType))
     {
         dlog_warn("TVSDK设置视频编码参数失败: 不支持的码率类型[%d], 仅支持0-CBR/2-VBR", cfg.enBitrateType);
+        return NET_E_INVALID_PARAM;
+    }
+
+    if (!is_valid_sdk_frame_rate(cfg.enFrameRate))
+    {
+        dlog_warn("TVSDK设置视频编码参数失败: 非法帧率[%d]", cfg.enFrameRate);
         return NET_E_INVALID_PARAM;
     }
 
