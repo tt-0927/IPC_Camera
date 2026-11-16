@@ -105,6 +105,8 @@ CSjclDomain::CSjclDomain()
     m_getTable[NET_GET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedGet<NET_KeyAreaAbnormalStayInfo_S>;
     m_getTable[NET_GET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedGet<NET_OpenFlameLeaveInfo_S>;
     m_getTable[NET_GET_ROOFTOP_STAY_INFO]            = &CSjclDomain::TemplatedGet<NET_RooftopStayInfo_S>;
+    m_getTable[NET_GET_CLASSROOM_PODIUM_STATE]       = &CSjclDomain::TemplatedGet<NET_ClassroomPodiumState_S>;
+    m_getTable[NET_GET_CLASSROOM_COURSE_INFO]        = &CSjclDomain::TemplatedGet<NET_ClassroomCourseInfo_S>;
     m_getTable[NET_GET_QUEUE_CROWDING_INFO]            = &CSjclDomain::TemplatedGet<NET_QueueCrowdingInfo_S>;
     m_getTable[NET_GET_KITCHEN_UNRELATED_PERSON_INFO]  = &CSjclDomain::TemplatedGet<NET_KitchenUnrelatedPersonInfo_S>;
     m_getTable[NET_GET_ACCESS_CONTROL_ABNORMAL_INFO]   = &CSjclDomain::TemplatedGet<NET_AccessControlAbnormalInfo_S>;
@@ -238,6 +240,7 @@ CSjclDomain::CSjclDomain()
     m_setTable[NET_SET_KEY_AREA_ABNORMAL_STAY_INFO]  = &CSjclDomain::TemplatedSet<NET_KeyAreaAbnormalStayInfo_S>;
     m_setTable[NET_SET_OPEN_FLAME_LEAVE_INFO]        = &CSjclDomain::TemplatedSet<NET_OpenFlameLeaveInfo_S>;
     m_setTable[NET_SET_ROOFTOP_STAY_INFO]            = &CSjclDomain::TemplatedSet<NET_RooftopStayInfo_S>;
+    m_setTable[NET_SET_CLASSROOM_COURSE_INFO]        = &CSjclDomain::TemplatedSet<NET_ClassroomCourseInfo_S>;
     m_setTable[NET_SET_QUEUE_CROWDING_INFO]            = &CSjclDomain::TemplatedSet<NET_QueueCrowdingInfo_S>;
     m_setTable[NET_SET_KITCHEN_UNRELATED_PERSON_INFO]  = &CSjclDomain::TemplatedSet<NET_KitchenUnrelatedPersonInfo_S>;
     m_setTable[NET_SET_ACCESS_CONTROL_ABNORMAL_INFO]   = &CSjclDomain::TemplatedSet<NET_AccessControlAbnormalInfo_S>;

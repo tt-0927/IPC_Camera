@@ -2127,4 +2127,33 @@ void deal(Json::Object* pRootJson, NET_RooftopStayInfo_S& stInfo, bool bOutStruc
     convert.structure(pRootJson, "LinkageList", stInfo.stLinkageList);
 }
 
+void deal(Json::Object* pRootJson, NET_ClassroomPodiumState_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "State", stInfo.nState);
+    long long llAgeMs = static_cast<long long>(stInfo.llAgeMs);
+    convert.field(pRootJson, "AgeMs", llAgeMs);
+    stInfo.llAgeMs = static_cast<INT64>(llAgeMs);
+    convert.field(pRootJson, "Reason", stInfo.szReason);
+}
+
+void deal(Json::Object* pRootJson, NET_ClassroomCourseInfo_S& stInfo, bool bOutStruct)
+{
+    if (!pRootJson)
+    {
+        return;
+    }
+
+    SDKConvert::CSDKConvert convert(bOutStruct);
+    convert.field(pRootJson, "Channel", stInfo.uChannel);
+    convert.field(pRootJson, "DeviceRole", stInfo.nDeviceRole);
+    convert.field(pRootJson, "CourseJson", stInfo.szCourseJson);
+}
+
 }

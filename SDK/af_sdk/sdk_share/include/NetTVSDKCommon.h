@@ -1488,6 +1488,9 @@ typedef enum tagNETTVCfgCmd
     NET_SET_MOUSE_DETECTION_INFO          = 629,    /* 设置鼠患识别配置, 参见 #NET_MouseDetectionInfo_S */
     NET_GET_ROOFTOP_STAY_INFO             = 630,    /* 获取天台滞留配置, 参见 #NET_RooftopStayInfo_S */
     NET_SET_ROOFTOP_STAY_INFO             = 631,    /* 设置天台滞留配置, 参见 #NET_RooftopStayInfo_S */
+    NET_GET_CLASSROOM_PODIUM_STATE        = 632,    /* 获取教师机讲台状态, 参见 #NET_ClassroomPodiumState_S */
+    NET_SET_CLASSROOM_COURSE_INFO         = 633,    /* 下发课程/名单（课前）, 参见 #NET_ClassroomCourseInfo_S */
+    NET_GET_CLASSROOM_COURSE_INFO         = 634,    /* 读回课程/名单, 参见 #NET_ClassroomCourseInfo_S */
 
     NET_CFG_INVALID                       = 0xFFFF  /* 无效值 */
 
@@ -4603,6 +4606,44 @@ typedef struct tagNET_ClassroomStatsAlerts
     UINT32                    u32Reserved;  /* 保留字段 */
     NET_ClassroomAlertItem_S  arrItems[NET_CLASSROOM_STATS_ALERT_MAX];
 } NET_ClassroomStatsAlerts_S;
+
+/* ==================== 课堂讲台状态 / 课程名单 ==================== */
+
+/* 教师机讲台状态查询（NET_GET_CLASSROOM_PODIUM_STATE） */
+#define NET_CLASSROOM_PODIUM_UNKNOWN   0   /* 没有答案（没判过/讲台没画/归属关） */
+#define NET_CLASSROOM_PODIUM_EMPTY     1   /* 讲台区域无人 */
+#define NET_CLASSROOM_PODIUM_OCCUPIED  2   /* 讲台区域有人 */
+
+/**
+ * @struct tagNET_ClassroomPodiumState
+ * @brief 教师机讲台状态（下行查询响应）
+ * @note  llAgeMs 是判定那拍到查询时刻的墙钟差，-1=还没判过。
+ */
+typedef struct tagNET_ClassroomPodiumState
+{
+    UINT32      uChannel;        /* 通道号，课堂单路填 0 */
+    INT32       nState;          /* NET_CLASSROOM_PODIUM_* */
+    INT32       nReserved0;      /* 0 */
+    INT64       llAgeMs;         /* 判定那拍到查询时刻的墙钟差；-1=还没判过 */
+    CHAR        szReason[32];    /* 成因：ok/unconfigured/off/no_frame/... */
+    BYTE        byReserved[64];  /* 保留字段 */
+} NET_ClassroomPodiumState_S;
+
+typedef NET_ClassroomPodiumState_S* pNET_ClassroomPodiumState_S;
+
+/* 课程/名单下发（NET_SET_CLASSROOM_COURSE_INFO=633 / NET_GET_CLASSROOM_COURSE_INFO=634） */
+#define NET_CLASSROOM_COURSE_JSON_MAX  32768   /* 课程/名单 JSON 上限（UTF-8，含照片地址） */
+
+typedef struct tagNET_ClassroomCourseInfo
+{
+    UINT32      uChannel;        /* 通道号，课堂单路填 0 */
+    INT32       nDeviceRole;     /* 0 教师机/1 学生机/2 板机 */
+    INT32       nReserved0;      /* 0 */
+    CHAR        szCourseJson[NET_CLASSROOM_COURSE_JSON_MAX]; /* 课程/名单 JSON，null 结尾 */
+    BYTE        byReserved[64];  /* 保留字段 */
+} NET_ClassroomCourseInfo_S;
+
+typedef NET_ClassroomCourseInfo_S* pNET_ClassroomCourseInfo_S;
 
 /* ==================== 通用抓拍结构体 ==================== */
 

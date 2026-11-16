@@ -187,6 +187,8 @@ BOOL CConfigQuery::GetDevConfig(LPVOID lpUserID, INT32 nChannelID, INT32 nComman
         case NET_GET_KEY_AREA_ABNORMAL_STAY_INFO:   return GetDevConfig_Impl<NET_KeyAreaAbnormalStayInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
         case NET_GET_OPEN_FLAME_LEAVE_INFO:         return GetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
         case NET_GET_ROOFTOP_STAY_INFO:           return GetDevConfig_Impl<NET_RooftopStayInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
+        case NET_GET_CLASSROOM_PODIUM_STATE:      return GetDevConfig_Impl<NET_ClassroomPodiumState_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
+        case NET_GET_CLASSROOM_COURSE_INFO:       return GetDevConfig_Impl<NET_ClassroomCourseInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
         case NET_GET_QUEUE_CROWDING_INFO:          return GetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
         case NET_GET_KITCHEN_UNRELATED_PERSON_INFO: return GetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
         case NET_GET_ACCESS_CONTROL_ABNORMAL_INFO: return GetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, nChannelID, nCommand, lpOutBuffer, nOutBufferSize, pnBytesReturned);
@@ -350,6 +352,7 @@ BOOL CConfigQuery::SetDevConfig(LPVOID lpUserID, INT32 nChannelID, INT32 nComman
         case NET_SET_OPEN_FLAME_LEAVE_INFO:             return SetDevConfig_Impl<NET_OpenFlameLeaveInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
         case NET_SET_QUEUE_CROWDING_INFO:          return SetDevConfig_Impl<NET_QueueCrowdingInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
         case NET_SET_ROOFTOP_STAY_INFO:           return SetDevConfig_Impl<NET_RooftopStayInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
+        case NET_SET_CLASSROOM_COURSE_INFO:       return SetDevConfig_Impl<NET_ClassroomCourseInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
         case NET_SET_KITCHEN_UNRELATED_PERSON_INFO: return SetDevConfig_Impl<NET_KitchenUnrelatedPersonInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
         case NET_SET_ACCESS_CONTROL_ABNORMAL_INFO: return SetDevConfig_Impl<NET_AccessControlAbnormalInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
         case NET_SET_SOCIAL_RELATIONSHIP_INFO:     return SetDevConfig_Impl<NET_SocialRelationshipInfo_S>(lpUserID, nChannelID, nCommand, lpInBuffer, nInBufferSize, pnBytesReturned);
