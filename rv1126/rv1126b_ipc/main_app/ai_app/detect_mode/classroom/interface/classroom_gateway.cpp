@@ -16,12 +16,11 @@
 #include "classroom_config.h"
 #include "classroom_config_adapter.h"
 #include "classroom_stats_sink.h"
-#include "control_manage.h"
 #include "dlog.h"
+#include "event_linkage_dict.h"
 #include "raw_model_handle.h"
 #include "rk_model_handle.h"
 #include "tvsdk_event.h"
-#include "event_linkage.h"
 
 namespace Classroom
 {
@@ -132,37 +131,24 @@ bool CClassroomGateway::init()
 
     /* 即时事件告警通道：207/209 的班级级 BEGIN
        一出来就经 TVSDK 的 AI 目标告警推给平台，平台据此主动查询教师机的讲台状态 */
-    CClassroomEngine *pEngineRaw = spEngine.get();
-    spEngine->setEventAlarmFn([pEngineRaw](const CBehaviorEvent_S &stEvent, int64_t llWallMs) -> bool {
-        std::unique_ptr<NET_AlarmAiObjectInfo_S> pInfo(new NET_AlarmAiObjectInfo_S());
-        if (!Classroom::fillClassEventAlarm(stEvent, llWallMs, *pInfo))
+    spEngine->setEventAlarmFn([](const CBehaviorEvent_S &stEvent, int64_t llWallMs) -> bool {
+        EventTriggerContext_S stCtx;
+        if (!Classroom::classEventContext(stEvent, llWallMs, stCtx))
         {
             return false;
         }
-        /* 本地联动开关：打开后同一条事件也交给事件联动通道（声光/邮件/录像），
-           与 TVSDK 推送互相独立——没有客户端时联动仍然生效 */
-        if (pEngineRaw)
-        {
-            const ConfigPtr spSnap = pEngineRaw->config();
-            if (spSnap && spSnap->bLinkageEnable)
-            {
-                EventTriggerContext_S stCtx;
-                stCtx.enEventType = Event::Type_E::REAL_ALARM;
-                stCtx.llTimestamp = llWallMs;
-                stCtx.nObjectType = static_cast<int>(stEvent.enBehavior);
-                CEventLinkage::instance()->handleEvent(stCtx);
-            }
-        }
-        if (ControlManage::instance()->tvsdk_get_client_count() <= 0)
+        if (EventLinkageDict::tvsdk_client_count() <= 0)
         {
             return false;
         }
-        return ControlManage::instance()->tvsdk_push_alarm(
-                   static_cast<int>(pInfo->uAlarmType), pInfo.get(),
-                   static_cast<int>(sizeof(*pInfo))) >= 0;
+
+        EventLinkageDict::push_tvsdk_event_alarm(stCtx);
+        return true;
     });
 
-    /* 平台统计推送 */
+    /* 平台统计推送（0x6200/0x6201/0x6202）：状态机只认 IStatsSink，TVSDK 适配在
+       classroom_stats_sink。sink 声明在网关头里、比引擎活得久；装配失败时随本函数
+       的 m_spStatsSink.reset() 一起回收 */
     m_spStatsSink = std::make_unique<CTvSdkStatsSink>();
     spEngine->setStatsSink(m_spStatsSink.get());
 
@@ -438,6 +424,54 @@ CClassroomEngine *CClassroomGateway::engine() const
     std::lock_guard<std::mutex> stLock(m_mtx);
     return m_spEngine.get();
 }
+
+std::string CClassroomGateway::podiumStateJson() const
+{
+    std::lock_guard<std::mutex> stLock(m_mtx);
+    if (!m_spEngine)
+    {
+        /* 与 statusJson 同一纪律：未就绪也回可解析骨架，平台拿到 unknown 而不是空串 */
+        return "{\"state\":\"unknown\",\"reason\":\"no_run\",\"age_ms\":-1}";
+    }
+    return m_spEngine->podiumStateJson();
+}
+
+bool CClassroomGateway::courseSet(const std::string &strJson, std::string &rstrResp)
+{
+    std::lock_guard<std::mutex> stLock(m_mtx);
+    if (!m_spEngine)
+    {
+        rstrResp = "{\"ok\":false,\"error\":\"课堂分析未运行\"}";
+        return false;
+    }
+    std::string strErr;
+    if (!m_spEngine->setCourseInfo(strJson, strErr))
+    {
+        cJSON *pRoot = cJSON_CreateObject();
+        cJSON_AddBoolToObject(pRoot, "ok", 0);
+        cJSON_AddStringToObject(pRoot, "error", strErr.c_str());
+        char *pszOut = cJSON_PrintUnformatted(pRoot);
+        rstrResp = (nullptr != pszOut) ? pszOut : "{\"ok\":false}";
+        if (nullptr != pszOut)
+        {
+            cJSON_free(pszOut);
+        }
+        cJSON_Delete(pRoot);
+        return false;
+    }
+    rstrResp = "{\"ok\":true}";
+    return true;
+}
+
+std::string CClassroomGateway::courseInfoJson() const
+{
+    std::lock_guard<std::mutex> stLock(m_mtx);
+    if (!m_spEngine)
+    {
+        return "{\"valid\":false,\"reason\":\"classroom engine not initialized\"}";
+    }
+    return m_spEngine->courseInfoJson();
+}
 } /* namespace Classroom end */
 
 
@@ -481,4 +515,36 @@ std::string classroomConfigReport()
         return "{\"running\":false,\"reason\":\"classroom engine not initialized\"}";
     }
     return pEngine->reportJson();
+}
+
+std::string classroomConfigPodium()
+{
+    Classroom::CClassroomGateway *pGw = Classroom::CClassroomGateway::instance();
+    if (nullptr == pGw)
+    {
+        /* 与 classroomConfigReport 同一口径：网关未装配也回可解析骨架 */
+        return "{\"state\":\"unknown\",\"reason\":\"no_run\",\"age_ms\":-1}";
+    }
+    return pGw->podiumStateJson();
+}
+
+bool classroomConfigCourseSet(const std::string &strJson, std::string &rstrResp)
+{
+    Classroom::CClassroomGateway *pGw = Classroom::CClassroomGateway::instance();
+    if (nullptr == pGw)
+    {
+        rstrResp = "{\"ok\":false,\"error\":\"课堂分析网关未装配\"}";
+        return false;
+    }
+    return pGw->courseSet(strJson, rstrResp);
+}
+
+std::string classroomConfigCourseGet()
+{
+    Classroom::CClassroomGateway *pGw = Classroom::CClassroomGateway::instance();
+    if (nullptr == pGw)
+    {
+        return "{\"valid\":false,\"reason\":\"classroom gateway not initialized\"}";
+    }
+    return pGw->courseInfoJson();
 }

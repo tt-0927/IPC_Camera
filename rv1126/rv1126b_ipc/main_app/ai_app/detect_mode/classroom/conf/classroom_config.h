@@ -476,9 +476,6 @@ typedef struct _ConfigSnapshot_
        配置文件缺失时「什么都不跑且没有原因」比「按默认跑、模型没到位就回报 MODEL_MISSING」
        更难在现场定位——后者会把缺件信息直接落到日志与模型状态里，可观测本身就是提示 */
     bool      bEnable = true;          /* 课堂分析总开关 */
-    /* 本地联动开关：开启后课堂即时事件（207 指导 / 209 互动）在推送 TVSDK 的同时，
-       也走事件联动通道（声光/邮件/录像）。默认关闭：未配置联动动作的现场不产生空联动 */
-    bool      bLinkageEnable = false;
     /* 设备角色（#126）：顶层 "role" 键，"teacher"/"student"/"both"（默认 both=不分档）。
        强制关发生在 validate()，这里存的是**生效后**的值——心跳 role= 列读的就是它 */
     DeviceRole_E enRole = DeviceRole_E::ROLE_BOTH;
@@ -557,7 +554,13 @@ typedef struct _ConfigSnapshot_
     CTrackerParam_S stTracker;
 
     HeadDownRule_S    stHeadDown;
+    /* 配置解耦：同一个判据结构按「事件」分实例 */
+    HeadDownRule_S    stHeadDownReading;      /* 108 阅读的低头那一半 */
+    HeadDownRule_S    stHeadDownPhone;        /* 106 玩手机的低头前提 */
+    HeadDownRule_S    stHeadDownTeacher;      /* 203 教师低头 */
+    HeadDownRule_S    stHeadDownPhoneTeacher; /* 205 教师玩手机的低头前提 */
     HeadUpRule_S      stHeadUp;
+    HeadUpRule_S      stHeadUpTeacher;        /* 202 教师抬头 */
     /* ---- 教师三条"无独立判据"事件的置信度门----
        206 讲授 / 208 板书 / 209 师生互动 的判据是几何事实的组合（区域 + 非背身/背身 +
        学生侧有人举手），本身**没有概率输出**。它们的「置信度」只能落在一个真实存在的
@@ -581,10 +584,13 @@ typedef struct _ConfigSnapshot_
        而连续段一断就清零，"一直在画面里站着"这条事实才经得起复查 */
     int32_t   nGuidingStayMs = 0;
     StandRule_S       stStand;
+    StandRule_S       stStandTeacher;         /* 201 教师站立 */
     RaiseHandRule_S   stRaiseHand;
     TurnBackRule_S    stTurnBack;
     LieOnDeskRule_S   stLieOnDesk;
     PhoneRule_S       stPhone;
+    PhoneRule_S       stPhoneTeacher;         /* 205 教师手机 */
+    PhoneRule_S       stPhoneReading;         /* 108 阅读的「手在身前」那一半 */
 
     /* ---- 人脸五点对齐----
        判定阈值直接用 face_align.h 那个参数结构，不在配置层再抄一份同名字段：
@@ -778,6 +784,9 @@ inline bool letterboxForModel(const CConfigSnapshot_S &rstSnap, const std::strin
  * @brief   : 配置持有者
  * @note    : 线程安全。current() 可在任意热路径调用（一次互斥 + 一次引用计数）
  */
+/* 越界钳制的唯一真源：配置参数合法区间  */
+bool paramClampOf(const char *pszName, double &rdLo, double &rdHi);
+
 class CClassroomConfig
 {
 public:

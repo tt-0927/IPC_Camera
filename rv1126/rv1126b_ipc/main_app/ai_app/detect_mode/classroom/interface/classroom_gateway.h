@@ -99,6 +99,28 @@ public:
      */
     bool configPageSet(const char *pszFeature, const std::string &strPartial, std::string &rstrResp);
 
+    /**
+     * @brief   : 教师机讲台状态（平台经 TVSDK 下行查询用）
+     * @return   {std::string} JSON：{"state":"empty|occupied|unknown","reason":"…","age_ms":N}
+     * @note    : 未装配成功时回 unknown/no_run 骨架（与 statusJson 同一纪律：调用方拿到的
+     *            必须始终可解析），不崩。内部转发引擎的 podiumStateJson
+     */
+    std::string podiumStateJson() const;
+
+    /**
+     * @brief   : 落档平台课前下发的课程/名单（TVSDK 下行 SET 633）
+     * @param    {const std::string&} strJson：课程/名单 JSON
+     * @param    {std::string&} rstrResp：OUT=回执（成功 ok:true，失败 ok:false+error）
+     * @return   {bool} false=拒绝或课堂未就绪
+     */
+    bool courseSet(const std::string &strJson, std::string &rstrResp);
+
+    /**
+     * @brief   : 读回当前课程/名单（TVSDK 下行 GET 634）
+     * @return   {std::string} JSON；未就绪回 valid:false 骨架（始终可解析）
+     */
+    std::string courseInfoJson() const;
+
 #endif
 
 private:

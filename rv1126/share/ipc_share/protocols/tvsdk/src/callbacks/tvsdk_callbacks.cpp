@@ -8409,8 +8409,120 @@ static NET_COMMON_ECODE_E cb_get_replay_url(pNET_ReplayUrlInfo_S pInfo)
     return NET_E_SUCCEED;
 }
 
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+/* ---------- 通用配置获取回调：按命令码分发无专用回调的命令 ----------
+   讲台状态查询（NET_GET_CLASSROOM_PODIUM_STATE=632）经此通用回调下发：平台收到学生机
+   0x3060/0x3061 后主动查询教师机讲台，empty⇒指导成立、occupied⇒互动成立。 */
+static NET_COMMON_ECODE_E cb_get_dev_config(INT32 dwChannelID, INT32 dwCommand, LPVOID lpOutBuffer)
+{
+    if (NET_GET_CLASSROOM_PODIUM_STATE != dwCommand &&
+        NET_GET_CLASSROOM_COURSE_INFO != dwCommand)
+        return NET_E_NOT_SUPPORT;
+    if (!lpOutBuffer)
+        return NET_E_INVALID_PARAM;
+
+    /* 课程/名单读回（634）：把设备落档的课程 JSON 原样填回信封 */
+    if (NET_GET_CLASSROOM_COURSE_INFO == dwCommand)
+    {
+        pNET_ClassroomCourseInfo_S pOut = (pNET_ClassroomCourseInfo_S)lpOutBuffer;
+        std::memset(pOut, 0, sizeof(*pOut));
+        pOut->uChannel = (UINT32)dwChannelID;
+        std::string outJson;
+        if (execute_get_result(AC_CLASSROOM_GET_COURSE_INFO, "{}", outJson) != 0 || outJson.empty())
+            return NET_E_GET_CFG_FAILED;
+        int nRet = -1;
+        Json::get(outJson.c_str(), "Return", nRet);
+        if (nRet != 0)
+            return NET_E_GET_CFG_FAILED;
+        const std::string strData = normalize_data_json(outJson);
+        /* 信封定长（预编译库 ABI 钉死 NET_CLASSROOM_COURSE_JSON_MAX，不可扩）：toJson 会比下发原文
+           多出 valid/recv_ms/student_count/device_role 等元字段，满员名单（256 学生 + 照片地址）可能
+           SET 收得下、读回却超信封。超了宁可诚实报失败，也不 strncpy 静默截断成半截坏 JSON 让平台
+           解析错。 */
+        if (strData.size() >= NET_CLASSROOM_COURSE_JSON_MAX)
+        {
+            dlog_error("classroom course: 读回 JSON %zuB 超信封 %d，诚实报失败不截断（课程身份见 statusJson）",
+                       strData.size(), NET_CLASSROOM_COURSE_JSON_MAX);
+            return NET_E_GET_CFG_FAILED;
+        }
+        std::strncpy(pOut->szCourseJson, strData.c_str(), NET_CLASSROOM_COURSE_JSON_MAX - 1);
+        return NET_E_SUCCEED;
+    }
+
+    pNET_ClassroomPodiumState_S pOut = (pNET_ClassroomPodiumState_S)lpOutBuffer;
+    std::memset(pOut, 0, sizeof(*pOut));
+    pOut->uChannel = (UINT32)dwChannelID;
+
+    std::string outJson;
+    if (execute_get_result(AC_CLASSROOM_GET_PODIUM_STATE, "{}", outJson) != 0 || outJson.empty())
+        return NET_E_GET_CFG_FAILED;
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    if (nRet != 0)
+        return NET_E_GET_CFG_FAILED;
+
+    const std::string strData = normalize_data_json(outJson);
+    Json::Object *pRoot = Json::init(strData.c_str());
+    if (!pRoot)
+        return NET_E_GET_CFG_FAILED;
+
+    std::string strState;
+    std::string strReason;
+    long long llAgeMs = -1;
+    Json::get(pRoot, "state", strState);
+    Json::get(pRoot, "reason", strReason);
+    Json::get(pRoot, "age_ms", llAgeMs);
+    Json::deinit(pRoot);
+
+    if ("empty" == strState)
+        pOut->nState = NET_CLASSROOM_PODIUM_EMPTY;
+    else if ("occupied" == strState)
+        pOut->nState = NET_CLASSROOM_PODIUM_OCCUPIED;
+    else
+        pOut->nState = NET_CLASSROOM_PODIUM_UNKNOWN;
+    pOut->llAgeMs = (INT64)llAgeMs;
+    std::strncpy(pOut->szReason, strReason.c_str(), sizeof(pOut->szReason) - 1);
+    return NET_E_SUCCEED;
+}
+
+/* 课程/名单下发（633 SET）：平台课前把课程与花名册推到设备落档。
+   输入缓冲只读：按 null 结尾 bounded 取 JSON（不 memset 输入），交给课堂任务链
+   （AC 2954 → SetCourseInfo → 网关 → 引擎落档）。角色不符/缺 course_id 等由
+   存储层校验拒绝，这里只看任务 Return。照片地址只落档不取（考勤暂缓）。 */
+static NET_COMMON_ECODE_E cb_set_dev_config(INT32 dwChannelID, INT32 dwCommand, LPVOID lpInBuffer)
+{
+    if (NET_SET_CLASSROOM_COURSE_INFO != dwCommand)
+        return NET_E_NOT_SUPPORT;
+    if (!lpInBuffer)
+        return NET_E_INVALID_PARAM;
+
+    const NET_ClassroomCourseInfo_S *pIn = (const NET_ClassroomCourseInfo_S *)lpInBuffer;
+    const char *pszJson = pIn->szCourseJson;
+    size_t nLen = 0;
+    while (nLen < NET_CLASSROOM_COURSE_JSON_MAX && '\0' != pszJson[nLen])
+        ++nLen;
+    const std::string strJson(pszJson, nLen);
+
+    std::string outJson;
+    if (execute_get_result(AC_CLASSROOM_SET_COURSE_INFO, strJson, outJson) != 0 || outJson.empty())
+        return NET_E_SET_CFG_FAILED;
+    int nRet = -1;
+    Json::get(outJson.c_str(), "Return", nRet);
+    return (0 == nRet) ? NET_E_SUCCEED : NET_E_SET_CFG_FAILED;
+}
+#endif
+
 void register_all()
 {
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    /* 讲台状态查询走通用 GetDevConfig 回调 */
+    NET_serverRegisterGetDevConfigCb(cb_get_dev_config);
+    /* 课程/名单下发走通用 SetDevConfig 回调（633），与 634 读回同一条任务链 */
+    if (!NET_serverRegisterSetDevConfigCb(cb_set_dev_config))
+    {
+        dlog_error("TVSDK注册课程下发回调失败: command[%d]", NET_SET_CLASSROOM_COURSE_INFO);
+    }
+#endif
     NET_serverRegisterGetDeviceInfoCb(cb_get_device_info_impl);
     NET_serverRegisterDeviceControlCb(cb_device_control);
     NET_serverRegisterGetVideoEncodeCapCb(cb_get_video_encode_cap);

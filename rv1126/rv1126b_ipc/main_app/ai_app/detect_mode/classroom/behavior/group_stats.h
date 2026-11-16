@@ -94,6 +94,8 @@ typedef struct _GroupMetric_
     float    fStuAttention = -1.0f;
     /* 就坐率是**代理指标**：(人数 - 站立人数) / 人数 */
     float    fStuSitRate = -1.0f;
+    /* 纪律占比：有证据且**违纪**（低头/背身/玩手机任一成立）的**去重学生数** / 有证据人数 */
+    float    fStuDisciplineRate = -1.0f;
 
     float    fTeaHeadUpRate = -1.0f;
     float    fTeaStandRate = -1.0f;

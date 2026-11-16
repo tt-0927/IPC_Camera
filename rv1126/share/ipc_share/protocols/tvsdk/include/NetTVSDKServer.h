@@ -1374,8 +1374,14 @@ typedef enum tagNETTVCfgCmd
     NET_GET_MOUSE_DETECTION_INFO          = 628,           /* 获取鼠患识别配置 参见NET_MouseDetectionInfo_S */
     NET_SET_MOUSE_DETECTION_INFO          = 629,           /* 设置鼠患识别配置 参见NET_MouseDetectionInfo_S */
     NET_GET_ROOFTOP_STAY_INFO             = 630,           /* 获取天台滞留配置 参见NET_RooftopStayInfo_S */
-    NET_SET_ROOFTOP_STAY_INFO             = 631,           /* 设置天台滞留配置 参见NET_RooftopStayInfo_S */
+    NET_SET_ROOFTOP_STAY_INFO             = 631,           /* 设置天台滞留配置  参见NET_RooftopStayInfo_S */
 #endif 
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+    NET_GET_CLASSROOM_PODIUM_STATE        = 632,           /* 获取教师机讲台状态 参见NET_ClassroomPodiumState_S */
+    NET_SET_CLASSROOM_COURSE_INFO         = 633,           /* 下发课程/名单（课前） 参见NET_ClassroomCourseInfo_S */
+    NET_GET_CLASSROOM_COURSE_INFO         = 634,           /* 读回课程/名单 参见NET_ClassroomCourseInfo_S */
+#endif
     NET_CFG_INVALID                  = 0xFFFF            /* 无效值  Invalid value */
 
 }NET_CONFIG_COMMAND_E;
@@ -6882,6 +6888,230 @@ typedef struct tagNET_IllegalParkingCap
 } NET_IllegalParkingCap_S;
 
 typedef NET_IllegalParkingCap_S* pNET_IllegalParkingCap_S;
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+/* 教师机讲台状态查询（NET_GET_CLASSROOM_PODIUM_STATE）：平台收到学生机 0x3060/0x3061
+   后主动来问「讲台有没有人」，empty⇒指导成立、occupied⇒互动成立 */
+#define NET_CLASSROOM_PODIUM_UNKNOWN   0   /* 没有答案（没判过/讲台没画/归属关） */
+#define NET_CLASSROOM_PODIUM_EMPTY     1   /* 讲台区域无人 */
+#define NET_CLASSROOM_PODIUM_OCCUPIED  2   /* 讲台区域有人 */
+
+/**
+ * @struct tagNET_ClassroomPodiumState
+ * @brief 教师机讲台状态（下行查询响应）
+ * @note  llAgeMs 是判定那拍到查询时刻的墙钟差，-1=还没判过；
+ *        平台据此判断这个答案现在还算不算数（感知停摆时帧时不前进，不能用帧时算 age）
+ */
+typedef struct tagNET_ClassroomPodiumState
+{
+    UINT32      uChannel;        /* 通道号，课堂单路填 0 */
+    INT32       nState;          /* NET_CLASSROOM_PODIUM_* */
+    INT32       nReserved0;      /* 0 */
+    INT64       llAgeMs;         /* 判定那拍到查询时刻的墙钟差；-1=还没判过 */
+    CHAR        szReason[32];    /* 成因：ok/unconfigured/off/no_frame/... */
+    BYTE        byRes[64];       /* 保留字段 */
+} NET_ClassroomPodiumState_S;
+
+typedef NET_ClassroomPodiumState_S* pNET_ClassroomPodiumState_S;
+
+/* 课程/名单下发（NET_SET_CLASSROOM_COURSE_INFO=633 / NET_GET_CLASSROOM_COURSE_INFO=634）：
+   平台课前把一节课的课程身份 + 教室 + 直播 + 师生名单推给设备。名单是变长的，
+   故载荷用 JSON 信封（szCourseJson）而非定长数组——照片地址只存不取（考勤暂缓），
+   JSON 里就是一个 photo 字段，待平台确认拿取方式后再接取图/建库，线格式不必再改。
+   平台下发/读回时须按 sizeof(NET_ClassroomCourseInfo_S) 分配缓冲区。 */
+#define NET_CLASSROOM_COURSE_JSON_MAX  32768   /* 课程/名单 JSON 上限（UTF-8，含照片地址） */
+
+typedef struct tagNET_ClassroomCourseInfo
+{
+    UINT32      uChannel;        /* 通道号，课堂单路填 0 */
+    INT32       nDeviceRole;     /* 0 教师机/1 学生机/2 板机；SET 可选填，设备校验与本机一致 */
+    INT32       nReserved0;      /* 0 */
+    CHAR        szCourseJson[NET_CLASSROOM_COURSE_JSON_MAX]; /* 课程/名单 JSON，null 结尾 */
+    BYTE        byRes[64];       /* 保留字段 */
+} NET_ClassroomCourseInfo_S;
+
+typedef NET_ClassroomCourseInfo_S* pNET_ClassroomCourseInfo_S;
+
+#define NET_ALARM_CLASSROOM_STATISTICS_BASE      0x6200
+#define NET_ALARM_CLASSROOM_STATISTICS_COUNTERS  (NET_ALARM_CLASSROOM_STATISTICS_BASE + 0x00) // 0x6200 累计计数
+#define NET_ALARM_CLASSROOM_STATISTICS_SEGMENTS   (NET_ALARM_CLASSROOM_STATISTICS_BASE + 0x01) // 0x6201 行为段
+#define NET_ALARM_CLASSROOM_STATISTICS_ALERTS     (NET_ALARM_CLASSROOM_STATISTICS_BASE + 0x02) // 0x6202 预警边沿
+
+/* 报文头魔数 "CST1"（小端读作 0x31545343）：平台按它判"这是课堂统计而不是别的 0x62xx" */
+#define NET_CLASSROOM_STATS_MAGIC    0x31545343
+#define NET_CLASSROOM_STATS_VERSION  1
+#define NET_CLASSROOM_STATS_SEG_MAX   24   /* 单包段数上限 */
+#define NET_CLASSROOM_STATS_ALERT_MAX 8    /* 单包预警上限 */
+#define NET_CLASSROOM_STATS_ALERT_NUM 12   /* 预警类别数（顺序即计数报文 nAlertBegin[] 下标） */
+
+/* 计数报文 u32Flags 位（每一位都是"这个数能不能这样读"的开关） */
+#define NET_CLASSROOM_STATS_FLAG_ATTEND_ENABLE    0x00000001
+#define NET_CLASSROOM_STATS_FLAG_ABSENT_KNOWN     0x00000002
+#define NET_CLASSROOM_STATS_FLAG_ATTEND_CLOSED    0x00000004
+#define NET_CLASSROOM_STATS_FLAG_CLASS_STARTED    0x00000008
+#define NET_CLASSROOM_STATS_FLAG_TEACHER_PRESENT  0x00000010
+#define NET_CLASSROOM_STATS_FLAG_TEACHER_SEEN     0x00000020
+#define NET_CLASSROOM_STATS_FLAG_SESSION_FINAL    0x00000040
+#define NET_CLASSROOM_STATS_FLAG_ATTENTION_KNOWN  0x00000080
+
+
+/**
+ * @struct tagNET_ClassroomStatsHead
+ * @brief 课堂统计报文头（三条命令码共用，64 字节定长）
+ * @note  llSessionId 是会话幂等键的一半：新会话从 1 重新计 u32MsgSeq，
+ *        平台把 (llSessionId, u32MsgSeq) 当联合主键，同一 PK 重复到达直接丢弃。
+ *        u32MsgSeq 在一次会话内跨三类报文单调递增。
+ */
+typedef struct tagNET_ClassroomStatsHead
+{
+    UINT32      u32Magic;        /* NET_CLASSROOM_STATS_MAGIC */
+    UINT16      u16Version;      /* NET_CLASSROOM_STATS_VERSION */
+    UINT16      u16MsgType;      /* 报文类型：1=计数 2=段 3=预警 */
+    UINT32      u32MsgSeq;       /* 会话内 1 起单调递增，三类报文共用一条序列 */
+    UINT32      u32PayloadLen;   /* 头之后的字节数 */
+    UINT32      u32Flags;        /* 计数报文的位定义见 NET_CLASSROOM_STATS_FLAG_*；段/预警填 0 */
+    UINT32 u32Channel;      /* 通道号；单通道 IPC 填 0（占用原有对齐填充位，头长度不变） */
+    INT64       llSessionId;     /* 会话起点（单调毫秒） */
+    INT64       llSessionWallMs; /* 会话起点（墙钟毫秒） */
+    INT64       llWallMs;        /* 本包生成时刻（墙钟毫秒） */
+    INT64       llMonoMs;        /* 本包生成时刻（单调毫秒，设备内对账用） */
+    INT32       nDeviceRole;     /* 0=板机 / 1=教师机 / 2=学生机（按部署配置 role 自动填） */
+    INT32       nReserved;       /* 0 */
+} NET_ClassroomStatsHead_S;
+
+typedef NET_ClassroomStatsHead_S* pNET_ClassroomStatsHead_S;
+
+/**
+ * @struct tagNET_ClassroomStatsCounters
+ * @brief 课堂累计计数报文（0x6200）
+ * @note  所有计数字段都是**本会话累计值**，不是增量；「规避相同累加次数」靠
+ *        (会话, 序号) 幂等 + 覆盖写实现：平台收到新包直接替换旧值即可。
+ *        人数类 -1 = 设备不知道（没有下发应到人数/底库未交付），不是 0。
+ */
+typedef struct tagNET_ClassroomStatsCounters
+{
+    NET_ClassroomStatsHead_S stHead;
+
+    /* ---- 出勤 ---- */
+    INT32       nPresentNum;       /* 到课人数（已过时长门）；-1 = 未启用/未知 */
+    INT32       nNamedNum;         /* 其中已识别身份的人数 */
+    INT32       nExpectedNum;      /* 应到人数；-1 = 未知 */
+    INT32       nAbsentNum;        /* 应到−实到；>0 缺勤，<0 超员；-1 时看 FLAG_ABSENT_KNOWN */
+    UINT32      u32Flags;          /* NET_CLASSROOM_STATS_FLAG_*（与头里那份同值） */
+    INT32       nReserved0;
+    INT64       llClassStartWallMs;/* 「本课第一份有学生的样本」的墙钟；0 = 还没开始 */
+
+    /* ---- 当前画面（最近一份群体样本）---- */
+    INT32       nPersonMax;        /* 本会话屏上人数峰值 */
+    INT32       nPersonNum;        /* 当前屏上人数（含无证据行） */
+    INT32       nStudentNum;
+    INT32       nTeacherNum;
+    INT32       nStuEvidence;      /* 当前有骨骼证据的学生数（比率分母） */
+
+    /* ---- 学生动作次数（顺序：低头/抬头/转头/举手/站立/讨论）---- */
+    INT32       nActionBegin[6];
+    /* ---- 学生表情次数（顺序：愤怒/厌恶/恐惧/快乐/中性/悲伤/惊喜）---- */
+    INT32       nExprBegin[7];
+    /* ---- 教学行为（顺序：讲授/指导/板书/互动/巡视）---- */
+    INT32       nTeachBegin[5];
+    INT64       llTeachActiveMs[5];/* 该类行为累计时长（段 END 时结算，会话结束封口） */
+    /* ---- 学生行为（顺序：听讲/实践/演示/阅读/讨论）---- */
+    INT32       nStudyBegin[5];
+    INT64       llStudyActiveMs[5];
+
+    /* ---- AI 预警（顺序：未到/拖堂/早退/缺勤/中途离课/未巡视/接打电话/参与度低/纪律差/聚集/趴桌/玩手机）---- */
+    INT32       nAlertBegin[NET_CLASSROOM_STATS_ALERT_NUM];
+
+    /* ---- 当前读数 ---- */
+    INT32       nLeftMid;          /* 当前判定为中途离课的人数 */
+    INT32       nStuAttentionPct;  /* 专注度百分比 0~100；-1 = 无证据（flags 的 ATTENTION_KNOWN） */
+    INT32       nDisciplinePct;    /* 违纪占比（低头+背身+手机）/有证据学生；-1 = 无证据 */
+    INT32       nGatherNum;        /* 当前最大站立聚集人数；0 = 无 */
+    INT32       nDeskLeanNum;      /* 当前连续低头超过 desk_hold_sec 的人数 */
+    INT32       nPatrolAgeSec;     /* 距上次巡视的秒数；本课还没巡过时从上课起算；-1 = 还没上课 */
+    UINT32      u32AlertActiveMask;/* 当前处于激活态的预警位（位号 = 预警类别下标）*/
+    UINT32      u32Reserved1;
+} NET_ClassroomStatsCounters_S;
+
+typedef NET_ClassroomStatsCounters_S* pNET_ClassroomStatsCounters_S;
+
+/**
+ * @struct tagNET_ClassroomStatsSegItem
+ * @brief 一条行为段（自包含：起止/时长都在里面，不依赖前后包配对）
+ */
+typedef struct tagNET_ClassroomStatsSegItem
+{
+    BYTE        u8Kind;           /* 1=教学行为（206~210） 2=学生行为（107~111） */
+    BYTE        u8Phase;          /* 1=BEGIN 2=UPDATE 3=END */
+    UINT16      u16Behavior;      /* 行为号 107/108/109/110/111 或 206~210 */
+    INT32       nPersonId;        /* 跟踪 ID；班级级哨兵为 0 */
+    INT32       nSeatId;          /* 座位号；未分配 -1 */
+    INT32       nExprClass;       /* 非表情段恒 -1（预留，表情段不走本通道）*/
+    INT32       nReserved;        /* 0 */
+    INT64       llBeginWallMs;    /* 段起点（墙钟毫秒）*/
+    INT64       llEndWallMs;      /* 段终点；BEGIN 行填 0 */
+    INT64       llDurationMs;     /* BEGIN 行填 0；END 行 = 终点−起点 */
+    INT64       llEventSeq;       /* 与报表 events[] 对账用的事件序号；0 = 没进过事件环 */
+} NET_ClassroomStatsSegItem_S;
+
+typedef NET_ClassroomStatsSegItem_S* pNET_ClassroomStatsSegItem_S;
+
+/**
+ * @struct tagNET_ClassroomStatsSegments
+ * @brief 行为段批量报文（0x6201）
+ */
+typedef struct tagNET_ClassroomStatsSegments
+{
+    NET_ClassroomStatsHead_S  stHead;
+    UINT32                    u32Count;     /* 1..NET_CLASSROOM_STATS_SEG_MAX */
+    UINT32                    u32Reserved;
+    NET_ClassroomStatsSegItem_S arrItems[NET_CLASSROOM_STATS_SEG_MAX];
+} NET_ClassroomStatsSegments_S;
+
+typedef NET_ClassroomStatsSegments_S* pNET_ClassroomStatsSegments_S;
+
+/**
+ * @struct tagNET_ClassroomStatsAlertItem
+ * @brief 一条预警记录
+ * @note  平台只对 phase==BEGIN 计数；UPDATE 只更新当前值，END 关闭这一段。
+ *        value 的含义随类型变（人数/百分比/秒），见对接文档。
+ */
+typedef struct tagNET_ClassroomStatsAlertItem
+{
+    UINT16      u16Type;         /* 预警类别 0~11 */
+    UINT16      u16Phase;        /* 1=BEGIN 2=UPDATE 3=END */
+    INT32       nValue;          /* BEGIN/UPDATE/END 时的读数；无读数填 1 */
+    INT64       llWallMs;        /* 本记录生成时刻（墙钟）*/
+    INT64       llBeginWallMs;   /* 这一段预警的起点（BEGIN 行 = llWallMs）*/
+    INT64       llDurationMs;    /* END 行 = llWallMs − llBeginWallMs；BEGIN/UPDATE 填 0 */
+    INT64       llEventSeq;      /* 预留：与事件对账；当前恒 0 */
+} NET_ClassroomStatsAlertItem_S;
+
+typedef NET_ClassroomStatsAlertItem_S* pNET_ClassroomStatsAlertItem_S;
+
+/**
+ * @struct tagNET_ClassroomStatsAlerts
+ * @brief 预警边沿批量报文（0x6202）
+ */
+typedef struct tagNET_ClassroomStatsAlerts
+{
+    NET_ClassroomStatsHead_S     stHead;
+    UINT32                       u32Count;   /* 1..NET_CLASSROOM_STATS_ALERT_MAX */
+    UINT32                       u32Reserved;
+    NET_ClassroomStatsAlertItem_S arrItems[NET_CLASSROOM_STATS_ALERT_MAX];
+} NET_ClassroomStatsAlerts_S;
+
+typedef NET_ClassroomStatsAlerts_S* pNET_ClassroomStatsAlerts_S;
+
+/* 平台 ABI：尺寸一改就 BUILD-FAIL，而不是让平台读到错位字段 */
+static_assert(sizeof(NET_ClassroomStatsHead_S) == 64, "classroom stats head must stay 64 bytes");
+static_assert(sizeof(NET_ClassroomStatsCounters_S) == 376, "classroom counters payload is a platform ABI");
+static_assert(sizeof(NET_ClassroomStatsSegItem_S) == 56, "classroom segment item is a platform ABI");
+static_assert(sizeof(NET_ClassroomStatsSegments_S) == 1416, "classroom segments payload is a platform ABI");
+static_assert(sizeof(NET_ClassroomStatsAlertItem_S) == 40, "classroom alert item is a platform ABI");
+static_assert(sizeof(NET_ClassroomStatsAlerts_S) == 392, "classroom alerts payload is a platform ABI");
+
+#endif
 
 /**
  * @struct tagNET_SmartCap

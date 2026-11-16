@@ -90,6 +90,7 @@ typedef struct _StatsHubStat_
     uint64_t u64AlertMsgs = 0;
     uint64_t u64SegRecords = 0;
     uint64_t u64AlertRecords = 0;
+    uint64_t u64PushOk = 0;       /* 推送成功计数（平台侧接受的包数；built−fail−ok=未发出的） */
     uint64_t u64PushFail = 0;
     uint64_t u64SegLost = 0;       /* 队列溢出丢最旧 */
     uint64_t u64AlertLost = 0;
@@ -133,6 +134,7 @@ public:
      *            同角色重复调用是无副作用的（每拍都会调一次）。
      */
     void setDeviceRole(DeviceRole_E enRole, int64_t llMonoMs, int64_t llWallMs);
+
     /* 线格式头里的通道号：单通道 IPC 保持默认 0，多通道设备由调用方显式设置 */
     void setChannel(uint32_t u32Channel);
 
@@ -280,7 +282,7 @@ private:
     DeviceRole_E m_enDeviceRole = DeviceRole_E::ROLE_BOTH;
     bool     m_bRoleKnown = false;
     uint32_t m_u32MsgSeq = 0;
-    uint32_t m_u32Channel = 0;      /* 线格式头里的通道号，默认 0 */
+    uint32_t m_u32Channel = 0;  
     int64_t  m_llSessionId = 0;
     int64_t  m_llSessionWallMs = 0;
     int64_t  m_llClassStartMonoMs = 0;

@@ -213,6 +213,7 @@ typedef struct _PerceiveStat_
                                         "这一路正常，按现场配置把人滤掉了"。混在一起读会让
                                         "调小角度以后事件变少"看起来像故障；单独一列才能
                                         把"侧脸多"和"模型没跑"分开 */
+    uint64_t u64ExprSmallSkip = 0;   /* 人脸短边低于 expression.min_face_px 而被跳过的人次 */
     int32_t  nLastExprAngleBad = 0;  /* 本拍因角度量不出来（五点退化/NaN）而**放行**的人次。
                                         放行而不是拒绝：缺观测不否决，与全工程的"没证据不算否定"一致；
                                         这一列持续 >0 说明这批脸的瞳距太小，角度门处于失效状态 */
@@ -640,7 +641,7 @@ private:
      *               情绪算不出来时名单该照常出（两问同一张图，但不该同生共死）
      */
     void runExpressionOfWarp(const RgaBufPtr &rspBuf, int32_t nTrackId, int64_t llNowMs,
-                             float fYawDeg);
+                             float fYawDeg, float fFaceShortPx);
 
     /**
      * @brief   : 每拍把平滑器里的情绪值回填进特征行

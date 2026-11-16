@@ -111,6 +111,15 @@ namespace Task
 
         /* ==========================  课程分析报告 ========================== */
         TaskSubClass(GetCourseReport)
+
+        /* ==========================  讲台状态查询 ========================== */
+        /* 平台经 TVSDK 下行查询教师机讲台（指导/互动确认用） */
+        TaskSubClass(GetPodiumState)
+
+        /* ==========================  课程/名单下发 ========================== */
+        /* 平台课前经 TVSDK 下行下发课程/名单（SET 633），读回（GET 634） */
+        TaskSubClass(SetCourseInfo)
+        TaskSubClass(GetCourseInfo)
     } /* namespace Classroom end */
 } /* namespace Task end */
 

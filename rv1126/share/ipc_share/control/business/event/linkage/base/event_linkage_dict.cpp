@@ -956,3 +956,46 @@ void EventLinkageDict::push_tvsdk_event_alarm(const EventTriggerContext_S &stCon
     }
 #endif
 }
+
+int EventLinkageDict::tvsdk_client_count()
+{
+#ifndef ENABLE_TVSDK_SRC
+    return -1;
+#else
+    return ControlManage::instance()->tvsdk_get_client_count();
+#endif
+}
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+int EventLinkageDict::push_tvsdk_classroom_stats_alarm(int lCommand, const void *pData, int dwBufLen)
+{
+#ifndef ENABLE_TVSDK_SRC
+    (void)lCommand;
+    (void)pData;
+    (void)dwBufLen;
+    return -1;
+#else
+    if (nullptr == pData || dwBufLen <= 0)
+    {
+        dlog_warn("[课堂统计推送] 参数非法: cmd[0x%x] len[%d]", lCommand, dwBufLen);
+        return -1;
+    }
+    /* 没有 TVSDK 客户端时不上送（调用方另有 ready() 预检，这里再判一次防掉线） */
+    if (ControlManage::instance()->tvsdk_get_client_count() <= 0)
+    {
+        return -1;
+    }
+
+    const int nRet = ControlManage::instance()->tvsdk_push_alarm(lCommand, pData, dwBufLen);
+    if (nRet < 0)
+    {
+        dlog_warn("[课堂统计推送] 失败: cmd[0x%x] len[%d] ret[%d]", lCommand, dwBufLen, nRet);
+    }
+    else
+    {
+        dlog_info("[课堂统计推送] 成功: cmd[0x%x] len[%d]", lCommand, dwBufLen);
+    }
+    return nRet;
+#endif
+}
+#endif

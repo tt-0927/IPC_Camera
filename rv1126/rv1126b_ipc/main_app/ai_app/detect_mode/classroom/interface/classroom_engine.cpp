@@ -366,6 +366,7 @@ void CClassroomEngine::setEventAlarmFn(CEventAlarmFn fnEventAlarm)
 
 void CClassroomEngine::setStatsSink(IStatsSink *pStatsSink)
 {
+    m_pStatsSink = pStatsSink;
     m_stStatsHub.setSink(pStatsSink);
 }
 
@@ -2171,7 +2172,10 @@ void CClassroomEngine::drainSpool()
 {
     /* 逐条取发与异常边界在 data 层的 spoolDrainBeat：那条判据要能在主机
        闸门里打红，必须住在不链 rknn 的文件里；引擎只剩配预算、记账进状态两件事 */
-    if (!m_stSpool.isReady() || !m_fnUpload || 0 >= m_stSpool.pendingBytes())
+    /* 统计核心只做会话内有界队列与 2s 重试，不再落盘；但旧版本可能已经在环里留下
+       SPOOL_TYPE_STATS_* 记录——按冻结字节直接交回网关注入的统计出口补发，
+       与报表通道（CUploadFn，生产未接）无关。只要环就绪且有积压就排干 */
+    if (!m_stSpool.isReady() || 0 >= m_stSpool.pendingBytes())
     {
         return;
     }
@@ -2181,8 +2185,40 @@ void CClassroomEngine::drainSpool()
     const int64_t llBudgetKb = (spSnap ? spSnap->stEgress.nSpoolDrainMaxKb
                                        : CLASSROOM_SPOOL_DRAIN_KB);
 
+    /* 按记录类型路由：旧统计报文回统计 sink（原样重发冻结字节），其余走报表通道 */
+    SpoolUploadFn fnRoute = [this](uint32_t u32Type, const std::string &strPayload) -> bool {
+        StatsTopic_E enStatsTopic = StatsTopic_E::STATS_TOPIC_COUNTERS;
+        bool bStatsRec = true;
+        switch (u32Type)
+        {
+        case SPOOL_TYPE_STATS_COUNTERS:
+            enStatsTopic = StatsTopic_E::STATS_TOPIC_COUNTERS;
+            break;
+        case SPOOL_TYPE_STATS_SEG:
+            enStatsTopic = StatsTopic_E::STATS_TOPIC_SEGMENTS;
+            break;
+        case SPOOL_TYPE_STATS_ALERT:
+            enStatsTopic = StatsTopic_E::STATS_TOPIC_ALERTS;
+            break;
+        default:
+            bStatsRec = false;
+            break;
+        }
+        if (bStatsRec)
+        {
+            return (nullptr != m_pStatsSink)
+                   && m_pStatsSink->send(enStatsTopic, strPayload.data(),
+                                         static_cast<uint32_t>(strPayload.size()));
+        }
+        if (!m_fnUpload)
+        {
+            return false;
+        }
+        return m_fnUpload(u32Type, strPayload);
+    };
+
     CSpoolDrainStat_S stDrain;
-    spoolDrainBeat(m_stSpool, m_fnUpload, llBudgetKb, stDrain);
+    spoolDrainBeat(m_stSpool, fnRoute, llBudgetKb, stDrain);
 
     if (stDrain.nUploadThrow > 0)
     {
@@ -3337,7 +3373,7 @@ std::string CClassroomEngine::statusJson() const
         const CStatsHubStat_S stStatsStat = m_stStatsHub.stat();
         appendFmt(strJson, ",\"stats\":{\"wired\":%s,\"session_open\":%s,\"session_id\":%lld,"
                            "\"counter_msgs\":%llu,\"seg_msgs\":%llu,\"alert_msgs\":%llu,"
-                           "\"seg_records\":%llu,\"alert_records\":%llu,\"fail\":%llu,"
+                           "\"seg_records\":%llu,\"alert_records\":%llu,\"ok\":%llu,\"fail\":%llu,"
                            "\"seg_lost\":%llu,\"alert_lost\":%llu,\"seg_q\":%d,\"alert_q\":%d}",
                   m_stStatsHub.pushWired() ? "true" : "false",
                   stStatsStat.bSessionOpen ? "true" : "false",
@@ -3347,6 +3383,7 @@ std::string CClassroomEngine::statusJson() const
                   static_cast<unsigned long long>(stStatsStat.u64AlertMsgs),
                   static_cast<unsigned long long>(stStatsStat.u64SegRecords),
                   static_cast<unsigned long long>(stStatsStat.u64AlertRecords),
+                  static_cast<unsigned long long>(stStatsStat.u64PushOk),
                   static_cast<unsigned long long>(stStatsStat.u64PushFail),
                   static_cast<unsigned long long>(stStatsStat.u64SegLost),
                   static_cast<unsigned long long>(stStatsStat.u64AlertLost),
@@ -3407,5 +3444,40 @@ std::string CClassroomEngine::reportJson() const
         stPanel.au64ExprNum[nExpr] = stSess.u64ExprNum[nExpr];
     }
     return panelReportJson(stPanel);
+}
+
+std::string CClassroomEngine::podiumStateJson() const
+{
+    const CClassPodiumState_S stPodium = m_stRule.podiumState();
+    /* 没判过（bValid=false）给 -1：podiumJson 据此把 reason 落成 no_run，
+       平台拿到的是"还没有答案"，而不是"讲台没人" */
+    const int64_t llAgeMs = stPodium.bValid ? (reportWallMs() - stPodium.llWallMs) : -1;
+    return podiumJson(stPodium, llAgeMs);
+}
+
+bool CClassroomEngine::setCourseInfo(const std::string &strJson, std::string &rstrErr)
+{
+    const ConfigPtr spSnap = m_stConfig.current();
+    const int nRole = spSnap ? static_cast<int>(spSnap->enRole) : -1;
+    std::lock_guard<std::mutex> stLock(m_mtxCourse);
+    if (!m_stCourse.setFromJson(strJson, nRole, reportWallMs(), rstrErr))
+    {
+        dlog_error("classroom engine: 课程下发被拒 role=%d: %s", nRole, rstrErr.c_str());
+        return false;
+    }
+    /* PII：只打课程身份与学生计数，学生姓名只存花名册本身，不进日志 */
+    const CCourseInfo_S &st = m_stCourse.info();
+    dlog_info("classroom engine: 课程下发已落档 course=%s name=%s classroom=%s role=%d "
+              "students=%zu start=%lld end=%lld（照片考勤暂缓）",
+              st.strCourseId.c_str(), st.strCourseName.c_str(), st.strClassroomId.c_str(),
+              st.nDeviceRole, st.vecStudents.size(),
+              static_cast<long long>(st.llStartWallMs), static_cast<long long>(st.llEndWallMs));
+    return true;
+}
+
+std::string CClassroomEngine::courseInfoJson() const
+{
+    std::lock_guard<std::mutex> stLock(m_mtxCourse);
+    return m_stCourse.toJson();
 }
 }

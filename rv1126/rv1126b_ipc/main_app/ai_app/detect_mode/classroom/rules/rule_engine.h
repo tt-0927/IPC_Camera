@@ -677,11 +677,23 @@ private:
     /* 班级级三列（207/209/210）探针节流（2026-10-28）：这三列的行是哨兵 0，
        逐行探针（背身/低头复核）覆盖不到。下标按 {207,209,210} 固定，
        按 (判,成因) 变化沿 + 10s 心跳落一条——读不出「为什么不出」的列等于没有观测 */
-    int64_t m_llClsProbeMs = 0;
+    int64_t m_llClsProbeMs[3] = { 0, 0, 0 };
     TriState_E m_aenClsProbeState[3] = { TriState_E::TS_UNKNOWN, TriState_E::TS_UNKNOWN,
                                          TriState_E::TS_UNKNOWN };
     SampleReason_E m_aenClsProbeReason[3] = { SampleReason_E::SR_NO_FRAME, SampleReason_E::SR_NO_FRAME,
                                               SampleReason_E::SR_NO_FRAME };
+    /* 每列最后一次**变化沿**的时刻（0 = 从未变过）。收敛窗按它算：刚变过的列在 SETTLE
+       窗口内仍按快档打，让"成因 1→7→1 抖动"的过程看得见；窗口外回落慢档 */
+    int64_t m_llClsProbeEdgeMs[3] = { 0, 0, 0 };
+
+    /* 班级列探针的打印节奏。三个数的理由：
+       FAST=10s：变化沿之后的收敛窗节奏，与原口径一致，保证抖动过程不被抹掉；
+       SETTLE=30s：收敛窗长度。成因翻转后通常十几秒内收敛，取 2~3 个窗；
+       SLOW=60s：稳态保活节奏。它必须短到"列卡死时下一分钟就能从日志看出来"，
+       又必须长到不与其它有用行争位置——10s 三列实测 63~93% 的日志占比就是反例。 */
+    static const int64_t CLS_PROBE_FAST_MS   = 10000;
+    static const int64_t CLS_PROBE_SETTLE_MS = 30000;
+    static const int64_t CLS_PROBE_SLOW_MS   = 60000;
 
     /* 上一拍在等姿态证据的人（P0-1 接近激活阈值优先）：feedOne 就地合并最大值，
        run() 开头清零。定长数组而非 vector：条数被人数上限封顶，一拍最多 60 条，

@@ -37,6 +37,7 @@
 #include "perceive_pipeline.h"
 #include "report_format.h"
 #include "report_spool.h"
+#include "classroom_course.h"   /* 平台课前下发课程/名单的设备侧落地存储 */
 #include "rule_engine.h"
 #include "stu_track.h" 
 #include "seat_prior.h" 
@@ -246,6 +247,34 @@ public:
      * @return   {std::string} JSON：session / attendance / latest / behaviors
      */
     std::string reportJson() const;
+
+    /**
+     * @brief   : 教师机讲台状态（平台经 TVSDK 主动查询的那份答案）
+     * @return   {std::string} JSON：{"state":"empty|occupied|unknown","reason":"…","age_ms":N}
+     * @note    : 学生机判出 207/209 上送 0x3060/0x3061 后，平台来问教师机「讲台有没有人」，
+     *            无人⇒指导成立、有人⇒互动成立。本函数就是那条下行查询的取数口：
+     *            读规则引擎的整拍发布件（podiumState 自带锁），age 用墙钟差——
+     *            感知停摆时帧时不前进，用帧时算 age 会把陈旧读数显示成 0ms。
+     *            与 reportJson 同一纪律：只读无损快照，不消费事件环
+     */
+    std::string podiumStateJson() const;
+
+    /**
+     * @brief   : 落档平台课前下发的课程/名单（TVSDK 下行 SET 633 → AC 2954）
+     * @param    {const std::string&} strJson：课程/名单 JSON
+     * @param    {std::string&} rstrErr：OUT=失败原因（回平台）
+     * @return   {bool} false=拒绝（坏 JSON/缺 course_id/角色不符/名单超限），上一份不被改动
+     * @note    : 按本机角色（m_spSnap->enRole）区分教师机/学生机；照片地址只存不取（考勤暂缓）。
+     *            收取日志只打课程 id/名/教室/角色/学生计数，不打学生姓名
+     */
+    bool setCourseInfo(const std::string &strJson, std::string &rstrErr);
+
+    /**
+     * @brief   : 读回当前落档的课程/名单（TVSDK 下行 GET 634 → AC 2955）
+     * @return   {std::string} JSON（含名单 id/name/photo；从未落档回 valid=false 骨架）
+     * @note    : 与 reportJson 分开——网页课程报告页用户已明确"就那些读数"，不塞课程身份
+     */
+    std::string courseInfoJson() const;
 
     /* 以下出口给 P1 起的感知层用，生命周期与本引擎一致。
        前三个同时是 IPerceiveHost 的实现：感知层经接口拿，不认引擎类型 */
@@ -500,6 +529,9 @@ private:
     CDataCenter m_stData;
     /* 平台统计推送：只吃引擎事实、只在节拍线程推进；推不出去时自己有界重试 */
     CStatsHub m_stStatsHub;
+    /* 统计出口：核心只做会话内有界队列与重试；旧版本留在 spool 里的统计记录
+       由 drainSpool 按冻结字节直接交回这同一个出口补发（生命周期由网关保证） */
+    IStatsSink *m_pStatsSink = nullptr;
     /* 统计侧读账本记录的复用缓冲（只有群体采样那一拍用，60 行上限，避免每 5s 新分配一次） */
     std::vector<CAttendRec_S> m_vecAttendScratch;
     /* 事件合并器（P0-2）。挂在 reportEvent 与聚合环之间：事件先进它，
@@ -577,6 +609,10 @@ private:
     CStudentBehaviorSampler m_stStudent;
     CTeacherBehaviorSampler m_stTeacher;
     CRuleEngine             m_stRule;
+    /* 平台课前下发的课程/名单：命令线程经网关写入/读回，自带锁。
+       照片地址只存不取（考勤暂缓）；学生姓名只存花名册本身，不进日志/统计（PII） */
+    CClassroomCourse        m_stCourse;
+    mutable std::mutex      m_mtxCourse;
     /* 考勤检测区域：本拍被区域挡掉的行数（累计）与引用坏掉的次数 */
     std::atomic<uint64_t>   m_stAttendRegionSkip{0};
     std::atomic<uint64_t>   m_u64AttendRegionCfgErr{0};

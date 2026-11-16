@@ -46,4 +46,21 @@ void push_tvsdk_event_alarm(const EventTriggerContext_S &stContext);
  * @param    {int} nChnId 通道号
  */
 void push_tvsdk_event_alarm(Event::Type_E enEventType, bool bEventEnded, int nChnId);
+
+/**
+ * @brief   : 获取当前 TVSDK 客户端数量
+ * @return  {int} 客户端数量；未启用 TVSDK 时返回 -1
+ */
+int tvsdk_client_count();
+
+#if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+/**
+ * @brief   : 推送课堂统计报文（0x6200/0x6201/0x6202）
+ * @param    {int} lCommand 命令码
+ * @param    {const void *} pData 报文数据
+ * @param    {int} dwBufLen 报文长度
+ * @return   {int} 成功返回 0，失败返回负值
+ */
+int push_tvsdk_classroom_stats_alarm(int lCommand, const void *pData, int dwBufLen);
+#endif
 }

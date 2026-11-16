@@ -58,6 +58,8 @@ struct EventTriggerContext_S
     EventTvSdkImage_S stTargetImage;
     /* TVSDK 目标跟踪 ID，未知时保持 -1 */
     int nTargetId = -1;
+    /* TVSDK 结构体 strObjectID 的可选覆盖：非空时推送层用它而不是 to_string(nTargetId) */
+    std::string strObjectId;
     /* TVSDK 目标类型，0:未知 1:人 2:车 */
     int nObjectType = 0;
     /* TVSDK 目标置信度，范围 0~1 */
@@ -168,7 +170,7 @@ enum class LinkageMatchOp_E
 {
     ANY = 0,
     EQ,
-    IN,
+    IN
 };
 
 /**

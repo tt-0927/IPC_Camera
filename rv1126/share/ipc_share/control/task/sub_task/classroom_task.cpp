@@ -18,6 +18,9 @@ extern bool classroomConfigPageGet(const char *pszFeature, std::string &rstrResp
 extern bool classroomConfigPageSet(const char *pszFeature, const std::string &strPartial,
                                    std::string &rstrResp);
 extern std::string classroomConfigReport();
+extern std::string classroomConfigPodium();
+extern bool classroomConfigCourseSet(const std::string &strJson, std::string &rstrResp);
+extern std::string classroomConfigCourseGet();
 
 /* 把"取某一页配置 / 合入某一页配置"展开成 handle() */
 #define CLASSROOM_CONFIG_PAGE_IMPL_GET(ClassName, Wire)                                \
@@ -110,6 +113,29 @@ CLASSROOM_CONFIG_PAGE_IMPL_SET(SetStuPresent,    "stu_present")
 void Task::Classroom::GetCourseReport::handle()
 {
     result(classroomConfigReport());
+}
+
+/* ----  讲台状态查询（平台经 TVSDK 下行查询）---- */
+void Task::Classroom::GetPodiumState::handle()
+{
+    result(classroomConfigPodium());
+}
+
+/* ----  课程/名单下发（平台课前经 TVSDK 下行 SET 633 / 读回 GET 634）---- */
+void Task::Classroom::SetCourseInfo::handle()
+{
+    std::string strResp;
+    if (!classroomConfigCourseSet(m_taskData, strResp))
+    {
+        result(strResp, -1);
+        return;
+    }
+    result(strResp);
+}
+
+void Task::Classroom::GetCourseInfo::handle()
+{
+    result(classroomConfigCourseGet());
 }
 
 #endif /* CAP_TV3881TJY_CLASSROOM_CONFIG */

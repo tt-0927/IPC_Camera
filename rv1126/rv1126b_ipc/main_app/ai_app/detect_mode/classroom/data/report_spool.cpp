@@ -1247,6 +1247,9 @@ const char *CReportSpool::typeName(uint32_t u32Type)
         case SPOOL_TYPE_REPORT:  return "report";
         case SPOOL_TYPE_SESSION: return "session";
         case SPOOL_TYPE_EVENT:   return "event";
+        case SPOOL_TYPE_STATS_COUNTERS: return "stats_counters";
+        case SPOOL_TYPE_STATS_SEG:      return "stats_seg";
+        case SPOOL_TYPE_STATS_ALERT:    return "stats_alert";
         default:                 return "unknown";
     }
 }

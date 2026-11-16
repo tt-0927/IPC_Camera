@@ -486,7 +486,7 @@ bool CStatsHub::pushMsg(StatsTopic_E enTopic, const void *pData, uint32_t u32Len
     if (!sinkUsable() || nullptr == pData || 0 == u32Len)
     {
         return false;
-    }
+    }    
 
     /* 0x6200 计数报文按字段翻译后打印，便于与 NVR 侧收到的 JSON 对照 */
     if (StatsTopic_E::STATS_TOPIC_COUNTERS == enTopic &&
@@ -494,7 +494,7 @@ bool CStatsHub::pushMsg(StatsTopic_E enTopic, const void *pData, uint32_t u32Len
     {
         logCountersPacket(*static_cast<const CStatsCountersMsg_S *>(pData));
     }
-
+    
     bool bOk = false;
     try
     {
@@ -508,6 +508,12 @@ bool CStatsHub::pushMsg(StatsTopic_E enTopic, const void *pData, uint32_t u32Len
     {
         ++m_stStat.u64PushFail;
         m_llLastRetryMonoMs = 0; /* 由调用方在失败后置为当前时刻（见 flush*） */
+    }
+    else
+    {
+        /* 成功计数是"平台真的收到了"的唯一机上证据：built−fail−ok=还堵在队列里的。
+           现场问"平台怎么没数据"时，ok 不涨而 build 涨 = 客户端不在线；两者都不涨 = 会话没开 */
+        ++m_stStat.u64PushOk;
     }
     return bOk;
 }
@@ -1063,36 +1069,9 @@ void CStatsHub::onSample(const CStatsSample_S &stIn)
 
     m_nAttentionPct = roundPct(stIn.pstMetric->fStuAttention);
 
-    if (stIn.pstMetric->nStuEvidence > 0)
-    {
-        const int nColDown = CDurationGate::behaviorColumn(Behavior_E::STU_HEAD_DOWN);
-        const int nColTurn = CDurationGate::behaviorColumn(Behavior_E::STU_TURN_BACK);
-        const int nColPhone = CDurationGate::behaviorColumn(Behavior_E::STU_PHONE);
-        int32_t nBad = 0;
-        if (nColDown >= 0)
-        {
-            nBad += stIn.pstMetric->nActive[nColDown];
-        }
-        if (nColTurn >= 0)
-        {
-            nBad += stIn.pstMetric->nActive[nColTurn];
-        }
-        if (nColPhone >= 0)
-        {
-            nBad += stIn.pstMetric->nActive[nColPhone];
-        }
-        if (nBad > stIn.pstMetric->nStuEvidence)
-        {
-            /* nActive 是全行口径（含容忍期内），三者之和可能超过证据人数；
-               纪律占比的分母是"有证据的人"，不夹会把百分比顶到 100 以上 */
-            nBad = stIn.pstMetric->nStuEvidence;
-        }
-        m_nDisciplinePct = (nBad * 100 + stIn.pstMetric->nStuEvidence / 2) / stIn.pstMetric->nStuEvidence;
-    }
-    else
-    {
-        m_nDisciplinePct = -1;
-    }
+    /* 纪律占比只读群体层的同口径比率：分子/分母都是"有证据的学生"且按人去重，
+       不要再拿 nActive（全行宽口径）三列相加——那会算出 >100% 再硬夹，高分段被压平 */
+    m_nDisciplinePct = roundPct(stIn.pstMetric->fStuDisciplineRate);
 
     m_nGatherNum = maxStandingCluster(stIn.pstPersons, stIn.nPersonNum,
                                       m_stConf.fGatherRadiusHeads);

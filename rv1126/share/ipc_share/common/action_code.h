@@ -711,6 +711,11 @@ typedef enum
     AC_CLASSROOM_SET_STU_PRESENT = 2951,
     /* 课程报告（只读） */
     AC_CLASSROOM_GET_COURSE_REPORT = 2952,
+    /* 教师机讲台状态（平台经 TVSDK 下行查询；学生机 0x3060/0x3061 触发后主动来问） */
+    AC_CLASSROOM_GET_PODIUM_STATE = 2953,
+    /* 课程/名单（平台课前经 TVSDK 下行下发 SET 633 / 读回 GET 634） */
+    AC_CLASSROOM_SET_COURSE_INFO = 2954,
+    AC_CLASSROOM_GET_COURSE_INFO = 2955,
 #endif
 
     /**

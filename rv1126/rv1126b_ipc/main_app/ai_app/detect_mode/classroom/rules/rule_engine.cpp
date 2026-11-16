@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 #include "classroom_clock.h"
 #include "dlog.h"
@@ -1136,23 +1137,50 @@ void CRuleEngine::feedClassLevel(const CClassFacts_S &stFacts, int64_t llFrameMs
        归属没开还是讲台里真的有人 */
     const Behavior_E aenProbe[3] = { Behavior_E::TEA_GUIDING, Behavior_E::TEA_INTERACT, Behavior_E::TEA_PATROL };
     const CBehaviorSample_S astProbe[3] = { stGuide, stInteract, stPatrol };
+    bool abEdge[3] = { false, false, false };
+    bool bAnyEdge = false;
+    bool bAnyDue = false;
     for (int i = 0; i < 3; ++i)
     {
-        const bool bEdge = (astProbe[i].enState != m_aenClsProbeState[i]) ||
+        abEdge[i] = (astProbe[i].enState != m_aenClsProbeState[i]) ||
                            (astProbe[i].enReason != m_aenClsProbeReason[i]);
-        if (!bEdge && (llFrameMs - m_llClsProbeMs) < 10000)
+        bAnyEdge = bAnyEdge || abEdge[i];
+        /* 心跳按列计时（第 90 轮：原来三列共用一个 int64_t，207 抢槽后 209/210 在稳态下
+           永远静默——那正是心跳要报的"列卡死"形态）。快慢档由该列自己的收敛窗决定 */
+        const int64_t llSinceEdge = llFrameMs - m_llClsProbeEdgeMs[i];
+        const int64_t nKeepAlive = (llSinceEdge < CLS_PROBE_SETTLE_MS)
+                                       ? CLS_PROBE_FAST_MS
+                                       : CLS_PROBE_SLOW_MS;
+        if (llFrameMs - m_llClsProbeMs[i] >= nKeepAlive)
         {
-            continue;
+            bAnyDue = true;
         }
-        m_llClsProbeMs = llFrameMs;
+    }
+    if (bAnyEdge || bAnyDue)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            if (abEdge[i])
+            {
+                m_llClsProbeEdgeMs[i] = llFrameMs;
+        }
+        m_llClsProbeMs[i] = llFrameMs;
         m_aenClsProbeState[i] = astProbe[i].enState;
         m_aenClsProbeReason[i] = astProbe[i].enReason;
-        dlog_info("classroom rule: 班级列探针 列=%d 判=%c 成因=%d 讲台配=%d 讲台空=%d"
+        }
+        std::string strCols;
+        for (int i = 0; i < 3; ++i)
+        {
+            strCols += " ";
+            strCols += behaviorCnName(aenProbe[i]);
+            strCols += (TriState_E::TS_TRUE == astProbe[i].enState) ? "=T/" :
+                       (TriState_E::TS_FALSE == astProbe[i].enState) ? "=F/" : "=U/";
+            strCols += std::to_string(static_cast<int>(astProbe[i].enReason));
+        }
+        /* 班级级事实只印一份（三列完全相同，原来重复三遍）；列级状态各带中文名 */
+        dlog_info("classroom rule: 班级列探针%s 讲台配=%d 讲台空=%d"
                   " 导=%u/%u/%u 互=%u/%u/%u",
-                  static_cast<int>(aenProbe[i]),
-                  (TriState_E::TS_TRUE == astProbe[i].enState) ? 'T' :
-                  (TriState_E::TS_FALSE == astProbe[i].enState) ? 'F' : 'U',
-                  static_cast<int>(astProbe[i].enReason),
+                  strCols.c_str(),
                   stView.bPodiumConfigured ? 1 : 0,
                   stView.bPodiumEmpty ? 1 : 0,
                   stFacts.u32GuideTrue, stFacts.u32GuideFalse, stFacts.u32GuideNum,

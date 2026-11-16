@@ -108,9 +108,58 @@ CBehaviorSample_S affirmedOf()
     return stSample;
 }
 
-/* 三态逻辑与
- * 优先级：任一 FALSE → FALSE（并能保留是谁否掉的）＞ 任一 UNKNOWN → UNKNOWN ＞ 双 TRUE → TRUE。
- * 也就是说"能确定错"比"还不确定"更有信息量，符合事件门控的收敛需求 */
+/* 106/108 共用的「低头 × 手在身前」形状。区别只在低头那一半的规则实例：
+   106 用 stSnap.stHeadDown，108 用 stSnap.stHeadDownReading；手那一半也各用自己的实例
+   （stPhone / stPhoneReading） */
+CBehaviorSample_S phoneShapeOf(const CBehaviorSample_S &stHeadDown,
+                               const CGeometryInput &stGeom,
+                               const PhoneRule_S &stPhoneRule,
+                               bool bOnBoundary)
+{
+    if (bOnBoundary)
+    {
+        return blockedOf(SampleReason_E::SR_EDGE);   /* 腕与肘的证据会被画面边切走一半 */
+    }
+    if (TriState_E::TS_TRUE != stHeadDown.enState)
+    {
+        CBehaviorSample_S stShape;
+        stShape.enState  = stHeadDown.enState;
+        stShape.enReason = stHeadDown.enReason;   /* 成因照抄低头那一行：趴桌压的记成 INHIBIT，点不够的记成 KEY_LOW */
+        return stShape;
+    }
+    return sampleOf(judgePhoneUse(stGeom, stPhoneRule));
+}
+
+/* 106/108 的复核三态出口。两条形状各自算，但复核结论只有一份：共用这一函数是为了
+   保证「106 与 108 不可能同时为真」这条不变式在两条形状上一致成立，而不是各抄一遍
+   然后某天改了一边 */
+void splitPhoneReading(const CBehaviorSample_S &stShape, bool bRecheckKnown, bool bPhoneObj,
+                       CBehaviorSample_S &rstPhone, CBehaviorSample_S &rstReading)
+{
+    rstPhone   = stShape;
+    rstReading = stShape;
+    if (TriState_E::TS_TRUE != stShape.enState)
+    {
+        return;
+    }
+    if (!bRecheckKnown)
+    {
+        rstReading = blockedOf(SampleReason_E::SR_NO_MODEL);
+        rstPhone.enReason = SampleReason_E::SR_FAIL_OPEN;
+    }
+    else if (bPhoneObj)
+    {
+        rstReading = affirmedOf();
+    }
+    else
+    {
+        rstPhone = negatedOf();
+    }
+}
+
+/* 复合判据的合取。为什么要有这个函数而不是把 if 一层层套进去：
+   107~111 每一条都是两三原子项的与，手写嵌套会把"哪一项把它挡住的"这条信息丢掉
+   （而那条信息正是心跳 why 段唯一的读数），也会让 FALSE 与 UNKNOWN 的先后在各处不一致 */
 CBehaviorSample_S andOf(const CBehaviorSample_S &stA, const CBehaviorSample_S &stB)
 {
     if (TriState_E::TS_FALSE == stA.enState)
@@ -402,13 +451,18 @@ void CStudentBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn, std:
 
     CBehaviorSample_S stHeadUp   = sampleOf(judgeHeadUp(stGeom, stSnap.stHeadUp));
     CBehaviorSample_S stHeadDown = sampleOf(judgeHeadDown(stGeom, stSnap.stHeadDown));
+    /* 解耦：104/106/108 的低头门各判各的 */
+    CBehaviorSample_S stHeadDownPhone   = sampleOf(judgeHeadDown(stGeom, stSnap.stHeadDownPhone));
+    CBehaviorSample_S stHeadDownReading = sampleOf(judgeHeadDown(stGeom, stSnap.stHeadDownReading));
 
-    // 趴桌是强互斥行为：趴着时抬头/低头都不成立；抬头低头同时成立说明判据打架，保留低头
+    /* 头部一族消歧（趴桌 > 低头 > 抬头） */
     const TriState_E enLie = judgeLieOnDesk(stGeom, stSnap.stLieOnDesk);
     if (TriState_E::TS_TRUE == enLie)
     {
-        stHeadUp   = inhibitedOf();
-        stHeadDown = inhibitedOf();
+        stHeadUp            = inhibitedOf();
+        stHeadDown          = inhibitedOf();
+        stHeadDownPhone     = inhibitedOf();
+        stHeadDownReading   = inhibitedOf();
     }
     else if (TriState_E::TS_TRUE == stHeadDown.enState && TriState_E::TS_TRUE == stHeadUp.enState)
     {
@@ -417,45 +471,23 @@ void CStudentBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn, std:
         stHeadUp = inhibitedOf();
     }
 
-    /*  玩手机 106 与阅读 108 */
-    CBehaviorSample_S stShape;
-    if (stRow.bOnBoundary)
-    {
-        stShape = blockedOf(SampleReason_E::SR_EDGE);   /* 腕与肘的证据会被画面边切走一半 */
-    }
-    else if (TriState_E::TS_TRUE != stHeadDown.enState)
-    {
-        stShape.enState  = stHeadDown.enState;
-        stShape.enReason = stHeadDown.enReason;   /* 成因照抄低头那一行：趴桌压的记成 INHIBIT，点不够的记成 KEY_LOW */
-    }
-    else
-    {
-        stShape = sampleOf(judgePhoneUse(stGeom, stSnap.stPhone));
-    }
+    /*  玩手机 106 与阅读 108：**同一个形状的两个出口**  */
+    const CBehaviorSample_S stPhoneShape =
+        phoneShapeOf(stHeadDownPhone, stGeom, stSnap.stPhone, stRow.bOnBoundary);
+    const CBehaviorSample_S stReadingShape =
+        phoneShapeOf(stHeadDownReading, stGeom, stSnap.stPhoneReading, stRow.bOnBoundary);
 
-    // 手机二检：低头形状成立后再看手机小模型是否可用/有效，用模型的否定排除"只是低头看书"
+    /* 复核结论是否可用只看时间戳：phoneUsable 刻意不要求 bPhoneObj，「看了，没有」是这里唯一
+       能否决 106、也唯一能确立 108 的真结论 */
     const bool bRecheckKnown = stRow.phoneUsable(stIn.llNowMs, stSnap.stPhoneRecheck.nTtlMs);
 
-    CBehaviorSample_S stPhone = stShape;
-    CBehaviorSample_S stReading = stShape;
-    if (TriState_E::TS_TRUE == stShape.enState)
-    {
-        if (!bRecheckKnown)
-        {
-            stReading = blockedOf(SampleReason_E::SR_NO_MODEL);
-            stPhone.enReason = SampleReason_E::SR_FAIL_OPEN;
-        }
-        else if (stRow.bPhoneObj)
-        {
-            stReading = affirmedOf();
-        }
-        else
-        {
-            stPhone = negatedOf();
-        }
-    }
+    CBehaviorSample_S stPhone;
+    CBehaviorSample_S stReading;
+    CBehaviorSample_S stDiscard;
+    splitPhoneReading(stPhoneShape, bRecheckKnown, stRow.bPhoneObj, stPhone, stDiscard);
+    splitPhoneReading(stReadingShape, bRecheckKnown, stRow.bPhoneObj, stDiscard, stReading);
 
-    // 方位参照：讲台中心用于"面向讲台"，座位区/班级中心用于"面向班级"
+    /* 参考侧：讲台在哪一侧（区域几何给的，不给配置里填"左/右"——那种旋钮在镜像机位上整体判反）*/
     float fPodiumSign = 0.0f;
     float fClassSign  = 0.0f;
     if (nullptr != stIn.pstRegion && !stIn.pstRegion->isEmpty())
@@ -505,7 +537,7 @@ void CStudentBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn, std:
     if (stSnap.stGroup.bListenForbidHand && TriState_E::TS_TRUE == stListen.enState)
     {
         /* 排在这里而不是并进合取：前三项都不成立时连手都不必看（廉价在前） */
-        const CBehaviorSample_S stHand = sampleOf(judgePhoneUse(stGeom, stSnap.stPhone));
+        const CBehaviorSample_S stHand = sampleOf(judgePhoneUse(stGeom, stSnap.stPhoneReading));
         if (TriState_E::TS_TRUE == stHand.enState)
         {
             /* 平反：低头×手在身前是「捧书」与「捧手机」共有的二维形状，几何分不开两者 */

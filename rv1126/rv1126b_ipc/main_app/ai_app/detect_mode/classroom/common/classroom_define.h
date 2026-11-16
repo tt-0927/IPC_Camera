@@ -35,7 +35,7 @@ namespace Classroom
 #define CLASSROOM_POSE_BEAT_BUDGET_MS (140)
 
 /* 模型组空闲多久后卸载（毫秒） */
-#define CLASSROOM_MODEL_IDLE_UNLOAD_MS (8000)
+#define CLASSROOM_MODEL_IDLE_UNLOAD_MS (60000)
 
 /* 加载失败后多久之内不再重试（毫秒）*/
 #define CLASSROOM_MODEL_LOAD_FAIL_COOLDOWN_MS (30000)

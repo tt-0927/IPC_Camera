@@ -239,11 +239,13 @@ void CTeacherBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn,
     CBehaviorSample_S stTurn  = blockedOf(enPoseBlock);
     CBehaviorSample_S stUp    = blockedOf(enPoseBlock);
     CBehaviorSample_S stDown  = blockedOf(enPoseBlock);
+    /* 解耦：205 的低头前提与 203 的低头分开判（各用自己的实例）*/
+    CBehaviorSample_S stDownPhone = blockedOf(enPoseBlock);
 
     if (SampleReason_E::SR_OK == enPoseBlock)
     {
         stStand = stRow.bOnBoundary ? blockedOf(SampleReason_E::SR_EDGE)
-                                    : sampleOf(judgeStanding(stInput, stSnap.stStand));
+                                    : sampleOf(judgeStanding(stInput, stSnap.stStandTeacher));
         stTurn  = stRow.bOnBoundary ? blockedOf(SampleReason_E::SR_EDGE)
                                     : sampleOf(judgeTurnBack(stInput, stSnap.stTurnBack));
         /* 人脸证人：面点塌陷这一路分不出「背身」与「3/4 侧脸」 */
@@ -254,8 +256,9 @@ void CTeacherBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn,
             stTurn.enState  = TriState_E::TS_FALSE;
             stTurn.enReason = SampleReason_E::SR_MODEL_NEG;
         }
-        stUp    = sampleOf(judgeHeadUp(stInput, stSnap.stHeadUp));
-        stDown  = sampleOf(judgeHeadDown(stInput, stSnap.stHeadDown));
+        stUp    = sampleOf(judgeHeadUp(stInput, stSnap.stHeadUpTeacher));
+        stDown  = sampleOf(judgeHeadDown(stInput, stSnap.stHeadDownTeacher));
+        stDownPhone = sampleOf(judgeHeadDown(stInput, stSnap.stHeadDownPhoneTeacher));
 
         if (TriState_E::TS_TRUE == stDown.enState && TriState_E::TS_TRUE == stUp.enState)
         {
@@ -270,14 +273,14 @@ void CTeacherBehaviorSampler::samplePerson(const CBehaviorSampleIn_S &stIn,
     {
         stPhone = blockedOf(SampleReason_E::SR_EDGE);   /* 腕与肘的证据会被画面边切走一半 */
     }
-    else if (TriState_E::TS_TRUE != stDown.enState)
+    else if (TriState_E::TS_TRUE != stDownPhone.enState)
     {
-        stPhone.enState  = stDown.enState;
-        stPhone.enReason = stDown.enReason;
+        stPhone.enState  = stDownPhone.enState;
+        stPhone.enReason = stDownPhone.enReason;
     }
     else
     {
-        stPhone = sampleOf(judgePhoneUse(stInput, stSnap.stPhone));
+        stPhone = sampleOf(judgePhoneUse(stInput, stSnap.stPhoneTeacher));
     }
     if (TriState_E::TS_TRUE == stPhone.enState)
     {

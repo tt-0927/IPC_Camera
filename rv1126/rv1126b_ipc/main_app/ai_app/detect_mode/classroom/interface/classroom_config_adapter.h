@@ -64,6 +64,8 @@ typedef struct _ConfigPageField_
     int32_t     nConv;
     double      dDefault;
     bool        bHasDefault;
+    /* 配置解耦：主路径缺失时的回退路径 */
+    const char *pszFallbackPath;
 } CConfigPageField_S;
 
 /**

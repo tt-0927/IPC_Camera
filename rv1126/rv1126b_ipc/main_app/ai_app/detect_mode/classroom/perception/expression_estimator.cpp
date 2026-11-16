@@ -217,7 +217,8 @@ bool expressionParamOk(const CExpressionParam_S &rstParam, std::string &rstrErr)
             return false;
         }
     }
-    if (!(rstParam.fProbMin >= 0.0f) || rstParam.fProbMin >= 1.0f)
+    /* 上界改闭区间。网页「置信度」量程 1-10 */
+    if (!(rstParam.fProbMin >= 0.0f) || rstParam.fProbMin > 1.0f)
     {
         rstrErr = "prob_min out of range";
         return false;
@@ -236,6 +237,12 @@ bool expressionParamOk(const CExpressionParam_S &rstParam, std::string &rstrErr)
     if (!(rstParam.fMaxAngleDeg >= 1.0f) || !(rstParam.fMaxAngleDeg <= 90.0f))
     {
         rstrErr = "max angle out of range";
+        return false;
+    }
+    /* 尺寸门取 [0,4096]：0 = 不设闸 */
+    if (rstParam.nMinFacePx < 0 || rstParam.nMinFacePx > 4096)
+    {
+        rstrErr = "min face px out of range";
         return false;
     }
     return true;

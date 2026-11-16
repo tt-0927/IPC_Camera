@@ -184,6 +184,12 @@ namespace Event
         FIGHT_DETECTION = 72,                     /* 打架斗殴识别 */
         MOUSE_INFESTATION = 73,                /* 鼠患识别 */
 
+        /* ========== 课堂AI分析 ========== */
+        #if defined(CAP_TV3881TJY_CLASSROOM_CONFIG) && CAP_TV3881TJY_CLASSROOM_CONFIG
+        CLASSROOM_GUIDING = 74,                /* 课堂-教师指导触发器（学生机班级级）*/
+        CLASSROOM_INTERACT = 75,               /* 课堂-师生互动触发器（学生机班级级）*/
+        #endif
+
         /**
          * @brief   : 事件其他特殊类型
          */

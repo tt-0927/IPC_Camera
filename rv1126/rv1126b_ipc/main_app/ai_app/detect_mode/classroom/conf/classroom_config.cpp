@@ -142,6 +142,63 @@ Json::Object *jsonItem(Json::Object *pParent, const char *pszKey)
     return cJSON_GetObjectItem(pParent, pszKey);
 }
 
+/* 行表的对象形状 {"101":{...}}：适配层早年在缺行时用 nodeSet 补出来的历史形态 */
+static bool rowListIsMap(Json::Object *pList)
+{
+    return (nullptr != pList) && cJSON_IsObject(pList) && (nullptr != pList->child);
+}
+
+static int rowListSize(Json::Object *pList, bool bMap)
+{
+    if (!bMap)
+    {
+        return cJSON_GetArraySize(pList);
+    }
+    int nCount = 0;
+    for (const Json::Object *pRow = pList->child; nullptr != pRow; pRow = pRow->next)
+    {
+        ++nCount;
+    }
+    return nCount;
+}
+
+static Json::Object *rowListAt(Json::Object *pList, bool bMap, int nIndex)
+{
+    if (!bMap)
+    {
+        return cJSON_GetArrayItem(pList, nIndex);
+    }
+    Json::Object *pRow = pList->child;
+    for (; (nullptr != pRow) && (nIndex > 0); pRow = pRow->next)
+    {
+        --nIndex;
+    }
+    return pRow;
+}
+
+static bool rowKeyNumber(const Json::Object *pRow, int32_t &rnOut)
+{
+    if ((nullptr == pRow) || (nullptr == pRow->string) || ('\0' == pRow->string[0]))
+    {
+        return false;
+    }
+    long long llValue = 0;
+    for (const char *pCh = pRow->string; '\0' != *pCh; ++pCh)
+    {
+        if ((*pCh < '0') || (*pCh > '9'))
+        {
+            return false;
+        }
+        llValue = llValue * 10 + (*pCh - '0');
+        if (llValue > 2147483647LL)
+        {
+            return false;
+        }
+    }
+    rnOut = static_cast<int32_t>(llValue);
+    return true;
+}
+
 bool jsonReadInt(Json::Object *pParent, const char *pszKey, int32_t &rnOut, int32_t &rnBadType)
 {
     Json::Object *pItem = jsonItem(pParent, pszKey);
@@ -165,6 +222,19 @@ bool jsonReadInt(Json::Object *pParent, const char *pszKey, int32_t &rnOut, int3
     }
     rnOut = static_cast<int32_t>(std::lround(rdValue));
     return true;
+}
+
+/* 行的行号：数组形状只认行里的 id/role；对象形状行里没写时以对象键为准
+   （适配层归一后两者一致，旧配置则只有键）。行里写了但类型不对仍按类型错计数，
+   不再回退到键——"写错了却被键悄悄救回来"会让排查看不到错。 */
+static bool rowKeyNumberOf(Json::Object *pRow, bool bMap, const char *pszKey,
+                           int32_t &rnOut, int32_t &rnBadType)
+{
+    if (nullptr != jsonItem(pRow, pszKey))
+    {
+        return jsonReadInt(pRow, pszKey, rnOut, rnBadType);
+    }
+    return bMap && rowKeyNumber(pRow, rnOut);
 }
 
 bool jsonReadInt64(Json::Object *pParent, const char *pszKey, int64_t &rllOut, int32_t &rnBadType)
@@ -508,15 +578,236 @@ const CRegionDesc_S *findRegionDesc(const std::vector<CRegionDesc_S> &vecDesc, i
 /* 钳制留痕：日志里写 JSON 键名而不是 C++ 成员名——现场只会对着配置文件搜字符串。
    同名只记一次：逐列钳制时二十个重复的 behaviors[].region_coverage 既顶日志单行长度，
    又把同一条里其它真正越界的键挤出视野 */
-#define CLAMP_WARN(field, lo, hi, name)                                                  \
-    do                                                                                   \
-    {                                                                                    \
-        if (clampInPlace(field, static_cast<decltype(field)>(lo), static_cast<decltype(field)>(hi)) && \
-            std::string::npos == strSoft.find(" " name))                                 \
-        {                                                                                \
-            strSoft += " " name;                                                         \
-        }                                                                                \
+/* 关系型边界：上界是**另一个快照字段**而不是常量（如每拍人数不得超过容量、
+   事件新鲜度不得超过行 TTL）。这类边界进不了静态表，也进不了适配层的镜像表
+   （适配层读不到快照）——对应字段的网页显示仍以静态表为准，关系钳只发生在引擎侧 */
+#define CLAMP_WARN_DYN(field, lo, hiExpr, name)                                            \
+    do                                                                                    \
+    {                                                                                     \
+        if (clampInPlace(field, static_cast<decltype(field)>(lo),                          \
+                         static_cast<decltype(field)>(hiExpr)) &&                          \
+            std::string::npos == strSoft.find(" " name))                                  \
+        {                                                                                 \
+            strSoft += " " name;                                                          \
+        }                                                                                 \
     } while (0)
+
+#define CLAMP_WARN(field, name)                                                          \
+    do                                                                                    \
+    {                                                                                     \
+        double dLo = 0.0;                                                                 \
+        double dHi = 0.0;                                                                 \
+        if (!paramClampOf(name, dLo, dHi))                                                \
+        {                                                                                 \
+            rstrErr = std::string("clamp range missing for ") + name;                     \
+            return false;                                                                 \
+        }                                                                                 \
+        if (clampInPlace(field, static_cast<decltype(field)>(dLo),                        \
+                         static_cast<decltype(field)>(dHi)) &&                            \
+            std::string::npos == strSoft.find(" " name))                                  \
+        {                                                                                 \
+            strSoft += " " name;                                                          \
+        }                                                                                 \
+    } while (0)
+}
+
+/* ---- 越界钳制的唯一真源：配置参数合法区间表---- */
+typedef struct _ConfigParamRange_
+{
+    const char *pszName;   /* JSON 键名，与 CLAMP_WARN 的 name 一致 */
+    double      dLo;
+    double      dHi;
+} CConfigParamRange_S;
+
+static const CConfigParamRange_S s_aConfigParamRange[] = {
+    { "body_expand.w", 0.0f, 20.0f },
+    { "body_expand.down", 0.0f, 30.0f },
+    { "body_expand.up", 0.0f, 30.0f },
+    { "threshold.occlude_iou", 0.0f, 0.95f },
+    { "threshold.edge_band_px", 0, 128 },
+    { "threshold.blur_full_grad", 1.0f, 128.0f },
+    { "threshold.pose_blur_min", 0.0f, 1.0f },
+    { "tracker.gate_norm_dist", 0.05f, 3.0f },
+    { "tracker.move_slack_px_ms", 0.0f, 5.0f },
+    { "tracker.size_penalty", 0.0f, 10.0f },
+    { "tracker.min_hits", 1, 30 },
+    { "tracker.keep_ms", 0, 60000 },
+    { "sampling.infer_wait_ms", 20, 2000 },
+    { "sampling.head_interval_ms", 0, 60000 },
+    { "sampling.pose_interval_ms", 0, 60000 },
+    { "sampling.face_interval_ms", 0, 60000 },
+    { "sampling.max_pose_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "sampling.pose_beat_budget_ms", 0, 500 },
+    { "sampling.group_interval_ms", 1000, 60000 },
+    { "teacher.confirm_ms", 1000, 60000 },
+    { "teacher.release_ms", 1000, 120000 },
+    { "teacher.max_num", 1, CLASSROOM_MAX_PERSONS },
+    { "teacher.coverage", 0.05f, 1.0f },
+    { "teacher.patrol_move_px", 30, 2000 },
+    { "teacher.patrol_window_ms", 1000, 30000 },
+    { "teacher.stay_evidence_ms", 0, 600000 },
+    { "teacher.absent_hold_ms", 0, 30000 },
+    { "teacher.reentry_ms", 0, 30000 },
+    { "teacher.reentry_px", 0, 2000 },
+    { "egress.report_interval_sec", 1, CLASSROOM_REPORT_INTERVAL_MAX_SEC },
+    { "egress.session_max_sec", 300, 86400 },
+    { "egress.session_silence_sec", 0, 86400 },
+    { "egress.spool_max_mb", 1, 512 },
+    { "egress.spool_seg_max_kb", 4, 8192 },
+    { "egress.spool_drain_max_kb", 4, 4096 },
+    { "egress.metric_max_kb", 256, 32768 },
+    { "egress.metric_max_files", 1, 32 },
+    { "egress.metric_head_period_ms", 0, 86400000 },
+    { "stats.push_interval_ms", 1000, 300000 },
+    { "stats.seg_batch_ms", 500, 60000 },
+    { "stats.seg_batch_max", 1, 24 },
+    { "stats.alert_batch_max", 1, 8 },
+    { "stats.lesson_min", 5, 240 },
+    { "stats.arrive_grace_sec", 30, 3600 },
+    { "stats.overrun_grace_min", 0, 120 },
+    { "stats.leave_absent_sec", 30, 3600 },
+    { "stats.patrol_interval_min", 0, 1440 },
+    { "stats.participate_min_pct", 1, 100 },
+    { "stats.participate_hold_sec", 30, 3600 },
+    { "stats.discipline_bad_pct", 1, 100 },
+    { "stats.discipline_hold_sec", 30, 3600 },
+    { "stats.gather_num", 2, CLASSROOM_MAX_PERSONS },
+    { "stats.gather_radius_heads", 0.5f, 10.0f },
+    { "stats.gather_hold_sec", 5, 3600 },
+    { "stats.desk_hold_sec", 30, 3600 },
+    { "pool.idle_unload_ms", static_cast<int64_t>(1000), static_cast<int64_t>(3600000) },
+    { "pool.reserve_kb", static_cast<int64_t>(0), CLASSROOM_POOL_RESERVE_MAX_KB },
+    { "pool.slice_pose_ms", static_cast<int64_t>(1000), static_cast<int64_t>(CLASSROOM_WARM_SLICE_MAX_MS) },
+    { "pool.slice_face_ms", static_cast<int64_t>(1000), static_cast<int64_t>(CLASSROOM_WARM_SLICE_MAX_MS) },
+    { "rules.head_down.key_score", 0.0f, 1.0f },
+    { "rules.head_down.ratio", 0.01f, 10.0f },
+    { "rules.head_down_reading.key_score", 0.0f, 1.0f },
+    { "rules.head_down_reading.ratio", 0.01f, 10.0f },
+    { "rules.head_down_phone.key_score", 0.0f, 1.0f },
+    { "rules.head_down_phone.ratio", 0.01f, 10.0f },
+    { "rules.head_down_teacher.key_score", 0.0f, 1.0f },
+    { "rules.head_down_teacher.ratio", 0.01f, 10.0f },
+    { "rules.head_down_phone_teacher.key_score", 0.0f, 1.0f },
+    { "rules.head_down_phone_teacher.ratio", 0.01f, 10.0f },
+    { "rules.head_up.key_score", 0.0f, 1.0f },
+    { "rules.head_up_teacher.key_score", 0.0f, 1.0f },
+    { "rules.head_up_teacher.angle", 0.0f, 180.0f },
+    { "rules.teaching.key_score", 0.0f, 1.0f },
+    { "rules.board_write.key_score", 0.0f, 1.0f },
+    { "rules.interact.key_score", 0.0f, 1.0f },
+    { "rules.guiding.stay_ms", 0, 60000 },
+    { "rules.head_up.angle", 0.0f, 180.0f },
+    { "rules.stand.key_score", 0.0f, 1.0f },
+    { "rules.stand.leg_vertical_angle", 0.0f, 90.0f },
+    { "rules.stand.arm_straight_angle", 0.0f, 180.0f },
+    { "rules.stand.min_torso_shoulder", 0.0f, 5.0f },
+    { "rules.stand_teacher.key_score", 0.0f, 1.0f },
+    { "rules.stand_teacher.leg_vertical_angle", 0.0f, 90.0f },
+    { "rules.stand_teacher.arm_straight_angle", 0.0f, 180.0f },
+    { "rules.stand_teacher.min_torso_shoulder", 0.0f, 5.0f },
+    { "rules.raise_hand.key_score", 0.0f, 1.0f },
+    { "rules.raise_hand.vertical_angle", 0.0f, 90.0f },
+    { "rules.raise_hand.min_wrist_above_head", 0.0f, 20.0f },
+    { "rules.raise_hand.hand_mode", 0, 2 },
+    { "rules.turn_back.face_score", 0.0f, 1.0f },
+    { "rules.turn_back.body_score", 0.0f, 1.0f },
+    { "rules.turn_back.face_witness_ttl_ms", 0.0f, 60000.0f },
+    { "rules.turn_back.face_witness_mirror_rx", 0.0f, 1.0f },
+    { "teacher.pose_witness_ttl_ms", 0.0f, 60000.0f },
+    { "teacher.pose_witness_own_head_pct", 0, 200 },
+    { "teacher.pose_witness_min_score", 0.0f, 1.0f },
+    { "rules.lie_on_desk.key_score", 0.0f, 1.0f },
+    { "rules.phone.key_score", 0.0f, 1.0f },
+    { "rules.phone_teacher.key_score", 0.0f, 1.0f },
+    { "rules.phone_reading.key_score", 0.0f, 1.0f },
+    { "rules.phone.band_above_shoulder", 0.0f, 10.0f },
+    { "rules.phone.band_below_shoulder", 0.05f, 10.0f },
+    { "rules.phone.max_elbow_angle", 0.0f, 180.0f },
+    { "rules.phone.wrist_gap_norm", 0.05f, 10.0f },
+    { "rules.phone_teacher.band_above_shoulder", 0.0f, 10.0f },
+    { "rules.phone_teacher.band_below_shoulder", 0.05f, 10.0f },
+    { "rules.phone_teacher.max_elbow_angle", 0.0f, 180.0f },
+    { "rules.phone_teacher.wrist_gap_norm", 0.05f, 10.0f },
+    { "rules.phone_reading.band_above_shoulder", 0.0f, 10.0f },
+    { "rules.phone_reading.band_below_shoulder", 0.05f, 10.0f },
+    { "rules.phone_reading.max_elbow_angle", 0.0f, 180.0f },
+    { "rules.phone_reading.wrist_gap_norm", 0.05f, 10.0f },
+    { "rules.group.listen.key_score", 0.0f, 1.0f },
+    { "rules.group.listen.toward_true", -1.0f, 1.0f },
+    { "rules.group.listen.toward_false", -1.0f, 1.0f },
+    { "rules.group.discuss.key_score", 0.0f, 1.0f },
+    { "rules.group.discuss.toward_true", -1.0f, 1.0f },
+    { "rules.group.discuss.toward_false", -1.0f, 1.0f },
+    { "rules.group.present.key_score", 0.0f, 1.0f },
+    { "rules.group.present.toward_true", -1.0f, 1.0f },
+    { "rules.group.present.toward_false", -1.0f, 1.0f },
+    { "rules.group.neighbor_max_head", 0.5f, 30.0f },
+    { "rules.group.ref_deadband_head", 0.01f, 10.0f },
+    { "rules.group.listen_min_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "rules.group.reading_min_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "rules.group.discuss_min_persons", 2, CLASSROOM_MAX_PERSONS },
+    { "rules.group.discuss_turn_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "align.point_score_min", 0.0f, 1.0f },
+    { "align.min_eye_span_px", 0.0f, 1024.0f },
+    { "align.max_residual_ratio", 0.01f, 10.0f },
+    { "align.noise_floor_src_px", 0.0f, 64.0f },
+    { "align.scale_max", 0.01f, 64.0f },
+    { "align.crop_px", CLASSROOM_ALIGN_CROP_MIN_PX, CLASSROOM_ALIGN_CROP_MAX_PX },
+    { "gallery.reload_sec", 1, 3600 },
+    { "gallery.max_enroll", 1, CLASSROOM_GALLERY_MAX_ENROLL },
+    { "board.reentry_ms", 1000, 3600000 },
+    { "board.scan_interval_ms", 0, 60000 },
+    { "board.inflight_timeout_ms", 1000, 60000 },
+    { "board.stay_exit_edge_ms", 0, 600000 },
+    { "board.max_occlude_ratio", 0.0f, 1.0f },
+    { "board.min_line_score", 0.0f, 1.0f },
+    { "board.text_max_bytes", 16, CLASSROOM_BOARD_TEXT_MAX_BYTES },
+    { "board.item_max", 1, CLASSROOM_BOARD_ITEM_MAX },
+    { "board.line_max", 1, CLASSROOM_BOARD_LINE_MAX },
+    { "ocr.mask_threshold", 0.05f, 0.95f },
+    { "ocr.box_threshold", 0.05f, 0.95f },
+    { "ocr.unclip_ratio", 1.0f, 3.0f },
+    { "ocr.box_max", 1, CLASSROOM_OCR_BOX_MAX },
+    { "scene.enter_ms", 2000, 600000 },
+    { "scene.exit_ms", 1000, 600000 },
+    { "scene.min_segment_ms", 0, 600000 },
+    { "scene.raise_ratio_qa", 0.0f, 1.0f },
+    { "scene.head_down_ratio_practice", 0.0f, 1.0f },
+    { "scene.ground_shift", 0.0f, 2.0f },
+    { "face_feature.max_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "face_feature.min_interval_ms", 0, 600000 },
+    { "face_feature.ttl_ms", 1000, 600000 },
+    { "expression.curve_prob_min", 0.0f, 1.0f },
+    { "expression.ttl_ms", 1000, 600000 },
+    { "expression.min_frames", 1, 64 },
+    { "phone_recheck.max_persons", 1, CLASSROOM_MAX_PERSONS },
+    { "phone_recheck.min_interval_ms", 100, 600000 },
+    { "phone_recheck.ttl_ms", 1000, 600000 },
+    { "phone_recheck.min_box_px", 0, 200 },
+    { "behaviors[].sample_interval_ms", 0, 60000 },
+    { "behaviors[].min_duration_ms", 0, 3600000 },
+    { "behaviors[].gap_tolerance_ms", 0, 60000 },
+    { "behaviors[].min_true_count", 1, 1000 },
+    { "behaviors[].region_coverage", 0.01f, 1.0f },
+};
+
+/* 按 JSON 键名取合法区间；返回 false = 表里没有这一项 */
+bool paramClampOf(const char *pszName, double &rdLo, double &rdHi)
+{
+    if (nullptr == pszName)
+    {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(s_aConfigParamRange) / sizeof(s_aConfigParamRange[0]); ++i)
+    {
+        if (0 == strcmp(s_aConfigParamRange[i].pszName, pszName))
+        {
+            rdLo = s_aConfigParamRange[i].dLo;
+            rdHi = s_aConfigParamRange[i].dHi;
+            return true;
+        }
+    }
+    return false;
 }
 
 /* ============================ CConfigSnapshot_S ============================ */
@@ -815,7 +1106,6 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
 
     /* ---- 顶层 ---- */
     jsonReadBool(pRoot, "enable", stSnap.bEnable, nBadType);
-    jsonReadBool(pRoot, "linkage_enable", stSnap.bLinkageEnable, nBadType);
 
     if (jsonReadInt(pRoot, "mirror_mode", nValue, nBadType))
     {
@@ -920,18 +1210,24 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
     /* 角色 → 区域：与 regions[] 分开发，是因为 Web 侧「画区域」和「指定这块是讲台」是两步操作 */
     Json::Object *pRoles = jsonItem(pRoot, "region_roles");
     noteSection("region_roles");
-
-    if (nullptr != pRoles && !cJSON_IsArray(pRoles))
+    /* 写成非数组（对象/字符串/数字）时必须计数告警，不能整块静默跳过。
+       旧行为是"这一段什么都不读"，于是现场把这一段写成 {} 之后拿到的仍是默认空表，
+       引用它的行为全给 SR_REGION_MISS——读数是"配了却永不出事件"，
+       而配置层一个字都不说，排查的人先从判据下手，白花一整轮。
+       计数走既有的 nBadType 通道（与字段类型错同一条路），整份配置**不拒**：
+       一个段写错不足以让课堂功能整体不可用。 */
+    if (nullptr != pRoles && !cJSON_IsArray(pRoles) && !rowListIsMap(pRoles))
     {
         ++nBadType;
     }
-    if (nullptr != pRoles && cJSON_IsArray(pRoles))
+    if ((nullptr != pRoles) && (cJSON_IsArray(pRoles) || rowListIsMap(pRoles)))
     {
+        const bool bMap = rowListIsMap(pRoles);
         stSnap.vecRegionRoles.clear();
-        const int nCount = cJSON_GetArraySize(pRoles);
+        const int nCount = rowListSize(pRoles, bMap);
         for (int i = 0; i < nCount; ++i)
         {
-            Json::Object *pItem = cJSON_GetArrayItem(pRoles, i);
+            Json::Object *pItem = rowListAt(pRoles, bMap, i);
             if (nullptr == pItem || !cJSON_IsObject(pItem))
             {
                 ++nBadType;
@@ -939,7 +1235,7 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
             }
 
             CRegionRoleRef_S stRef;
-            if (!jsonReadInt(pItem, "role", nValue, nBadType))
+            if (!rowKeyNumberOf(pItem, bMap, "role", nValue, nBadType))
             {
                 continue;
             }
@@ -1080,6 +1376,74 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
             jsonReadFloat(pPhone, "max_elbow_angle", stSnap.stPhone.fMaxElbowAngle, nBadType);
             jsonReadFloat(pPhone, "wrist_gap_norm", stSnap.stPhone.fMaxWristGapNorm, nBadType);
         }
+
+        /* 解耦：先整份继承旧键，再由各自的新对象覆盖，顺序不能反：先读新键再继承旧键会把显式配好的新值冲掉。新对象整体缺省时，
+           各实例与旧实例逐字段相等 ⇒ 老配置的行为与拆分前逐字节一致。 */
+        stSnap.stHeadDownReading      = stSnap.stHeadDown;
+        stSnap.stHeadDownPhone        = stSnap.stHeadDown;
+        stSnap.stHeadDownTeacher      = stSnap.stHeadDown;
+        stSnap.stHeadDownPhoneTeacher = stSnap.stHeadDown;
+        stSnap.stHeadUpTeacher        = stSnap.stHeadUp;
+        stSnap.stStandTeacher         = stSnap.stStand;
+        stSnap.stPhoneTeacher         = stSnap.stPhone;
+        stSnap.stPhoneReading         = stSnap.stPhone;
+
+        Json::Object *pDownReading = jsonItem(pRules, "head_down_reading");
+        if (nullptr != pDownReading)
+        {
+            jsonReadFloat(pDownReading, "key_score", stSnap.stHeadDownReading.fKeyScore, nBadType);
+            jsonReadFloat(pDownReading, "ratio", stSnap.stHeadDownReading.fRatio, nBadType);
+        }
+        Json::Object *pDownPhone = jsonItem(pRules, "head_down_phone");
+        if (nullptr != pDownPhone)
+        {
+            jsonReadFloat(pDownPhone, "key_score", stSnap.stHeadDownPhone.fKeyScore, nBadType);
+            jsonReadFloat(pDownPhone, "ratio", stSnap.stHeadDownPhone.fRatio, nBadType);
+        }
+        Json::Object *pDownTea = jsonItem(pRules, "head_down_teacher");
+        if (nullptr != pDownTea)
+        {
+            jsonReadFloat(pDownTea, "key_score", stSnap.stHeadDownTeacher.fKeyScore, nBadType);
+            jsonReadFloat(pDownTea, "ratio", stSnap.stHeadDownTeacher.fRatio, nBadType);
+        }
+        Json::Object *pDownPhoneTea = jsonItem(pRules, "head_down_phone_teacher");
+        if (nullptr != pDownPhoneTea)
+        {
+            jsonReadFloat(pDownPhoneTea, "key_score", stSnap.stHeadDownPhoneTeacher.fKeyScore, nBadType);
+            jsonReadFloat(pDownPhoneTea, "ratio", stSnap.stHeadDownPhoneTeacher.fRatio, nBadType);
+        }
+        Json::Object *pUpTea = jsonItem(pRules, "head_up_teacher");
+        if (nullptr != pUpTea)
+        {
+            jsonReadFloat(pUpTea, "key_score", stSnap.stHeadUpTeacher.fKeyScore, nBadType);
+            jsonReadFloat(pUpTea, "angle", stSnap.stHeadUpTeacher.fAngle, nBadType);
+        }
+        Json::Object *pStandTea = jsonItem(pRules, "stand_teacher");
+        if (nullptr != pStandTea)
+        {
+            jsonReadFloat(pStandTea, "key_score", stSnap.stStandTeacher.fKeyScore, nBadType);
+            jsonReadFloat(pStandTea, "leg_vertical_angle", stSnap.stStandTeacher.fLegVerticalAngle, nBadType);
+            jsonReadFloat(pStandTea, "arm_straight_angle", stSnap.stStandTeacher.fArmStraightAngle, nBadType);
+            jsonReadFloat(pStandTea, "min_torso_shoulder", stSnap.stStandTeacher.fMinTorsoShoulder, nBadType);
+        }
+        Json::Object *pPhoneTea = jsonItem(pRules, "phone_teacher");
+        if (nullptr != pPhoneTea)
+        {
+            jsonReadFloat(pPhoneTea, "key_score", stSnap.stPhoneTeacher.fKeyScore, nBadType);
+            jsonReadFloat(pPhoneTea, "band_above_shoulder", stSnap.stPhoneTeacher.fBandAboveShoulder, nBadType);
+            jsonReadFloat(pPhoneTea, "band_below_shoulder", stSnap.stPhoneTeacher.fBandBelowShoulder, nBadType);
+            jsonReadFloat(pPhoneTea, "max_elbow_angle", stSnap.stPhoneTeacher.fMaxElbowAngle, nBadType);
+            jsonReadFloat(pPhoneTea, "wrist_gap_norm", stSnap.stPhoneTeacher.fMaxWristGapNorm, nBadType);
+        }
+        Json::Object *pPhoneReading = jsonItem(pRules, "phone_reading");
+        if (nullptr != pPhoneReading)
+        {
+            jsonReadFloat(pPhoneReading, "key_score", stSnap.stPhoneReading.fKeyScore, nBadType);
+            jsonReadFloat(pPhoneReading, "band_above_shoulder", stSnap.stPhoneReading.fBandAboveShoulder, nBadType);
+            jsonReadFloat(pPhoneReading, "band_below_shoulder", stSnap.stPhoneReading.fBandBelowShoulder, nBadType);
+            jsonReadFloat(pPhoneReading, "max_elbow_angle", stSnap.stPhoneReading.fMaxElbowAngle, nBadType);
+            jsonReadFloat(pPhoneReading, "wrist_gap_norm", stSnap.stPhoneReading.fMaxWristGapNorm, nBadType);
+        }
         /* 107/109/111 的三档朝向 + 108 的书写代理闸 + 三道人数阈值。
            读法与上面每一条一样：缺键保默认，所以"只改讨论"不会把听讲那一对数冲成 0 */
         Json::Object *pGroup = jsonItem(pRules, "group");
@@ -1213,23 +1577,29 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
     /* ---- 行为表：按 Behavior_E 编号下发，缺行的行为保留默认（不是关掉）---- */
     Json::Object *pBehaviors = jsonItem(pRoot, "behaviors");
     noteSection("behaviors");
-
-    if (nullptr != pBehaviors && !cJSON_IsArray(pBehaviors))
+    /* 写成非数组（对象/字符串/数字）时必须计数告警，不能整块静默跳过。
+       旧行为是"这一段什么都不读"，于是现场把这一段写成 {} 之后拿到的仍是默认空表，
+       引用它的行为全给 SR_REGION_MISS——读数是"配了却永不出事件"，
+       而配置层一个字都不说，排查的人先从判据下手，白花一整轮。
+       计数走既有的 nBadType 通道（与字段类型错同一条路），整份配置**不拒**：
+       一个段写错不足以让课堂功能整体不可用 */
+    if (nullptr != pBehaviors && !cJSON_IsArray(pBehaviors) && !rowListIsMap(pBehaviors))
     {
         ++nBadType;
     }
-    if (nullptr != pBehaviors && cJSON_IsArray(pBehaviors))
+    if ((nullptr != pBehaviors) && (cJSON_IsArray(pBehaviors) || rowListIsMap(pBehaviors)))
     {
-        const int nCount = cJSON_GetArraySize(pBehaviors);
+        const bool bMap = rowListIsMap(pBehaviors);
+        const int nCount = rowListSize(pBehaviors, bMap);
         for (int i = 0; i < nCount; ++i)
         {
-            Json::Object *pItem = cJSON_GetArrayItem(pBehaviors, i);
+            Json::Object *pItem = rowListAt(pBehaviors, bMap, i);
             if (nullptr == pItem || !cJSON_IsObject(pItem))
             {
                 ++nBadType;
                 continue;
             }
-            if (!jsonReadInt(pItem, "id", nValue, nBadType))
+            if (!rowKeyNumberOf(pItem, bMap, "id", nValue, nBadType))
             {
                 continue;
             }
@@ -1476,6 +1846,8 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
        判定门限一项不夹，与 align 同一口径：能不能用由 expressionParamOk 单点判 */
     Json::Object *pExpr = jsonItem(pRoot, "expression");
     noteSection("expression");
+    /* 跨事件解耦：老配置没有 expression.min_face_px ⇒ 整份继承 */
+    stSnap.stExpr.stParam.nMinFacePx = stSnap.nMinFacePixel;
     if (nullptr != pExpr)
     {
         jsonReadBool(pExpr, "enable", stSnap.stExpr.bEnable, nBadType);
@@ -1490,6 +1862,8 @@ void CClassroomConfig::parseIntoJson(void *pJson, CConfigSnapshot_S &stSnap)
         /* 允许人脸角度（度，1..90）：Web 第 11 页那一格的落点。消费方是感知入口
            （perceive_pipeline 的 runExpressionOfWarp），不是判定函数——超限时连推理都不提交 */
         jsonReadFloat(pExpr, "max_angle", stSnap.stExpr.stParam.fMaxAngleDeg, nBadType);
+        /* 最低人脸像素（画布短边）：只挡表情推理，与 threshold.min_face_px（解码远带分界）分开 */
+        jsonReadInt(pExpr, "min_face_px", stSnap.stExpr.stParam.nMinFacePx, nBadType);
 
         /* 槽位→语义映射表：模型交付时唯一需要动的东西 */
         Json::Object *pMap = jsonItem(pExpr, "slot_map");
@@ -1808,9 +2182,10 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
                   "dropped before the attendance gate can ever see them";
         return false;
     }
-    if (stSnap.fDetectScoreThreshold <= 0.0f || stSnap.fDetectScoreThreshold >= 1.0f)
+    /* 上界从"开"改"闭"。网页「灵敏度」量程 1-10 */
+    if (stSnap.fDetectScoreThreshold <= 0.0f || stSnap.fDetectScoreThreshold > 1.0f)
     {
-        rstrErr = "threshold.det_score must be in (0,1)";
+        rstrErr = "threshold.det_score must be in (0,1]";
         return false;
     }
     if (stSnap.fDetectNmsThreshold <= 0.0f || stSnap.fDetectNmsThreshold >= 1.0f)
@@ -2194,6 +2569,32 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
        页面没画（空表）保持角色表原样，出厂态与旧配置逐字节不变。
        同时清掉同角色的其余行：idsOfRole 会把同角色的多行并起来，留着旧行等于没覆盖 */
     {
+        const struct { const char *pszKey; const std::vector<int32_t> *pvecIds; } astChk[] = {
+            { "attendance.region_ids", &stSnap.stAttend.vecRegionIds },
+            { "gallery.region_ids",    &stSnap.stGallery.vecRegionIds },
+        };
+        for (size_t nRow = 0; nRow < sizeof(astChk) / sizeof(astChk[0]); ++nRow)
+        {
+            for (size_t k = 0; k < astChk[nRow].pvecIds->size(); ++k)
+            {
+                if (nullptr == findRegionDesc(stSnap.vecRegions, (*astChk[nRow].pvecIds)[k]))
+                {
+                    rstrErr = std::string(astChk[nRow].pszKey) + " refers missing region id "
+                            + std::to_string((*astChk[nRow].pvecIds)[k]);
+                    return false;
+                }
+            }
+        }
+    }
+
+    /* ---------- 页 16「绘制区域」覆盖讲台角色 ----------
+       210 的判据是「讲台区域里有没有人」，讲台范围原先只能由 region_roles 的
+       role=podium 给；网页在 210 页画的框如果只写进 behaviors.210.region_ids，
+       仲裁器看不见——典型表现就是"页面画了框，210 照样按老讲台判"。
+       这里在引用校验之后把它并进 podium 角色：页面画了框，它就是这个设备眼里的讲台；
+       页面没画（空表）保持角色表原样，出厂态与旧配置逐字节不变。
+       同时清掉同角色的其余行：idsOfRole 会把同角色的多行并起来，留着旧行等于没覆盖 */
+    {
         const int nPatrolCol = CDurationGate::behaviorColumn(Behavior_E::TEA_PATROL);
         if (nPatrolCol >= 0 && nPatrolCol < static_cast<int>(stSnap.vecBehaviorRegions.size()))
         {
@@ -2233,6 +2634,44 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     /* ---------- 软错误：钳制到边界并记名，不拒绝整份配置 ---------- */
     std::string strSoft;
 
+    /* ---------- 讲台三页各自的区域键：空键时继承讲台角色----------
+       三页各自写自己的 behaviors.<id>.region_ids，互不影响；
+       而**行为不变**：自己的键还是空的时候（升级上来的老配置、或那一页从没画过），
+       这里把讲台角色的区域 id 继承给它——与它们此前"共用 podium 角色"语义一致。
+       谁画过谁用自己的：画了就以自己那块为准，讲台角色仍旧由第 16 页（巡视）并入维护。 */
+    {
+        const Behavior_E aenPodiumPages[] = { Behavior_E::TEA_ENTER_PODIUM,
+                                              Behavior_E::STU_ON_PODIUM,
+                                              Behavior_E::STU_PRESENT };
+        std::vector<int32_t> vecPodiumIds;
+        for (size_t r = 0; r < stSnap.vecRegionRoles.size(); ++r)
+        {
+            if (RegionRole_E::REGION_ROLE_PODIUM == stSnap.vecRegionRoles[r].enRole)
+            {
+                vecPodiumIds = stSnap.vecRegionRoles[r].vecRegionIds;
+                break;
+            }
+        }
+        if (!vecPodiumIds.empty())
+        {
+            for (size_t i = 0; i < sizeof(aenPodiumPages) / sizeof(aenPodiumPages[0]); ++i)
+            {
+                const int nCol = CDurationGate::behaviorColumn(aenPodiumPages[i]);
+                if (nCol < 0 || nCol >= static_cast<int>(stSnap.vecBehaviorRegions.size()))
+                {
+                    continue;
+                }
+                std::vector<int32_t> &vecOwn = stSnap.vecBehaviorRegions[static_cast<size_t>(nCol)].vecRegionIds;
+                if (vecOwn.empty())
+                {
+                    vecOwn = vecPodiumIds;
+                    strSoft += std::string(" behaviors[") + behaviorName(aenPodiumPages[i])
+                             + "].region_ids inherited from region_roles[podium]";
+                }
+            }
+        }
+    }
+
     /* ---------- 设备角色互斥（#126）：role 赢过本文件里任何单项 enable ----------
        只做强制关、不做强制开：开哪路功能仍由现场逐项配（教师机的 board.enable、
        学生机的 attendance.enable 都等运维下发），role 只保证「不该有的不会有」。
@@ -2248,10 +2687,24 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
         const int nColFrom = bTeacher ? 0 : CDurationGate::STUDENT_COLUMN_NUM;
         const int nColTo = bTeacher ? CDurationGate::STUDENT_COLUMN_NUM
                                     : CDurationGate::BEHAVIOR_COLUMN_NUM;
+        /* 207 指导 / 209 互动 是**学生机**上的班级级列，编号却落在
+           教师段里（行为编号连续，不按设备归属分段）：学生机整段关教师列时，这两列
+           必须留下——它们的事实（区域里有人站立 / 站立或举手）全部来自学生画面，
+           关掉等于把 0x3060/0x3061 与指导/互动统计在学生机上一起静默。
+           教师机那一圈关的是学生段，碰不到它们，所以下面单独把教师机上的这两列关掉
+           ——教师机前没有学生画面，开着只会得到一条永远 UNKNOWN 的列。
+           210 巡视在教师段里，教师机保留、学生机随教师段整段关掉（归属总开关在学生机
+           上也是关的） */
+        const int nGuideCol = CDurationGate::behaviorColumn(Behavior_E::TEA_GUIDING);
+        const int nInteractCol = CDurationGate::behaviorColumn(Behavior_E::TEA_INTERACT);
         const int nColEnd = nColTo < static_cast<int>(stSnap.vecGates.size())
                                 ? nColTo : static_cast<int>(stSnap.vecGates.size());
         for (int c = nColFrom; c < nColEnd; ++c)
         {
+            if (!bTeacher && (c == nGuideCol || c == nInteractCol))
+            {
+                continue;
+            }
             if (stSnap.vecGates[static_cast<size_t>(c)].bEnable)
             {
                 stSnap.vecGates[static_cast<size_t>(c)].bEnable = false;
@@ -2339,47 +2792,47 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     {
         strSoft += " regions[].coord";
     }
-    CLAMP_WARN(stSnap.fBodyExpandW, 0.0f, 20.0f, "body_expand.w");
-    CLAMP_WARN(stSnap.fBodyExpandDown, 0.0f, 30.0f, "body_expand.down");
-    CLAMP_WARN(stSnap.fBodyExpandUp, 0.0f, 30.0f, "body_expand.up");
+    CLAMP_WARN(stSnap.fBodyExpandW, "body_expand.w");
+    CLAMP_WARN(stSnap.fBodyExpandDown, "body_expand.down");
+    CLAMP_WARN(stSnap.fBodyExpandUp, "body_expand.up");
     /* 0 是合法值（只有框完全出画才算贴边），故下限取 0 而不是 1 */
-    CLAMP_WARN(stSnap.fOccludeIou, 0.0f, 0.95f, "threshold.occlude_iou");
-    CLAMP_WARN(stSnap.nEdgeBandPx, 0, 128, "threshold.edge_band_px");
-    CLAMP_WARN(stSnap.fBlurFullGrad, 1.0f, 128.0f, "threshold.blur_full_grad");
+    CLAMP_WARN(stSnap.fOccludeIou, "threshold.occlude_iou");
+    CLAMP_WARN(stSnap.nEdgeBandPx, "threshold.edge_band_px");
+    CLAMP_WARN(stSnap.fBlurFullGrad, "threshold.blur_full_grad");
     /* 0 合法：关掉清晰度闸。1 也合法但等于「只有完全清晰才判」，现场会看到 SR_BLUR 吃满 */
-    CLAMP_WARN(stSnap.fPoseBlurMin, 0.0f, 1.0f, "threshold.pose_blur_min");
+    CLAMP_WARN(stSnap.fPoseBlurMin, "threshold.pose_blur_min");
     /* gate=0 会把每一次匹配都拒掉：表现为"人数每帧翻倍又清零"，
        比"跟不准"严重得多，所以下限必须留出一条能匹配的距离 */
-    CLAMP_WARN(stSnap.stTracker.fGateNormDist, 0.05f, 3.0f, "tracker.gate_norm_dist");
-    CLAMP_WARN(stSnap.stTracker.fMoveSlackPxPerMs, 0.0f, 5.0f, "tracker.move_slack_px_ms");
+    CLAMP_WARN(stSnap.stTracker.fGateNormDist, "tracker.gate_norm_dist");
+    CLAMP_WARN(stSnap.stTracker.fMoveSlackPxPerMs, "tracker.move_slack_px_ms");
     /* 负权重会把"尺寸不符"反向变成"尺寸不符优先"——那等于故意要跟错人，直接钳没 */
-    CLAMP_WARN(stSnap.stTracker.fSizePenalty, 0.0f, 10.0f, "tracker.size_penalty");
-    CLAMP_WARN(stSnap.stTracker.nMinHits, 1, 30, "tracker.min_hits");
-    CLAMP_WARN(stSnap.stTracker.nKeepMs, 0, 60000, "tracker.keep_ms");
+    CLAMP_WARN(stSnap.stTracker.fSizePenalty, "tracker.size_penalty");
+    CLAMP_WARN(stSnap.stTracker.nMinHits, "tracker.min_hits");
+    CLAMP_WARN(stSnap.stTracker.nKeepMs, "tracker.keep_ms");
     /* 下限 20ms：比一次推理还短的等待等于每拍必超时，整条感知链路会静默变成"永远 0 人" */
-    CLAMP_WARN(stSnap.stSample.nInferWaitMs, 20, 2000, "sampling.infer_wait_ms");
-    CLAMP_WARN(stSnap.stSample.nHeadIntervalMs, 0, 60000, "sampling.head_interval_ms");
-    CLAMP_WARN(stSnap.stSample.nPoseIntervalMs, 0, 60000, "sampling.pose_interval_ms");
-    CLAMP_WARN(stSnap.stSample.nFaceIntervalMs, 0, 60000, "sampling.face_interval_ms");
-    CLAMP_WARN(stSnap.stSample.nMaxPosePersons, 1, CLASSROOM_MAX_PERSONS, "sampling.max_pose_persons");
+    CLAMP_WARN(stSnap.stSample.nInferWaitMs, "sampling.infer_wait_ms");
+    CLAMP_WARN(stSnap.stSample.nHeadIntervalMs, "sampling.head_interval_ms");
+    CLAMP_WARN(stSnap.stSample.nPoseIntervalMs, "sampling.pose_interval_ms");
+    CLAMP_WARN(stSnap.stSample.nFaceIntervalMs, "sampling.face_interval_ms");
+    CLAMP_WARN(stSnap.stSample.nMaxPosePersons, "sampling.max_pose_persons");
     /* 下限留 0：配 0 就是「这一路整段不做」，是现场 NPU 不够时的合法逃生阀
        （规则层据此输出 UNKNOWN，而不是硬判一个姿态）。上限 500ms：再大就等于允许姿态
        一段连吃掉两三个节拍，而被挤掉的每一拍都是人头检测——人数才是所有指标的基数 */
-    CLAMP_WARN(stSnap.stSample.nPoseBeatBudgetMs, 0, 500, "sampling.pose_beat_budget_ms");
+    CLAMP_WARN(stSnap.stSample.nPoseBeatBudgetMs, "sampling.pose_beat_budget_ms");
     /* 下限 1s：比一次感知节拍还短的群体采样只是把同一帧重复积分，
        账本不会更准，却会让会话累计量按拍数虚增 */
-    CLAMP_WARN(stSnap.stSample.nGroupIntervalMs, 1000, 60000, "sampling.group_interval_ms");
+    CLAMP_WARN(stSnap.stSample.nGroupIntervalMs, "sampling.group_interval_ms");
     /* ---- 主体归属 ----
        下限 1000ms：比一次姿态刷新还短的确认时长，等于「有一拍证据就是老师」。
        强判据是头框落在讲台里，而学生路过讲台也就一两拍——确认时长一短，
        归属跟着人走，教师那 13 列就变成「谁的走动多谁当老师」 */
-    CLAMP_WARN(stSnap.stTeacher.nConfirmMs, 1000, 60000, "teacher.confirm_ms");
+    CLAMP_WARN(stSnap.stTeacher.nConfirmMs, "teacher.confirm_ms");
     /* 下限 1000ms 的理由同上，但更要紧的是下面那条交叉修正：放弃时长比确认时长还短，
        会出现「攒 5 秒才当上老师，断 1 秒就被开除」，而断的那一秒多半只是被前排挡了一下 */
-    CLAMP_WARN(stSnap.stTeacher.nReleaseMs, 1000, 120000, "teacher.release_ms");
+    CLAMP_WARN(stSnap.stTeacher.nReleaseMs, "teacher.release_ms");
     /* 下限 1 而不是 0：关掉请用 enable。max_num=0 的现象是"区域画了、开关开了、教师恒为 0"，
        与配置写错无法区分，而 enable=false 在观测里是一眼能看出来的 */
-    CLAMP_WARN(stSnap.stTeacher.nMaxNum, 1, CLASSROOM_MAX_PERSONS, "teacher.max_num");
+    CLAMP_WARN(stSnap.stTeacher.nMaxNum, "teacher.max_num");
     if (stSnap.stTeacher.nReleaseMs < stSnap.stTeacher.nConfirmMs)
     {
         /* 与 egress 那对（session_max_sec / report_interval_sec）同一处置方式：就地抬高并留线索，
@@ -2389,26 +2842,26 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     }
     /* 下限不给 0：coverage=0 在区域判定里是「沾到边就算」，讲台区域画大一点就等于全员在讲台，
        归属整条反向。上限 1.0 是「整个头框都在内」，实际用法里 0.5~0.8 就够 */
-    CLAMP_WARN(stSnap.stTeacher.fCoverage, 0.05f, 1.0f, "teacher.coverage");
+    CLAMP_WARN(stSnap.stTeacher.fCoverage, "teacher.coverage");
     /* 下限 30px：人头框每拍的检测抖动在个位数像素，5s 窗口里随机游走就能凑出更大的数。
        配 0 等于关掉位移这条否决——全班起立问好那 30 秒里，仲裁会挑证据最连续的一个学生当老师，
        而那个人同时停止学生侧记账（本块最容易配错、又最难从现象倒推的一条） */
-    CLAMP_WARN(stSnap.stTeacher.nPatrolMovePx, 30, 2000, "teacher.patrol_move_px");
+    CLAMP_WARN(stSnap.stTeacher.nPatrolMovePx, "teacher.patrol_move_px");
     /* 上限与仲裁器里的 CLASSROOM_MOVE_WINDOW_MAX 同值：窗口再长，位移就不再是"这段时间走动过"
        而是"这节课走过"，巡视判据随之失效（那边还留了一道兜底，因为单测里手搓快照不过 validate） */
-    CLAMP_WARN(stSnap.stTeacher.nPatrolWindowMs, 1000, 30000, "teacher.patrol_window_ms");
+    CLAMP_WARN(stSnap.stTeacher.nPatrolWindowMs, "teacher.patrol_window_ms");
     /* 静止指导证据 0=关是默认档（失败安全：新判据不上电），下限给 0 不给"一次指导的量级"；
        上限按归属放弃时长的量级给——比 release_ms 还长的停留证据意味着身份总在放弃边缘续命 */
-    CLAMP_WARN(stSnap.stTeacher.nStayEvidenceMs, 0, 600000, "teacher.stay_evidence_ms");
+    CLAMP_WARN(stSnap.stTeacher.nStayEvidenceMs, "teacher.stay_evidence_ms");
     /* 缺席容忍 0=关是默认档（失败安全：旧行为=缺一拍当拍收）。上限 30s 是"人还没走远"的量级：
        比它还长的容忍等于把出画当在场，身份收不回、tea_track 也发不出 END */
-    CLAMP_WARN(stSnap.stTeacher.nAbsentHoldMs, 0, 30000, "teacher.absent_hold_ms");
+    CLAMP_WARN(stSnap.stTeacher.nAbsentHoldMs, "teacher.absent_hold_ms");
     /* 重入快轨 0=关是默认档（失败安全：新判据不上电）。上限与 absent_hold 同量级：
        比它还长的记忆窗口等于把"早已换人"的讲台交给一个刚站上去的陌生人 */
-    CLAMP_WARN(stSnap.stTeacher.nReentryMs, 0, 30000, "teacher.reentry_ms");
+    CLAMP_WARN(stSnap.stTeacher.nReentryMs, "teacher.reentry_ms");
     /* 位置连续半径 0 合法（=只认原地重入，几乎不触发）；上限 2000 与 patrol_move_px 同量级，
        再大就是把半个教室都算"同一个人走过去的" */
-    CLAMP_WARN(stSnap.stTeacher.nReentryPx, 0, 2000, "teacher.reentry_px");
+    CLAMP_WARN(stSnap.stTeacher.nReentryPx, "teacher.reentry_px");
     if (stSnap.stTeacher.nPatrolWindowMs > stSnap.stTeacher.nReleaseMs)
     {
         /* 弱判据（巡视）读的是"本窗口内累计位移够不够"，因此一次跨越门限的走动会在整个窗口内
@@ -2434,13 +2887,12 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
         strSoft += " teacher.absent_hold_ms(capped by release_ms)";
     }
     /* 上限 60s 是事件通道的吞吐不变量 */
-    CLAMP_WARN(stSnap.stEgress.nReportIntervalSec, 1, CLASSROOM_REPORT_INTERVAL_MAX_SEC,
-               "egress.report_interval_sec");
+    CLAMP_WARN(stSnap.stEgress.nReportIntervalSec, "egress.report_interval_sec");
     /* 下限 300s（5 分钟）：比一次课间还短的"会话"只是把一次课切成一串没有分母的碎片；
        上限 86400s：跨过一天就没有"这是哪节课"可言了，而且 NTP 校时通常以天为尺度回拨 */
-    CLAMP_WARN(stSnap.stEgress.nSessionMaxSec, 300, 86400, "egress.session_max_sec");
+    CLAMP_WARN(stSnap.stEgress.nSessionMaxSec, "egress.session_max_sec");
     /* 0 是合法值（= 关静默收尾），范围里给它留座；上界与 max_sec 同款（一天的量级） */
-    CLAMP_WARN(stSnap.stEgress.nSilenceSec, 0, 86400, "egress.session_silence_sec");
+    CLAMP_WARN(stSnap.stEgress.nSilenceSec, "egress.session_silence_sec");
     if (stSnap.stEgress.nSessionMaxSec < stSnap.stEgress.nReportIntervalSec)
     {
         /* 会话比上报周期还短 = 每一份周期报表都正好撞上收尾，bSessionReset 恒真。
@@ -2453,9 +2905,9 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
         strSoft += " egress.session_max_sec(raised to report_interval_sec)";
     }
     /* 滞留环三个数。上限 4GB 级的字面量不是"能给这么多"，而是"超过这个数说明填错了单位" */
-    CLAMP_WARN(stSnap.stEgress.nSpoolMaxMb, 1, 512, "egress.spool_max_mb");
-    CLAMP_WARN(stSnap.stEgress.nSpoolSegMaxKb, 4, 8192, "egress.spool_seg_max_kb");
-    CLAMP_WARN(stSnap.stEgress.nSpoolDrainMaxKb, 4, 4096, "egress.spool_drain_max_kb");
+    CLAMP_WARN(stSnap.stEgress.nSpoolMaxMb, "egress.spool_max_mb");
+    CLAMP_WARN(stSnap.stEgress.nSpoolSegMaxKb, "egress.spool_seg_max_kb");
+    CLAMP_WARN(stSnap.stEgress.nSpoolDrainMaxKb, "egress.spool_drain_max_kb");
     if (stSnap.stEgress.nSpoolSegMaxKb > stSnap.stEgress.nSpoolMaxMb * 1024)
     {
         /* 段比总量还大 → 整个环永远只有一段，"超限丢最旧"退化成"丢当前"，
@@ -2473,8 +2925,8 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     /* ---- 心跳落点----
        下限 256KB：环小到几拍就转一遍，keep= 这个读数本身就失去意义，而每次轮转都是
        一次真实的 rename + 新建，flash 白写。上限 32MB 单份，配合下面的环预算一起看 */
-    CLAMP_WARN(stSnap.stEgress.nMetricMaxKb, 256, 32768, "egress.metric_max_kb");
-    CLAMP_WARN(stSnap.stEgress.nMetricMaxFiles, 1, 32, "egress.metric_max_files");
+    CLAMP_WARN(stSnap.stEgress.nMetricMaxKb, "egress.metric_max_kb");
+    CLAMP_WARN(stSnap.stEgress.nMetricMaxFiles, "egress.metric_max_files");
     if (static_cast<int64_t>(stSnap.stEgress.nMetricMaxKb) * (stSnap.stEgress.nMetricMaxFiles + 1) >
         CLASSROOM_METRIC_RING_MAX_KB)
     {
@@ -2491,7 +2943,7 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     }
     /* 0 是合法值（业务日志里从此不出现课堂读数），所以只夹下界的负数与上界的荒谬值。
        上界 24h：比这更长，业务日志里那条"最近还有心跳"的证据就太久没出现了 */
-    CLAMP_WARN(stSnap.stEgress.nMetricHeadPeriodMs, 0, 86400000, "egress.metric_head_period_ms");
+    CLAMP_WARN(stSnap.stEgress.nMetricHeadPeriodMs, "egress.metric_head_period_ms");
     if (stSnap.stEgress.strMetricFile.empty() || '/' != stSnap.stEgress.strMetricFile[0])
     {
         stSnap.stEgress.strMetricFile = CLASSROOM_METRIC_FILE;
@@ -2520,137 +2972,159 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
        下限 1s / 上限 300s：比 1s 还密不是"更实时"，而是把总线让给统计报文并让平台侧
        以毫秒级反复重绘同一个数；比 300s 还疏，一节课只有 8 个点，"尽快推送"就不成立。
        段批量周期上限 60s：它只影响"多快看到一条段的结束"，不该比报表还慢 */
-    CLAMP_WARN(stSnap.stStats.nPushIntervalMs, 1000, 300000, "stats.push_interval_ms");
-    CLAMP_WARN(stSnap.stStats.nSegBatchMs, 500, 60000, "stats.seg_batch_ms");
+    CLAMP_WARN(stSnap.stStats.nPushIntervalMs, "stats.push_interval_ms");
+    CLAMP_WARN(stSnap.stStats.nSegBatchMs, "stats.seg_batch_ms");
     /* 两个批量上限受协议固定数组长度约束：段 24、预警 8。改大要同步改
        tvsdk_stats.h 的数组长度与 static_assert，否则平台按结构体长度解析会读越界 */
-    CLAMP_WARN(stSnap.stStats.nSegBatchMax, 1, 24, "stats.seg_batch_max");
-    CLAMP_WARN(stSnap.stStats.nAlertBatchMax, 1, 8, "stats.alert_batch_max");
+    CLAMP_WARN(stSnap.stStats.nSegBatchMax, "stats.seg_batch_max");
+    CLAMP_WARN(stSnap.stStats.nAlertBatchMax, "stats.alert_batch_max");
     /* 课时 5..240 分钟：比 5 分钟短的一"课"只是会话碎片，比 4 小时长的多半是单位填错。
        宽限同理，全部给一个宽松但有限的上界，防手滑写出"300"当秒用 */
-    CLAMP_WARN(stSnap.stStats.nLessonMin, 5, 240, "stats.lesson_min");
-    CLAMP_WARN(stSnap.stStats.nArriveGraceSec, 30, 3600, "stats.arrive_grace_sec");
-    CLAMP_WARN(stSnap.stStats.nOverrunGraceMin, 0, 120, "stats.overrun_grace_min");
-    CLAMP_WARN(stSnap.stStats.nLeaveAbsentSec, 30, 3600, "stats.leave_absent_sec");
+    CLAMP_WARN(stSnap.stStats.nLessonMin, "stats.lesson_min");
+    CLAMP_WARN(stSnap.stStats.nArriveGraceSec, "stats.arrive_grace_sec");
+    CLAMP_WARN(stSnap.stStats.nOverrunGraceMin, "stats.overrun_grace_min");
+    CLAMP_WARN(stSnap.stStats.nLeaveAbsentSec, "stats.leave_absent_sec");
     /* 0 = 不判未巡视（有的课型全程讲授，本就无巡视）；上界一天 */
-    CLAMP_WARN(stSnap.stStats.nPatrolIntervalMin, 0, 1440, "stats.patrol_interval_min");
-    CLAMP_WARN(stSnap.stStats.nParticipateMinPct, 1, 100, "stats.participate_min_pct");
-    CLAMP_WARN(stSnap.stStats.nParticipateHoldSec, 30, 3600, "stats.participate_hold_sec");
-    CLAMP_WARN(stSnap.stStats.nDisciplineBadPct, 1, 100, "stats.discipline_bad_pct");
-    CLAMP_WARN(stSnap.stStats.nDisciplineHoldSec, 30, 3600, "stats.discipline_hold_sec");
+    CLAMP_WARN(stSnap.stStats.nPatrolIntervalMin, "stats.patrol_interval_min");
+    CLAMP_WARN(stSnap.stStats.nParticipateMinPct, "stats.participate_min_pct");
+    CLAMP_WARN(stSnap.stStats.nParticipateHoldSec, "stats.participate_hold_sec");
+    CLAMP_WARN(stSnap.stStats.nDisciplineBadPct, "stats.discipline_bad_pct");
+    CLAMP_WARN(stSnap.stStats.nDisciplineHoldSec, "stats.discipline_hold_sec");
     /* 聚集人数下限 2：1 个人谈不上"聚集"；半径 0.5..10 个头宽，上界防"全班都算一堆" */
-    CLAMP_WARN(stSnap.stStats.nGatherNum, 2, CLASSROOM_MAX_PERSONS, "stats.gather_num");
-    CLAMP_WARN(stSnap.stStats.fGatherRadiusHeads, 0.5f, 10.0f, "stats.gather_radius_heads");
-    CLAMP_WARN(stSnap.stStats.nGatherHoldSec, 5, 3600, "stats.gather_hold_sec");
+    CLAMP_WARN(stSnap.stStats.nGatherNum, "stats.gather_num");
+    CLAMP_WARN(stSnap.stStats.fGatherRadiusHeads, "stats.gather_radius_heads");
+    CLAMP_WARN(stSnap.stStats.nGatherHoldSec, "stats.gather_hold_sec");
     /* 趴桌时长必须显著大于低头门（默认 3s），否则"低头"一发生就被报成"趴桌" */
-    CLAMP_WARN(stSnap.stStats.nDeskHoldSec, 30, 3600, "stats.desk_hold_sec");
-    CLAMP_WARN(stSnap.stPool.llIdleUnloadMs, static_cast<int64_t>(1000), static_cast<int64_t>(3600000),
-               "pool.idle_unload_ms");
+    CLAMP_WARN(stSnap.stStats.nDeskHoldSec, "stats.desk_hold_sec");
+    CLAMP_WARN(stSnap.stPool.llIdleUnloadMs, "pool.idle_unload_ms");
     /* 上限提成常量 */
-    CLAMP_WARN(stSnap.stPool.llReserveKb, static_cast<int64_t>(0),
-               CLASSROOM_POOL_RESERVE_MAX_KB, "pool.reserve_kb");
+    CLAMP_WARN(stSnap.stPool.llReserveKb, "pool.reserve_kb");
     /* 时间片小于 1s 会让 301ms 的加载成本被反复支付，直接钳到 1s 起。
        上界 25s 不是"保守"而是为了让下面那句复议的话说得通：轮转的复议窗口是 60s，
        而它的职责是"最多 60s 一定重问一次池子两组还装不装得下"（P7-f 那条自锁的出口）。
        片长配到比窗口还长的话，这个旋钮写了但行为不受它管——引擎会在片走完之前就解除轮转，
        现场读到的是"我把 slice 调成一分钟，它还是十几秒就换"，比报错更难查。
        推法与余量写在 classroom_warm_policy.h 的 CLASSROOM_WARM_SLICE_MAX_MS 那条注释里 */
-    CLAMP_WARN(stSnap.stPool.llSlicePoseMs, static_cast<int64_t>(1000),
-               static_cast<int64_t>(CLASSROOM_WARM_SLICE_MAX_MS), "pool.slice_pose_ms");
-    CLAMP_WARN(stSnap.stPool.llSliceFaceMs, static_cast<int64_t>(1000),
-               static_cast<int64_t>(CLASSROOM_WARM_SLICE_MAX_MS), "pool.slice_face_ms");
+    CLAMP_WARN(stSnap.stPool.llSlicePoseMs, "pool.slice_pose_ms");
+    CLAMP_WARN(stSnap.stPool.llSliceFaceMs, "pool.slice_face_ms");
 
-    CLAMP_WARN(stSnap.stHeadDown.fKeyScore, 0.0f, 1.0f, "rules.head_down.key_score");
-    CLAMP_WARN(stSnap.stHeadDown.fRatio, 0.01f, 10.0f, "rules.head_down.ratio");
-    CLAMP_WARN(stSnap.stHeadUp.fKeyScore, 0.0f, 1.0f, "rules.head_up.key_score");
+    CLAMP_WARN(stSnap.stHeadDown.fKeyScore, "rules.head_down.key_score");
+    CLAMP_WARN(stSnap.stHeadDown.fRatio, "rules.head_down.ratio");
+    /* 解耦后的各自实例：区间与旧键一致，越界同样点名到具体键 */
+    CLAMP_WARN(stSnap.stHeadDownReading.fKeyScore, "rules.head_down_reading.key_score");
+    CLAMP_WARN(stSnap.stHeadDownReading.fRatio, "rules.head_down_reading.ratio");
+    CLAMP_WARN(stSnap.stHeadDownPhone.fKeyScore, "rules.head_down_phone.key_score");
+    CLAMP_WARN(stSnap.stHeadDownPhone.fRatio, "rules.head_down_phone.ratio");
+    CLAMP_WARN(stSnap.stHeadDownTeacher.fKeyScore, "rules.head_down_teacher.key_score");
+    CLAMP_WARN(stSnap.stHeadDownTeacher.fRatio, "rules.head_down_teacher.ratio");
+    CLAMP_WARN(stSnap.stHeadDownPhoneTeacher.fKeyScore, "rules.head_down_phone_teacher.key_score");
+    CLAMP_WARN(stSnap.stHeadDownPhoneTeacher.fRatio, "rules.head_down_phone_teacher.ratio");
+    CLAMP_WARN(stSnap.stHeadUp.fKeyScore, "rules.head_up.key_score");
+    CLAMP_WARN(stSnap.stHeadUpTeacher.fKeyScore, "rules.head_up_teacher.key_score");
+    CLAMP_WARN(stSnap.stHeadUpTeacher.fAngle, "rules.head_up_teacher.angle");
     /* 三条教师事件的置信度（骨骼均分门）：0..1，0 = 不设门 */
-    CLAMP_WARN(stSnap.fTeachKeyScore, 0.0f, 1.0f, "rules.teaching.key_score");
-    CLAMP_WARN(stSnap.fBoardWriteKeyScore, 0.0f, 1.0f, "rules.board_write.key_score");
-    CLAMP_WARN(stSnap.fInteractKeyScore, 0.0f, 1.0f, "rules.interact.key_score");
+    CLAMP_WARN(stSnap.fTeachKeyScore, "rules.teaching.key_score");
+    CLAMP_WARN(stSnap.fBoardWriteKeyScore, "rules.board_write.key_score");
+    CLAMP_WARN(stSnap.fInteractKeyScore, "rules.interact.key_score");
     /* 207 区域停留时间：0 = 关，网页上限 10s；给出 60s 的软上界只是防手滑写出"半小时"，
        不在 [0,60000] 内的值钳到边界并记名 */
-    CLAMP_WARN(stSnap.nGuidingStayMs, 0, 60000, "rules.guiding.stay_ms");
-    CLAMP_WARN(stSnap.stHeadUp.fAngle, 0.0f, 180.0f, "rules.head_up.angle");
-    CLAMP_WARN(stSnap.stStand.fKeyScore, 0.0f, 1.0f, "rules.stand.key_score");
-    CLAMP_WARN(stSnap.stStand.fLegVerticalAngle, 0.0f, 90.0f, "rules.stand.leg_vertical_angle");
-    CLAMP_WARN(stSnap.stStand.fArmStraightAngle, 0.0f, 180.0f, "rules.stand.arm_straight_angle");
-    CLAMP_WARN(stSnap.stStand.fMinTorsoShoulder, 0.0f, 5.0f, "rules.stand.min_torso_shoulder");
-    CLAMP_WARN(stSnap.stRaiseHand.fKeyScore, 0.0f, 1.0f, "rules.raise_hand.key_score");
-    CLAMP_WARN(stSnap.stRaiseHand.fVerticalAngle, 0.0f, 90.0f, "rules.raise_hand.vertical_angle");
-    CLAMP_WARN(stSnap.stRaiseHand.fMinWristAboveHead, 0.0f, 20.0f, "rules.raise_hand.min_wrist_above_head");
+    CLAMP_WARN(stSnap.nGuidingStayMs, "rules.guiding.stay_ms");
+    CLAMP_WARN(stSnap.stHeadUp.fAngle, "rules.head_up.angle");
+    CLAMP_WARN(stSnap.stStand.fKeyScore, "rules.stand.key_score");
+    CLAMP_WARN(stSnap.stStand.fLegVerticalAngle, "rules.stand.leg_vertical_angle");
+    CLAMP_WARN(stSnap.stStand.fArmStraightAngle, "rules.stand.arm_straight_angle");
+    CLAMP_WARN(stSnap.stStand.fMinTorsoShoulder, "rules.stand.min_torso_shoulder");
+    CLAMP_WARN(stSnap.stStandTeacher.fKeyScore, "rules.stand_teacher.key_score");
+    CLAMP_WARN(stSnap.stStandTeacher.fLegVerticalAngle, "rules.stand_teacher.leg_vertical_angle");
+    CLAMP_WARN(stSnap.stStandTeacher.fArmStraightAngle, "rules.stand_teacher.arm_straight_angle");
+    CLAMP_WARN(stSnap.stStandTeacher.fMinTorsoShoulder, "rules.stand_teacher.min_torso_shoulder");
+    CLAMP_WARN(stSnap.stRaiseHand.fKeyScore, "rules.raise_hand.key_score");
+    CLAMP_WARN(stSnap.stRaiseHand.fVerticalAngle, "rules.raise_hand.vertical_angle");
+    CLAMP_WARN(stSnap.stRaiseHand.fMinWristAboveHead, "rules.raise_hand.min_wrist_above_head");
     /* 举手有效三选一：0 单手 / 1 双手 / 2 单双手（默认=历史行为）。
        钳 [0,2] 并把未知值按默认档处理——写成"配错就整份拒"会让现场一个手滑
        把整份配置打回来，而这一项本身有安全默认值 */
-    CLAMP_WARN(stSnap.stRaiseHand.nHandMode, 0, 2, "rules.raise_hand.hand_mode");
-    CLAMP_WARN(stSnap.stTurnBack.fFaceScore, 0.0f, 1.0f, "rules.turn_back.face_score");
-    CLAMP_WARN(stSnap.stTurnBack.fBodyScore, 0.0f, 1.0f, "rules.turn_back.body_score");
-    CLAMP_WARN(stSnap.stTurnBack.fFaceWitnessTtlMs, 0.0f, 60000.0f, "rules.turn_back.face_witness_ttl_ms");
+    CLAMP_WARN(stSnap.stRaiseHand.nHandMode, "rules.raise_hand.hand_mode");
+    CLAMP_WARN(stSnap.stTurnBack.fFaceScore, "rules.turn_back.face_score");
+    CLAMP_WARN(stSnap.stTurnBack.fBodyScore, "rules.turn_back.body_score");
+    CLAMP_WARN(stSnap.stTurnBack.fFaceWitnessTtlMs, "rules.turn_back.face_witness_ttl_ms");
     /* 上限 1.0 之上没有意义（眼Lx>分界在分界≥1 时永不成立，等于关位多占一个键）。
        下限不给 0.5 之外的建议值：分界 <0.45 会把「双眼同落左半」的真侧脸也划进交叉
        （Lx=0.35/Rx=0.25 在分界 0.3 下被杀，而证人的本职恰是救侧脸）；推荐取值在
        0.45~0.55 空带（T 侧上限 <0.45、正面下限 >0.55，见 geometry.h 字段注释） */
-    CLAMP_WARN(stSnap.stTurnBack.fFaceWitnessMirrorRx, 0.0f, 1.0f, "rules.turn_back.face_witness_mirror_rx");
-    CLAMP_WARN(stSnap.stTeacher.fPoseWitnessTtlMs, 0.0f, 60000.0f, "teacher.pose_witness_ttl_ms");
-    CLAMP_WARN(stSnap.stTeacher.nWitOwnHeadPct, 0, 200, "teacher.pose_witness_own_head_pct");
-    CLAMP_WARN(stSnap.stTeacher.fPoseWitMinScore, 0.0f, 1.0f, "teacher.pose_witness_min_score");
-    CLAMP_WARN(stSnap.stLieOnDesk.fKeyScore, 0.0f, 1.0f, "rules.lie_on_desk.key_score");
-    CLAMP_WARN(stSnap.stPhone.fKeyScore, 0.0f, 1.0f, "rules.phone.key_score");
-    CLAMP_WARN(stSnap.stPhone.fBandAboveShoulder, 0.0f, 10.0f, "rules.phone.band_above_shoulder");
+    CLAMP_WARN(stSnap.stTurnBack.fFaceWitnessMirrorRx, "rules.turn_back.face_witness_mirror_rx");
+    CLAMP_WARN(stSnap.stTeacher.fPoseWitnessTtlMs, "teacher.pose_witness_ttl_ms");
+    CLAMP_WARN(stSnap.stTeacher.nWitOwnHeadPct, "teacher.pose_witness_own_head_pct");
+    CLAMP_WARN(stSnap.stTeacher.fPoseWitMinScore, "teacher.pose_witness_min_score");
+    CLAMP_WARN(stSnap.stLieOnDesk.fKeyScore, "rules.lie_on_desk.key_score");
+    CLAMP_WARN(stSnap.stPhone.fKeyScore, "rules.phone.key_score");
+    CLAMP_WARN(stSnap.stPhoneTeacher.fKeyScore, "rules.phone_teacher.key_score");
+    CLAMP_WARN(stSnap.stPhoneReading.fKeyScore, "rules.phone_reading.key_score");
+    CLAMP_WARN(stSnap.stPhone.fBandAboveShoulder, "rules.phone.band_above_shoulder");
     /* 下界取正值而不是 0：带是 [-above, +below]，两边同时为 0 就是"没有带"，
        这一列从此恒不成立而心跳上它长得像"没人玩手机"。不额外写关系检查，让区间本身
        使那种配法不可表示（与上面 region_coverage 钳到 1 同一条路：能钳死的不开硬错误） */
-    CLAMP_WARN(stSnap.stPhone.fBandBelowShoulder, 0.05f, 10.0f, "rules.phone.band_below_shoulder");
-    CLAMP_WARN(stSnap.stPhone.fMaxElbowAngle, 0.0f, 180.0f, "rules.phone.max_elbow_angle");
-    CLAMP_WARN(stSnap.stPhone.fMaxWristGapNorm, 0.05f, 10.0f, "rules.phone.wrist_gap_norm");
+    CLAMP_WARN(stSnap.stPhone.fBandBelowShoulder, "rules.phone.band_below_shoulder");
+    CLAMP_WARN(stSnap.stPhone.fMaxElbowAngle, "rules.phone.max_elbow_angle");
+    CLAMP_WARN(stSnap.stPhone.fMaxWristGapNorm, "rules.phone.wrist_gap_norm");
+    /* 205/108 各自的「手在身前」实例。区间与 rules.phone 完全一致，
+       只是键名分开——同一个越界值点到的键必须能直接去配置里搜到 */
+    CLAMP_WARN(stSnap.stPhoneTeacher.fBandAboveShoulder, "rules.phone_teacher.band_above_shoulder");
+    CLAMP_WARN(stSnap.stPhoneTeacher.fBandBelowShoulder, "rules.phone_teacher.band_below_shoulder");
+    CLAMP_WARN(stSnap.stPhoneTeacher.fMaxElbowAngle, "rules.phone_teacher.max_elbow_angle");
+    CLAMP_WARN(stSnap.stPhoneTeacher.fMaxWristGapNorm, "rules.phone_teacher.wrist_gap_norm");
+    CLAMP_WARN(stSnap.stPhoneReading.fBandAboveShoulder, "rules.phone_reading.band_above_shoulder");
+    CLAMP_WARN(stSnap.stPhoneReading.fBandBelowShoulder, "rules.phone_reading.band_below_shoulder");
+    CLAMP_WARN(stSnap.stPhoneReading.fMaxElbowAngle, "rules.phone_reading.max_elbow_angle");
+    CLAMP_WARN(stSnap.stPhoneReading.fMaxWristGapNorm, "rules.phone_reading.wrist_gap_norm");
 
     /* ---- 107/109/111 的三档朝向与三道人数阈值 ----
        区间钳到 [-1,1] 是把"把 60° 抄进来"这类配错挡在物理范围外：读数本身就是钳在 ±1 的
        比例，配 60 会得到一个恒真（或恒假）的判据，而那在心跳上与"标定过了"看不出区别 */
-    CLAMP_WARN(stSnap.stGroup.stListenDir.fKeyScore, 0.0f, 1.0f, "rules.group.listen.key_score");
-    CLAMP_WARN(stSnap.stGroup.stListenDir.fTrueAbove, -1.0f, 1.0f, "rules.group.listen.toward_true");
-    CLAMP_WARN(stSnap.stGroup.stListenDir.fFalseBelow, -1.0f, 1.0f, "rules.group.listen.toward_false");
-    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fKeyScore, 0.0f, 1.0f, "rules.group.discuss.key_score");
-    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fTrueAbove, -1.0f, 1.0f, "rules.group.discuss.toward_true");
-    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fFalseBelow, -1.0f, 1.0f, "rules.group.discuss.toward_false");
-    CLAMP_WARN(stSnap.stGroup.stPresentDir.fKeyScore, 0.0f, 1.0f, "rules.group.present.key_score");
-    CLAMP_WARN(stSnap.stGroup.stPresentDir.fTrueAbove, -1.0f, 1.0f, "rules.group.present.toward_true");
-    CLAMP_WARN(stSnap.stGroup.stPresentDir.fFalseBelow, -1.0f, 1.0f, "rules.group.present.toward_false");
-    /* 中间带不可表示 = 这一列永远不会 UNKNOWN。两档相接（false>=true）时"判不出来"这个状态
-       消失了，而它是这几列唯一的诚实出口：远焦糊掉、侧脸、点塌陷都该落在这里，
-       被挤成 TRUE 是虚高、挤成 FALSE 是漏判，且报表上看不出任何异常。
-       拒而不是钳：两档谁该挪是判据问题，配置层没有资格替标定的人决定 */
-    struct DirBand_S { const char *pszName; const FaceDirRule_S *pstDir; };
-    const DirBand_S astDir[] = {
-        { "listen",  &stSnap.stGroup.stListenDir  },
-        { "discuss", &stSnap.stGroup.stDiscussDir },
-        { "present", &stSnap.stGroup.stPresentDir },
+    CLAMP_WARN(stSnap.stGroup.stListenDir.fKeyScore, "rules.group.listen.key_score");
+    CLAMP_WARN(stSnap.stGroup.stListenDir.fTrueAbove, "rules.group.listen.toward_true");
+    CLAMP_WARN(stSnap.stGroup.stListenDir.fFalseBelow, "rules.group.listen.toward_false");
+    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fKeyScore, "rules.group.discuss.key_score");
+    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fTrueAbove, "rules.group.discuss.toward_true");
+    CLAMP_WARN(stSnap.stGroup.stDiscussDir.fFalseBelow, "rules.group.discuss.toward_false");
+    CLAMP_WARN(stSnap.stGroup.stPresentDir.fKeyScore, "rules.group.present.key_score");
+    CLAMP_WARN(stSnap.stGroup.stPresentDir.fTrueAbove, "rules.group.present.toward_true");
+    CLAMP_WARN(stSnap.stGroup.stPresentDir.fFalseBelow, "rules.group.present.toward_false");
+    /* ---------- 方向两档归一----------
+       中间带不可表示 = 这一列永远不会 UNKNOWN，而它是这几列唯一的诚实出口：远焦糊掉、
+       侧脸、点塌陷都该落在这里，被挤成 TRUE 是虚高、挤成 FALSE 是漏判，且报表上看不出异常。
+    */
+    struct DirBand_S { const char *pszName; const char *pszCfg; FaceDirRule_S *pstDir; };
+    DirBand_S astDir[] = {
+        { "listen",  "rules.group.listen",  &stSnap.stGroup.stListenDir  },
+        { "discuss", "rules.group.discuss", &stSnap.stGroup.stDiscussDir },
+        { "present", "rules.group.present", &stSnap.stGroup.stPresentDir },
     };
-    for (const DirBand_S &stRow : astDir)
+    for (DirBand_S &stRow : astDir)
     {
-        if (stRow.pstDir->fFalseBelow < stRow.pstDir->fTrueAbove)
+        const float fTrue = (stRow.pstDir->fTrueAbove > stRow.pstDir->fFalseBelow)
+                            ? stRow.pstDir->fTrueAbove : stRow.pstDir->fFalseBelow;
+        const float fFalse = (stRow.pstDir->fTrueAbove > stRow.pstDir->fFalseBelow)
+                             ? stRow.pstDir->fFalseBelow : stRow.pstDir->fTrueAbove;
+        if (fTrue != stRow.pstDir->fTrueAbove || fFalse != stRow.pstDir->fFalseBelow)
         {
-            continue;
+            strSoft += std::string(" ") + stRow.pszCfg +
+                       ": toward_true/toward_false normalized to ("
+                     + std::to_string(fTrue) + "," + std::to_string(fFalse) + ")";
         }
-        rstrErr = std::string("rules.group.") + stRow.pszName + ": toward_false (" +
-                  std::to_string(stRow.pstDir->fFalseBelow) + ") must be below toward_true (" +
-                  std::to_string(stRow.pstDir->fTrueAbove) +
-                  "), otherwise this judgment can never answer UNKNOWN";
-        return false;
+        stRow.pstDir->fTrueAbove = fTrue;
+        stRow.pstDir->fFalseBelow = fFalse;
     }
-    CLAMP_WARN(stSnap.stGroup.fNeighborMaxHead, 0.5f, 30.0f, "rules.group.neighbor_max_head");
+    CLAMP_WARN(stSnap.stGroup.fNeighborMaxHead, "rules.group.neighbor_max_head");
     /* 死区下界给正值：0 意味着"参考点与头框几乎同侧"时也照取符号，而那一档的符号只剩噪声 */
-    CLAMP_WARN(stSnap.stGroup.fRefDeadbandHead, 0.01f, 10.0f, "rules.group.ref_deadband_head");
-    CLAMP_WARN(stSnap.stGroup.nListenMinPersons, 1, CLASSROOM_MAX_PERSONS,
-               "rules.group.listen_min_persons");
-    CLAMP_WARN(stSnap.stGroup.nReadingMinPersons, 1, CLASSROOM_MAX_PERSONS,
-               "rules.group.reading_min_persons");
+    CLAMP_WARN(stSnap.stGroup.fRefDeadbandHead, "rules.group.ref_deadband_head");
+    CLAMP_WARN(stSnap.stGroup.nListenMinPersons, "rules.group.listen_min_persons");
+    CLAMP_WARN(stSnap.stGroup.nReadingMinPersons, "rules.group.reading_min_persons");
     /* 下界是 2 不是 1：讨论按定义要 "两人以上"，出厂值也是 2。下界留 1 等于允许
        配成 "一个人也算讨论"，而那与 107 听讲/108 阅读的判据直接冲突 */
-    CLAMP_WARN(stSnap.stGroup.nDiscussMinPersons, 2, CLASSROOM_MAX_PERSONS,
-               "rules.group.discuss_min_persons");
+    CLAMP_WARN(stSnap.stGroup.nDiscussMinPersons, "rules.group.discuss_min_persons");
     /* 转身人数阈值：需求写的是"限制最小为1"，比最少参与人数宽一档（它是辅助下界） */
-    CLAMP_WARN(stSnap.stGroup.nDiscussTurnPersons, 1, CLASSROOM_MAX_PERSONS,
-               "rules.group.discuss_turn_persons");
+    CLAMP_WARN(stSnap.stGroup.nDiscussTurnPersons, "rules.group.discuss_turn_persons");
     /* 网页两个字段（最少参与人数 / 转身人数阈值）描述同一个计数门——本实现只有一个
        计数：朝向邻座成立的生效人数。生效门取两者之大（两条下界同时满足）。
        合并只在这里做一次：上面两道钳制已完成，合并后的数就是消费者唯一看到的数；
@@ -2665,14 +3139,13 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     /* ---- 人脸对齐 ----
        这几项都是"量出来的数"，有明确物理区间，故钳制而不是拒（与上面的点序/反向区间不同类）。
        上限一律放得比常态值宽一档：现场要在验收时试不同档位，钳太紧等于替他们决定试到哪 */
-    CLAMP_WARN(stSnap.stAlign.fPointScoreMin, 0.0f, 1.0f, "align.point_score_min");
-    CLAMP_WARN(stSnap.stAlign.fMinEyeSpanPx, 0.0f, 1024.0f, "align.min_eye_span_px");
-    CLAMP_WARN(stSnap.stAlign.fMaxResidualRatio, 0.01f, 10.0f, "align.max_residual_ratio");
+    CLAMP_WARN(stSnap.stAlign.fPointScoreMin, "align.point_score_min");
+    CLAMP_WARN(stSnap.stAlign.fMinEyeSpanPx, "align.min_eye_span_px");
+    CLAMP_WARN(stSnap.stAlign.fMaxResidualRatio, "align.max_residual_ratio");
     /* 下限 0 是合法档（= 关掉地板门），不是错误 */
-    CLAMP_WARN(stSnap.stAlign.fNoiseFloorSrcPx, 0.0f, 64.0f, "align.noise_floor_src_px");
-    CLAMP_WARN(stSnap.stAlign.fScaleMax, 0.01f, 64.0f, "align.scale_max");
-    CLAMP_WARN(stSnap.nAlignCropPx, CLASSROOM_ALIGN_CROP_MIN_PX, CLASSROOM_ALIGN_CROP_MAX_PX,
-               "align.crop_px");
+    CLAMP_WARN(stSnap.stAlign.fNoiseFloorSrcPx, "align.noise_floor_src_px");
+    CLAMP_WARN(stSnap.stAlign.fScaleMax, "align.scale_max");
+    CLAMP_WARN(stSnap.nAlignCropPx, "align.crop_px");
     if (0 != (stSnap.nAlignCropPx % 4))
     {
         /* 向下取到 4 的倍数：RGA 对目标宽度有对齐要求，配 150 会让裁剪档 setup 直接失败，
@@ -2685,44 +3158,44 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     }
 
     /* ---- 底库 ---- */
-    CLAMP_WARN(stSnap.stGallery.nReloadSec, 1, 3600, "gallery.reload_sec");
+    CLAMP_WARN(stSnap.stGallery.nReloadSec, "gallery.reload_sec");
     /* 上限就是 store 的容量口径，超过不会更安全，只会让"名单被截断"这件事换一处发生 */
-    CLAMP_WARN(stSnap.stGallery.nMaxEnroll, 1, CLASSROOM_GALLERY_MAX_ENROLL, "gallery.max_enroll");
+    CLAMP_WARN(stSnap.stGallery.nMaxEnroll, "gallery.max_enroll");
 
     /* ---- 板书记录----
        下限都留到"一次采集的量级"而不是 0：reentry 的下限 1s 是因为一次 OCR 是几十到几百毫秒，
        比它短的下限等于没有下限；在途超时下限 1s 同理（比一次取图还短的超时会在采集进行中就把
        请求放行，随后回填写进下一次请求，报表上的时间戳会整体错位）。
        上限全部按容量给：这两个数配大不会更安全，只会把一次分钟尺度的事件挤进每一拍 */
-    CLAMP_WARN(stSnap.stBoard.llIntervalMs, 1000, 3600000, "board.reentry_ms");
+    CLAMP_WARN(stSnap.stBoard.llIntervalMs, "board.reentry_ms");
     /* 0 是合法值（关掉周期重识别）；下界不给 1000 是因为现场可能要更稀的采样 */
-    CLAMP_WARN(stSnap.stBoard.llScanIntervalMs, 0, 60000, "board.scan_interval_ms");
-    CLAMP_WARN(stSnap.stBoard.llInflightTimeoutMs, 1000, 60000, "board.inflight_timeout_ms");
+    CLAMP_WARN(stSnap.stBoard.llScanIntervalMs, "board.scan_interval_ms");
+    CLAMP_WARN(stSnap.stBoard.llInflightTimeoutMs, "board.inflight_timeout_ms");
     /* 停留边沿 0=关是合法档（现场不要这条触发源），所以下限给 0 而不是"一次停留的量级"：
        把 0 抬起来就抹掉了"关"这个选项；上限按一节课的量级给，配再大也只会整节课不触发 */
-    CLAMP_WARN(stSnap.stBoard.llStayExitEdgeMs, 0, 600000, "board.stay_exit_edge_ms");
+    CLAMP_WARN(stSnap.stBoard.llStayExitEdgeMs, "board.stay_exit_edge_ms");
     /* 遮挡比上限 1（不是 0）：配 1 的语义是"整块板被身体挡住也照采"，那是现场要试的对照档
        （要看 OCR 在被挡住时给出什么），而 0 会让这条路恒不采集且与 enable=false 无法区分 */
-    CLAMP_WARN(stSnap.stBoard.fMaxOccludeRatio, 0.0f, 1.0f, "board.max_occlude_ratio");
-    CLAMP_WARN(stSnap.stBoard.fMinLineScore, 0.0f, 1.0f, "board.min_line_score");
+    CLAMP_WARN(stSnap.stBoard.fMaxOccludeRatio, "board.max_occlude_ratio");
+    CLAMP_WARN(stSnap.stBoard.fMinLineScore, "board.min_line_score");
     /* 两条容量钳：单条字节数与环条数的上界就是感知层那两张定长表，超过不会多存下任何东西，
        只会让 setParam 重建出一个比容量还大的"期望"，现象是永远采不满 */
-    CLAMP_WARN(stSnap.stBoard.nTextMaxBytes, 16, CLASSROOM_BOARD_TEXT_MAX_BYTES, "board.text_max_bytes");
-    CLAMP_WARN(stSnap.stBoard.nItemMax, 1, CLASSROOM_BOARD_ITEM_MAX, "board.item_max");
+    CLAMP_WARN(stSnap.stBoard.nTextMaxBytes, "board.text_max_bytes");
+    CLAMP_WARN(stSnap.stBoard.nItemMax, "board.item_max");
     /* 行上限的**上界就是那个宏**：一次采集的行数上限决定的是"多少行会进哈希与报文"，
        而报文体积那侧已经改成只放计数，所以这里不再有字节预算，只有"定长表按宏开"这一条。
        下限给 1 而不是 0：配 0 的语义不是"最保守"，是"这条功能整条关掉而读数上看不出来" */
-    CLAMP_WARN(stSnap.stBoard.nLineMax, 1, CLASSROOM_BOARD_LINE_MAX, "board.line_max");
+    CLAMP_WARN(stSnap.stBoard.nLineMax, "board.line_max");
     /* ---- OCR 的 DB 三道门与容量（#64 第 9 刀）----
        两道阈值都钳在 0.05..0.95 而不是 0..1：0 会让整片概率图都算文字（BFS 栈触顶、
        一块反光的板能吐出几百个"行"），1 会让一条都出不来——而后者的读数形状是
        "empty= 一直涨"，与"这板子真没写字"逐字同形。
        unclip 钳 1..3：<1 是收缩框（DB 的外扩语义就是为了让笔画不断成几段），
        >3 会让相邻两行的框互相吞并，症状是行数变少而 lines=/bytes= 一起抖 */
-    CLAMP_WARN(stSnap.stOcr.fMaskThreshold, 0.05f, 0.95f, "ocr.mask_threshold");
-    CLAMP_WARN(stSnap.stOcr.fBoxThreshold, 0.05f, 0.95f, "ocr.box_threshold");
-    CLAMP_WARN(stSnap.stOcr.fUnclipRatio, 1.0f, 3.0f, "ocr.unclip_ratio");
-    CLAMP_WARN(stSnap.stOcr.nBoxMax, 1, CLASSROOM_OCR_BOX_MAX, "ocr.box_max");
+    CLAMP_WARN(stSnap.stOcr.fMaskThreshold, "ocr.mask_threshold");
+    CLAMP_WARN(stSnap.stOcr.fBoxThreshold, "ocr.box_threshold");
+    CLAMP_WARN(stSnap.stOcr.fUnclipRatio, "ocr.unclip_ratio");
+    CLAMP_WARN(stSnap.stOcr.nBoxMax, "ocr.box_max");
     if (stSnap.stBoard.llInflightTimeoutMs > stSnap.stBoard.llIntervalMs)
     {
         /* 关系钳：在途超时比下限还长时，决定"什么时候允许下一次采集"的是那个超时而不是
@@ -2736,17 +3209,17 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
        三个时间数都留下限而不给 0：`enter_ms=0` 的语义不是"立刻切"而是"滞回没有了"，
        现象是一节正常的课被证据抖动切成几十段，而那在报表上看着像"课堂活动很丰富"。
        最短段允许 0（= 关差不合并），因为"我要看每一次切换"是压测时的真实需求 */
-    CLAMP_WARN(stSnap.stScene.nEnterMs, 2000, 600000, "scene.enter_ms");
-    CLAMP_WARN(stSnap.stScene.nExitMs, 1000, 600000, "scene.exit_ms");
-    CLAMP_WARN(stSnap.stScene.nMinSegmentMs, 0, 600000, "scene.min_segment_ms");
+    CLAMP_WARN(stSnap.stScene.nEnterMs, "scene.enter_ms");
+    CLAMP_WARN(stSnap.stScene.nExitMs, "scene.exit_ms");
+    CLAMP_WARN(stSnap.stScene.nMinSegmentMs, "scene.min_segment_ms");
     /* 两个密度的上界给到 1 而不是"看起来合理"的 0.5：现场要能配出"全班都举手才算问答"
        这种几乎不成立的档来验证这条判据真的在起作用（配成永远不可能满足的门限，
        是确认一条判据是否在跑的少数几种干净办法之一） */
-    CLAMP_WARN(stSnap.stScene.fRaiseRatioQa, 0.0f, 1.0f, "scene.raise_ratio_qa");
-    CLAMP_WARN(stSnap.stScene.fHeadDownRatioPractice, 0.0f, 1.0f, "scene.head_down_ratio_practice");
+    CLAMP_WARN(stSnap.stScene.fRaiseRatioQa, "scene.raise_ratio_qa");
+    CLAMP_WARN(stSnap.stScene.fHeadDownRatioPractice, "scene.head_down_ratio_practice");
     /* 俯角修正只往画面下方挪（负数会把采样点挪进头顶上方的空气里，口径说不清）；
        下界 0 同时挡 NaN（NaN 过不了比较走钳下界） */
-    CLAMP_WARN(stSnap.stScene.fGroundShiftHeads, 0.0f, 2.0f, "scene.ground_shift");
+    CLAMP_WARN(stSnap.stScene.fGroundShiftHeads, "scene.ground_shift");
     /* 三条**有顺序**的关系钳。顺序不是讲究：先把窗口撑开，再抬 exit 的下界，
        最后压它的上界，这样三步做完一定自洽；反过来做会留下一组"两条钳互相打架"的配法 */
     if (stSnap.stScene.bEnable && stSnap.stSample.nGroupIntervalMs > 0 &&
@@ -2776,13 +3249,13 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     }
 
     /* ---- 取特征段 ---- */
-    CLAMP_WARN(stSnap.stFaceFeat.nMaxPersons, 1, CLASSROOM_MAX_PERSONS, "face_feature.max_persons");
+    CLAMP_WARN(stSnap.stFaceFeat.nMaxPersons, "face_feature.max_persons");
     /* 每拍人数的钳制上界是 max_persons（容量口径）而不是 CLASSROOM_MAX_PERSONS：
        现场把 max_persons 压到 4 时 per_beat_persons=8 会让一拍做的比容量还多 */
-    CLAMP_WARN(stSnap.stFaceFeat.nPerBeatPersons, 1, stSnap.stFaceFeat.nMaxPersons,
-               "face_feature.per_beat_persons");
-    CLAMP_WARN(stSnap.stFaceFeat.nMinIntervalMs, 0, 600000, "face_feature.min_interval_ms");
-    CLAMP_WARN(stSnap.stFaceFeat.nTtlMs, 1000, 600000, "face_feature.ttl_ms");
+    CLAMP_WARN_DYN(stSnap.stFaceFeat.nPerBeatPersons, 1, stSnap.stFaceFeat.nMaxPersons,
+                   "face_feature.per_beat_persons");
+    CLAMP_WARN(stSnap.stFaceFeat.nMinIntervalMs, "face_feature.min_interval_ms");
+    CLAMP_WARN(stSnap.stFaceFeat.nTtlMs, "face_feature.ttl_ms");
     if (stSnap.stFaceFeat.bEnable && stSnap.stSample.nFaceIntervalMs > 0 &&
         stSnap.stFaceFeat.nTtlMs < 2 * stSnap.stSample.nFaceIntervalMs)
     {
@@ -2797,11 +3270,11 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
        在上面已被硬拒（越界没有"就近取一个"的说法），两套界只留一套口径。
        curve_prob_min 留在这里是因为它有明确的物理边界（概率 0~1），
        越过边界是手滑而不是决定，钳住并留线索比对整份配置不生效有用 */
-    CLAMP_WARN(stSnap.stExpr.stParam.fCurveProbMin, 0.0f, 1.0f, "expression.curve_prob_min");
-    CLAMP_WARN(stSnap.stExpr.nTtlMs, 1000, 600000, "expression.ttl_ms");
+    CLAMP_WARN(stSnap.stExpr.stParam.fCurveProbMin, "expression.curve_prob_min");
+    CLAMP_WARN(stSnap.stExpr.nTtlMs, "expression.ttl_ms");
     /* 至少 1 帧：配 0 的含义是"没喂过也给曲线值"，而冷启动那道闸（min_frames）就没东西可挡了，
        现象是刚出勤的人第一帧就带情绪值，而那个值是零向量的 argmax（恒等于槽位 0） */
-    CLAMP_WARN(stSnap.stExpr.stParam.nMinFrames, 1, 64, "expression.min_frames");
+    CLAMP_WARN(stSnap.stExpr.stParam.nMinFrames, "expression.min_frames");
     if (stSnap.stExpr.bEnable && stSnap.stFaceFeat.bEnable &&
         stSnap.stExpr.nTtlMs < 2 * stSnap.stFaceFeat.nTtlMs)
     {
@@ -2814,17 +3287,18 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     }
     /* 事件新鲜度不超过行 TTL：超过没有意义（行先被清掉，事件照样断），
        而配小了会让两次取特征之间的正常空档被当成"没情绪" */
-    CLAMP_WARN(stSnap.stExpr.nEventTtlMs, 1000, stSnap.stExpr.nTtlMs, "expression.event_ttl_ms");
+    CLAMP_WARN_DYN(stSnap.stExpr.nEventTtlMs, 1000, stSnap.stExpr.nTtlMs,
+                   "expression.event_ttl_ms");
 
     /* ---- 玩手机复核 ---- */
-    CLAMP_WARN(stSnap.stPhoneRecheck.nMaxPersons, 1, CLASSROOM_MAX_PERSONS, "phone_recheck.max_persons");
+    CLAMP_WARN(stSnap.stPhoneRecheck.nMaxPersons, "phone_recheck.max_persons");
     /* 下限不是 0：配 0 = 不设同人间隔，而挑选是「最久没做优先」，间隔一停就用面积决定谁在做，
        结果是大框那几个人每拍被反复复核、别人的结论一直过期。100ms 是一次推理的量级 */
-    CLAMP_WARN(stSnap.stPhoneRecheck.nMinIntervalMs, 100, 600000, "phone_recheck.min_interval_ms");
-    CLAMP_WARN(stSnap.stPhoneRecheck.nTtlMs, 1000, 600000, "phone_recheck.ttl_ms");
+    CLAMP_WARN(stSnap.stPhoneRecheck.nMinIntervalMs, "phone_recheck.min_interval_ms");
+    CLAMP_WARN(stSnap.stPhoneRecheck.nTtlMs, "phone_recheck.ttl_ms");
     /* 0 是合法值（放弃尺寸闸）：手机在人体裁剪图里到底占多少像素，取决于机位与坐姿，
        现场标定阶段需要能看见所有框再决定切在哪 */
-    CLAMP_WARN(stSnap.stPhoneRecheck.nMinBoxPx, 0, 200, "phone_recheck.min_box_px");
+    CLAMP_WARN(stSnap.stPhoneRecheck.nMinBoxPx, "phone_recheck.min_box_px");
     if (stSnap.stPhoneRecheck.bEnable &&
         stSnap.stPhoneRecheck.nTtlMs < stSnap.stPhoneRecheck.nMinIntervalMs)
     {
@@ -2837,16 +3311,16 @@ bool CClassroomConfig::validate(CConfigSnapshot_S &stSnap, std::string &rstrErr)
     for (size_t i = 0; i < stSnap.vecGates.size(); ++i)
     {
         CGateParam_S &stGate = stSnap.vecGates[i];
-        CLAMP_WARN(stGate.nSampleIntervalMs, 0, 60000, "behaviors[].sample_interval_ms");
-        CLAMP_WARN(stGate.nMinDurationMs, 0, 3600000, "behaviors[].min_duration_ms");
-        CLAMP_WARN(stGate.nGapToleranceMs, 0, 60000, "behaviors[].gap_tolerance_ms");
-        CLAMP_WARN(stGate.nMinTrueCount, 1, 1000, "behaviors[].min_true_count");
+        CLAMP_WARN(stGate.nSampleIntervalMs, "behaviors[].sample_interval_ms");
+        CLAMP_WARN(stGate.nMinDurationMs, "behaviors[].min_duration_ms");
+        CLAMP_WARN(stGate.nGapToleranceMs, "behaviors[].gap_tolerance_ms");
+        CLAMP_WARN(stGate.nMinTrueCount, "behaviors[].min_true_count");
 
         /* 覆盖率上限必须是 1：配成 1.5 之类等于要求「框的 150% 在区域内」，
            这条行为就此永不出事件，而界面上它明明显示已启用 */
         if (i < stSnap.vecBehaviorRegions.size())
         {
-            CLAMP_WARN(stSnap.vecBehaviorRegions[i].fMinCoverage, 0.01f, 1.0f, "behaviors[].region_coverage");
+            CLAMP_WARN(stSnap.vecBehaviorRegions[i].fMinCoverage, "behaviors[].region_coverage");
         }
     }
 

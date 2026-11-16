@@ -11,18 +11,12 @@
 
 #include <cstdint>
 
-#include "NetTVSDKServer.h"
-#include "control_manage.h"
+#include "event_linkage_dict.h"
 #include "stats_protocol.h"
 #include "stats_sink.h"
 
 namespace Classroom
 {
-/* 共享头里的基址与协议文档必须同值：不同值意味着我们在往另一段发报文，
-   平台按本仓文档解析会得到一堆彼此不相干的字段——编译期就拦下来 */
-static_assert(static_cast<uint32_t>(NET_ALARM_BASE_STATISTICS) == CLASSROOM_STATS_TVSDK_BASE,
-              "stats command base drifted from NET_ALARM_BASE_STATISTICS");
-
 /**
  * @brief TVSDK 推送实现：客户端数为 0 时报"通道不可用"
  * @note  `ready()` 被 CStatsHub 每个节拍问一次（只是读一个计数，无锁）；
@@ -33,7 +27,7 @@ class CTvSdkStatsSink final : public IStatsSink
 public:
     bool ready() const override
     {
-        return ControlManage::instance()->tvsdk_get_client_count() > 0;
+        return EventLinkageDict::tvsdk_client_count() > 0;
     }
 
     bool send(StatsTopic_E enTopic, const void *pData, uint32_t u32Len) override
@@ -42,7 +36,9 @@ public:
         {
             return false;
         }
-        return ControlManage::instance()->tvsdk_push_alarm(
+        /* 框架门：客户端闸 + 诊断 + 返回信号（与告警门同一套纪律）。
+           >=0 = 平台侧接受；-1 = 两扇门之间客户端掉线/推送失败 */
+        return EventLinkageDict::push_tvsdk_classroom_stats_alarm(
                    static_cast<int>(statsTopicCmd(enTopic)), pData,
                    static_cast<int>(u32Len)) >= 0;
     }

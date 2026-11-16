@@ -207,6 +207,9 @@ bool buildGroupMetric(const CFeatureFrame_S &stFrame, const CRowStatInput_S *pat
     /* 逐人累加。行为之间允许同时成立，所以这里只加"生效人数"，
        任何复合指标都在下面按**同一行的位组合**判，不用生效人数做减法 */
     int32_t nStuUpNoDownNoBack = 0;
+    /* 纪律占比的分子：有证据且违纪（低头/背身/手机任一）的去重学生数。逐人 +1，
+       与分母 nStuEvidence 同域，恒 ≤ 分母 */
+    int32_t nStuBadEvi = 0;
     int32_t anEviActive[CDurationGate::BEHAVIOR_COLUMN_NUM] = { 0 };
     int32_t nListenKnown = 0;
     int32_t nReadingKnown = 0;
@@ -262,6 +265,15 @@ bool buildGroupMetric(const CFeatureFrame_S &stFrame, const CRowStatInput_S *pat
             {
                 ++nStuUpNoDownNoBack;
             }
+            /* 违纪去重计数：低头/背身/手机任一成立即算一个违纪者（同一人多列只 +1）。
+               必须有证据（bPoseEvidence）才计——与分母同域，缺证行的容忍期生效位不算违纪 */
+            const int nPhone = studentMaskBit(Behavior_E::STU_PHONE);
+            if (stIn.bPoseEvidence && (maskHas(stIn.u32StuMask, nDown) ||
+                                       maskHas(stIn.u32StuMask, nBack) ||
+                                       maskHas(stIn.u32StuMask, nPhone)))
+            {
+                ++nStuBadEvi;
+            }
         }
         else
         {
@@ -305,6 +317,7 @@ bool buildGroupMetric(const CFeatureFrame_S &stFrame, const CRowStatInput_S *pat
     rstOut.fStuAttention = rateOf(nStuUpNoDownNoBack, nStuDenom);
     rstOut.fStuSitRate = rateOf(nStuDenom - activeAt(anEviActive, Behavior_E::STU_STAND_UP),
                                 nStuDenom);
+    rstOut.fStuDisciplineRate = rateOf(nStuBadEvi, nStuDenom);
 
     rstOut.fTeaHeadUpRate = rateOf(activeAt(anEviActive, Behavior_E::TEA_HEAD_UP), nTeaDenom);
     rstOut.fTeaStandRate = rateOf(activeAt(anEviActive, Behavior_E::TEA_STAND_UP), nTeaDenom);

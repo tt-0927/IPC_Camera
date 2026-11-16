@@ -30,7 +30,14 @@ enum SpoolType_E
 {
     SPOOL_TYPE_REPORT   = 1,   /* 周期报表（指标流） */
     SPOOL_TYPE_SESSION  = 2,   /* 课堂收尾报表（会话报告） */
-    SPOOL_TYPE_EVENT    = 3    /* 行为事件：通道定了再接 */
+    SPOOL_TYPE_EVENT    = 3,   /* 行为事件：通道定了再接 */
+    /* 统计通道（0x62xx）的遗留落盘标签：旧版本把下课断线时的完整线格式报文
+       （376/1416/392B，冻结原始会话头）写进这里。统计核心现改为会话内队列 + 重试、
+       不再新增这三类；drainSpool 仍按标签把它们原样交回统计出口，补发旧环里的积压，
+       不走 CUploadFn（报表通道） */
+    SPOOL_TYPE_STATS_COUNTERS = 4,   /* 0x6200 会话最终封账计数 */
+    SPOOL_TYPE_STATS_SEG      = 5,   /* 0x6201 行为段批量 */
+    SPOOL_TYPE_STATS_ALERT    = 6    /* 0x6202 预警批量 */
 };
 
 /**

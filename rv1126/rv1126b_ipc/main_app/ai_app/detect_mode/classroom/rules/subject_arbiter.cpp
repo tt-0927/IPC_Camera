@@ -759,6 +759,8 @@ void CSubjectArbiter::update(const CFeatureFrame_S &stFrame, const CRegionTable 
            否则会出现"因站着被判成教师，而他的站立行为又因证据不足不成立"的自相矛盾 */
         stFact.bStandKnown = false;
         stFact.bStanding = false;
+        stFact.bStandTeacherKnown = false;
+        stFact.bStandTeacher = false;
         if (stFrame.bPoseResident && stRow.poseUsable(llFrameMs, nPoseTtlMs) &&
                 !stRow.bOccluded && !stRow.bOnBoundary &&
                 !(stRow.fBlurScore > 0.0f &&
@@ -772,6 +774,9 @@ void CSubjectArbiter::update(const CFeatureFrame_S &stFrame, const CRegionTable 
             const TriState_E enStand = judgeStanding(stInput, stSnap.stStand);
             stFact.bStandKnown = (TriState_E::TS_UNKNOWN != enStand);
             stFact.bStanding = (TriState_E::TS_TRUE == enStand);
+            const TriState_E enStandTeacher = judgeStanding(stInput, stSnap.stStandTeacher);
+            stFact.bStandTeacherKnown = (TriState_E::TS_UNKNOWN != enStandTeacher);
+            stFact.bStandTeacher = (TriState_E::TS_TRUE == enStandTeacher);
         }
         else
         {
@@ -833,9 +838,9 @@ void CSubjectArbiter::update(const CFeatureFrame_S &stFrame, const CRegionTable 
            独自站着答题的学生被讲台有人那一关挡住——答题时讲台通常是 occupied）。
            默认 0=关：新判据不上电，现场显式打开才生效 */
         const bool bWeakMove = m_bPodiumEmpty && stFact.bInStudentArea && stFact.bMoved &&
-                               !(stFact.bStandKnown && !stFact.bStanding);
+                               !(stFact.bStandTeacherKnown && !stFact.bStandTeacher);
         const bool bWeakStay = (stConf.nStayEvidenceMs > 0) && m_bPodiumEmpty &&
-                               stFact.bStandKnown && stFact.bStanding && stFact.bInStudentArea &&
+                               stFact.bStandTeacherKnown && stFact.bStandTeacher && stFact.bInStudentArea &&
                                stSlot.llStudentStaySinceMs > 0 &&
                                (llFrameMs - stSlot.llStudentStaySinceMs) >=
                                    static_cast<int64_t>(stConf.nStayEvidenceMs) &&

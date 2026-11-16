@@ -1452,6 +1452,11 @@ void ControlManage::bind_task(std::shared_ptr<CTaskManage> &pTaskManage)
     pTaskManage->bind<Task::Classroom::SetStuPresent>(AC_CLASSROOM_SET_STU_PRESENT);
     /* 课程报告（只读） */
     pTaskManage->bind<Task::Classroom::GetCourseReport>(AC_CLASSROOM_GET_COURSE_REPORT);
+    /* 教师机讲台状态查询（平台经 TVSDK 下行） */
+    pTaskManage->bind<Task::Classroom::GetPodiumState>(AC_CLASSROOM_GET_PODIUM_STATE);
+    /* 课程/名单下发与读回（平台课前经 TVSDK 下行 SET 633 / GET 634） */
+    pTaskManage->bind<Task::Classroom::SetCourseInfo>(AC_CLASSROOM_SET_COURSE_INFO);
+    pTaskManage->bind<Task::Classroom::GetCourseInfo>(AC_CLASSROOM_GET_COURSE_INFO);
 #endif
 
     TaskPublish::instance()->set_manage(pTaskManage);

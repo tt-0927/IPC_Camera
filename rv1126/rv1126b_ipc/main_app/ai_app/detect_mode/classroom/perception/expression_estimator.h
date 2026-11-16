@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -32,7 +33,6 @@ typedef enum class ExprFail : int
     EF_LOW_PROB,        /* top-1 概率不足 */
     EF_LOW_MARGIN,      /* top1 与 top2 之差不足：这一帧是「猜不出来」而不是「情绪平淡」 */
     EF_SOFTMAX_BAD,     /* 概率归一化失败（全等 -inf 之类），与 LOW_PROB 区别在于分子就没有效 */
-    EF_LOW_QUALITY,     /* 人脸质量不足，本拍不该判（调用方传入门限） */
     EF_SLOT_MAP,        /* 槽位映射表非法（含 EXP_UNKNOWN 或越界） */
 } ExprFail_E;
 
@@ -91,7 +91,27 @@ typedef struct _ExpressionParam_
     float fCurveProbMin = 0.40f;
     /* 允许参与表情识别的最大人脸偏转角 */
     float fMaxAngleDeg = 90.0f;
+    /* 参与表情识别的人脸最小短边（画布像素） */
+    int32_t nMinFacePx = CLASSROOM_MIN_FACE_PIXEL;
 } CExpressionParam_S;
+
+/**
+ * @brief   : 表情入口的尺寸门（纯函数，管线与用例共用同一把尺）
+ * @param    {int32_t} nMinFacePx：配置门限（画布像素），<=0 表示不设闸
+ * @param    {float} fFaceShortPx：本张脸的框短边（画布像素）
+ * @return   {bool} true = 够大，可以提交表情推理
+ * @note     : 尺寸非法（NaN/<=0）时返回 false：没有尺寸就没有证据，跳过这一张不会把
+ *            谁的情绪写成"平静"；与角度门"量不出角度时放行"不同——那是估计值退化，
+ *            这里是检测框本身不可用。两者都在花 NPU 之前返回，口径差在"缺观测"的处置上
+ */
+inline bool expressionFacePxOk(int32_t nMinFacePx, float fFaceShortPx)
+{
+    if (nMinFacePx <= 0)
+    {
+        return true;
+    }
+    return std::isfinite(fFaceShortPx) && (fFaceShortPx >= static_cast<float>(nMinFacePx));
+}
 
 /**
  * @brief 一帧的判定结果（瞬时口径，事件用）

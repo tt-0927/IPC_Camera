@@ -14,7 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <set>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -60,6 +60,13 @@ struct SFeatureDef_S
 #define WFP(k, p, t)           { k, p, 1.0f, t, 0.0f, 3 }
 /* WFD = 同 WF，但给出"配置原文缺这个键时的下发默认值" */
 #define WFD(k, p, sc, t, d)    { k, p, sc, t, 0.0f, 0, (d), true }
+/* WFX = WF + 旧键回退。p 是新键，fb 是拆分前的旧键：
+   Get 新键缺失时读 fb；Set 任一相关键前把 fb 的其它依赖新键冻结。
+   用宏而不是逐行写 9 个字段 */
+#define WFX(k, p, fb, sc, t)   { k, p, sc, t, 0.0f, 0, 0.0, false, fb }
+#define WFLX(k, p, fb, sc, bias, t) { k, p, sc, t, bias, 1, 0.0, false, fb }
+/* WFPX = 像素 + 旧键回退 */
+#define WFPX(k, p, fb, t)      { k, p, 1.0f, t, 0.0f, 3, 0.0, false, fb }
 
 const std::vector<SFeatureDef_S> &featureTable()
 {
@@ -153,7 +160,9 @@ const std::vector<SFeatureDef_S> &featureTable()
         WF("min_duration_s",    "behaviors.108.min_duration_ms",  0.001f, FLD_T_INT),
         WF("merge_gap_s",       "behaviors.108.gap_tolerance_ms", 0.001f, FLD_T_INT),
         WF("headdown_persons",  "rules.group.reading_min_persons", 1.0f,  FLD_T_INT),
-        WF("confidence",        "rules.head_down.key_score",      10.0f,  FLD_T_FLOAT),
+        /* 阅读有自己的低头置信度（rules.head_down_reading）*/
+        WFX("confidence",       "rules.head_down_reading.key_score",
+                                "rules.head_down.key_score",     10.0f,  FLD_T_FLOAT),
     } },
     /* 10 学生-讨论（109） */
     { ConfigPage_E::STU_DISCUSS, "学生讨论检测", {
@@ -167,7 +176,9 @@ const std::vector<SFeatureDef_S> &featureTable()
     /* 11 学生-表情（112） */
     { ConfigPage_E::STU_EXPRESSION, "学生表情识别", {
         WF("enable",            "behaviors.112.enable",           1.0f,   FLD_T_BOOL),
-        WFP("min_face_px",      "threshold.min_face_px",                  FLD_T_INT),
+        /* 表情有自己的 expression.min_face_px（只挡表情推理）*/
+        WFPX("min_face_px",     "expression.min_face_px",
+                                "threshold.min_face_px",                FLD_T_INT),
         WF("confidence",        "expression.prob_min",            10.0f,  FLD_T_FLOAT),
         /* 允许人脸角度（度，1..90）：消费方是感知入口的角度门（runExpressionOfWarp），
            超限时连推理都不提交。量不出来（五点退化）时放行，心跳 expr 段 nobad= 计这一档 */
@@ -212,28 +223,37 @@ const std::vector<SFeatureDef_S> &featureTable()
     { ConfigPage_E::TEA_STAND, "教师站立检测", {
         WF("enable",            "behaviors.201.enable",           1.0f,   FLD_T_BOOL),
         WF("min_duration_s",    "behaviors.201.min_duration_ms",  0.001f, FLD_T_INT),
-        WF("confidence",        "rules.stand.key_score",          10.0f,  FLD_T_FLOAT),
+        /* 教师站立有自己的 rules.stand_teacher（旧键 rules.stand 回退） */
+        WFX("confidence",       "rules.stand_teacher.key_score",
+                                "rules.stand.key_score",          10.0f,  FLD_T_FLOAT),
     } },
     /* 18 教师-抬头（202） 与 203 低头是两列，别配反。
-       角度换算与第 4 页同一口径（同一个键 rules.head_up.angle、同一条判据） */
+       角度换算与第 4 页同一口径（同一把尺、同一档换算，但键是教师自己的）。 */
     { ConfigPage_E::TEA_HEAD_UP, "教师抬头检测", {
         WF("enable",            "behaviors.202.enable",           1.0f,   FLD_T_BOOL),
-        WFL("angle",            "rules.head_up.angle",            1.0f / 3.0f, 90.0f, FLD_T_FLOAT),
+        /* 教师抬头有自己的 rules.head_up_teacher（旧键 rules.head_up 回退） */
+        WFLX("angle",           "rules.head_up_teacher.angle",
+                                "rules.head_up.angle",            1.0f / 3.0f, 90.0f, FLD_T_FLOAT),
         WF("sample_gap_s",      "behaviors.202.sample_interval_ms", 0.001f, FLD_T_INT),
-        WF("confidence",        "rules.head_up.key_score",        10.0f,  FLD_T_FLOAT),
+        WFX("confidence",       "rules.head_up_teacher.key_score",
+                                "rules.head_up.key_score",        10.0f,  FLD_T_FLOAT),
     } },
     /* 19 教师-低头（203） */
     { ConfigPage_E::TEA_HEAD_DOWN, "教师低头检测", {
         WF("enable",            "behaviors.203.enable",           1.0f,   FLD_T_BOOL),
-        /* 与学生低头同一口径：60 度 = 1.0 */
-        WFL("angle",            "rules.head_down.ratio",          1.0f / 60.0f, 0.0f, FLD_T_FLOAT),
+        /* 与学生低头同一口径：60 度 = 1.0；键是教师自己的（旧键 rules.head_down 回退） */
+        WFLX("angle",           "rules.head_down_teacher.ratio",
+                                "rules.head_down.ratio",          1.0f / 60.0f, 0.0f, FLD_T_FLOAT),
         WF("min_duration_s",    "behaviors.203.min_duration_ms",  0.001f, FLD_T_INT),
-        WF("confidence",        "rules.head_down.key_score",      10.0f,  FLD_T_FLOAT),
+        WFX("confidence",       "rules.head_down_teacher.key_score",
+                                "rules.head_down.key_score",      10.0f,  FLD_T_FLOAT),
     } },
     /* 20 教师-使用手机（205） */
     { ConfigPage_E::TEA_PHONE, "教师手机检测", {
         WF("enable",            "behaviors.205.enable",           1.0f,   FLD_T_BOOL),
-        WF("confidence",        "rules.phone.key_score",          10.0f,  FLD_T_FLOAT),
+        /* 教师手机有自己的 rules.phone_teacher（旧键 rules.phone 回退） */
+        WFX("confidence",       "rules.phone_teacher.key_score",
+                                "rules.phone.key_score",          10.0f,  FLD_T_FLOAT),
         WF("min_duration_s",    "behaviors.205.min_duration_ms",  0.001f, FLD_T_INT),
     } },
     /* 21 教师-讲授（206） */
@@ -703,58 +723,10 @@ double configFromWire(double dWire, const CConfigPageField_S &stField)
     }
 }
 
-/* ---- 网页侧时间字段量程上限---- */
-typedef struct _WebTimeCap_
-{
-    ConfigPage_E enPage;
-    const char  *pszPubKey;
-    int32_t      nMaxSec;   /* 网页量程上限（秒） */
-} CWebTimeCap_S;
+/* ---- 网页侧时间字段量程 ----
+   这里曾有一张 AST_WEB_TIME_CAP[] + webTimeCapOf()，在下发口把超过 10s 的时间字段夹回 10s */
 
-const CWebTimeCap_S AST_WEB_TIME_CAP[] = {
-    /* 学生 */
-    { ConfigPage_E::STU_STAND,       "min_duration_s",  10 },
-    { ConfigPage_E::STU_STAND,       "gap_tolerance_s", 10 },
-    { ConfigPage_E::STU_RAISE_HAND,  "min_duration_s",  10 },
-    { ConfigPage_E::STU_HEAD_UP,     "sample_gap_s",    10 },
-    { ConfigPage_E::STU_HEAD_DOWN,   "min_duration_s",  10 },
-    { ConfigPage_E::STU_TURN_BACK,   "min_duration_s",  10 },
-    { ConfigPage_E::STU_PHONE,       "merge_gap_s",     10 },
-    { ConfigPage_E::STU_READING,     "min_duration_s",  10 },
-    { ConfigPage_E::STU_READING,     "merge_gap_s",     10 },
-    { ConfigPage_E::STU_DISCUSS,     "min_duration_s",  10 },
-    { ConfigPage_E::STU_PODIUM,      "min_stay_s",      10 },
-    { ConfigPage_E::STU_PRESENT,     "min_duration_s",  10 },
-    /* 教师 */
-    { ConfigPage_E::TEA_GUIDING,     "stay_s",          10 },
-    { ConfigPage_E::TEA_GUIDING,     "min_duration_s",  10 },
-    { ConfigPage_E::TEA_PATROL,      "min_duration_s",  10 },
-    { ConfigPage_E::TEA_STAND,       "min_duration_s",  10 },
-    { ConfigPage_E::TEA_HEAD_UP,     "sample_gap_s",    10 },
-    { ConfigPage_E::TEA_HEAD_DOWN,   "min_duration_s",  10 },
-    { ConfigPage_E::TEA_PHONE,       "min_duration_s",  10 },
-    { ConfigPage_E::TEA_TEACHING,    "min_duration_s",  10 },
-    { ConfigPage_E::TEA_BOARD_WRITE, "min_duration_s",  10 },
-    { ConfigPage_E::ENTER_PODIUM,    "min_stay_s",      10 },
-};
-
-/* 命中返回 true 并给出上限（秒）；未列出的页/字段完全不受影响 */
-bool webTimeCapOf(ConfigPage_E enPage, const char *pszPubKey, int32_t &rnMaxSec)
-{
-    for (size_t i = 0; i < sizeof(AST_WEB_TIME_CAP) / sizeof(AST_WEB_TIME_CAP[0]); ++i)
-    {
-        if (AST_WEB_TIME_CAP[i].enPage == enPage &&
-            0 == strcmp(AST_WEB_TIME_CAP[i].pszPubKey, pszPubKey))
-        {
-            rnMaxSec = AST_WEB_TIME_CAP[i].nMaxSec;
-            return true;
-        }
-    }
-    return false;
-}
-
-/* 下发值去浮点噪声：fScale 是 float（0.001f 的真值是 0.001000000047…），
-   1500ms × 0.001f 得 1.500000071246177——网页上就是"1.500000071"这种数 */
+/* 下发值去浮点噪声：fScale 是 float（0.001f 的真值是 0.001000000047…） */
 double snapWire(double dVal)
 {
     /* 5 位小数：float 配置值的相对误差约 1e-7，乘到角度上约 2e-6
@@ -764,8 +736,202 @@ double snapWire(double dVal)
     return std::floor(dScaled + (dScaled >= 0.0 ? 0.5 : -0.5)) / 1e5;
 }
 
+/* 网页 Set 的输入量程 */
+typedef struct _WebInputRange_
+{
+    ConfigPage_E enPage;
+    const char  *pszPubKey;
+    double       dLo;
+    double       dHi;      /* 上界；不再支持"只给下界"（-1）的写法*/
+    const char  *pszUnit;  /* 拒绝信息里的单位，nullptr = 无量纲 */
+} CWebInputRange_S;
+
+static const CWebInputRange_S s_aWebInputRange[] = {
+    /* 2 学生站立 */   { ConfigPage_E::STU_STAND,       "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_STAND,       "gap_tolerance_s",  1, 10, "s" },
+                        { ConfigPage_E::STU_STAND,       "confidence",       1, 10, nullptr },
+    /* 3 学生举手 */   { ConfigPage_E::STU_RAISE_HAND,  "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_RAISE_HAND,  "confidence",       1, 10, nullptr },
+                        { ConfigPage_E::STU_RAISE_HAND,  "hand_mode",        0,  2, nullptr },
+    /* 4 学生抬头 */   { ConfigPage_E::STU_HEAD_UP,     "angle",            1, 90, "deg" },
+                        { ConfigPage_E::STU_HEAD_UP,     "sample_gap_s",     1, 10, "s" },
+                        { ConfigPage_E::STU_HEAD_UP,     "confidence",       1, 10, nullptr },
+    /* 5 学生低头 */   { ConfigPage_E::STU_HEAD_DOWN,   "angle",            1, 90, "deg" },
+                        { ConfigPage_E::STU_HEAD_DOWN,   "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_HEAD_DOWN,   "confidence",       1, 10, nullptr },
+    /* 6 学生背身 */   { ConfigPage_E::STU_TURN_BACK,   "angle",            1, 90, "deg" },
+                        { ConfigPage_E::STU_TURN_BACK,   "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_TURN_BACK,   "confidence",       1, 10, nullptr },
+    /* 7 学生手机 */   { ConfigPage_E::STU_PHONE,       "merge_gap_s",      1, 10, "s" },
+                        { ConfigPage_E::STU_PHONE,       "confidence",       1, 10, nullptr },
+    /* 8 学生听讲 */   { ConfigPage_E::STU_LISTEN,      "body_angle",       1, 90, "deg" },
+                        { ConfigPage_E::STU_LISTEN,      "head_angle",       1, 90, "deg" },
+                        /* 人数类 */
+                        { ConfigPage_E::STU_LISTEN,      "headup_persons",   1, 60, nullptr },
+    /* 9 学生阅读 */   { ConfigPage_E::STU_READING,     "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_READING,     "merge_gap_s",      1, 10, "s" },
+                        { ConfigPage_E::STU_READING,     "headdown_persons", 1, 60, nullptr },
+                        { ConfigPage_E::STU_READING,     "confidence",       1, 10, nullptr },
+    /* 10 学生讨论 */  { ConfigPage_E::STU_DISCUSS,     "min_persons",      2, 10, nullptr },
+                        { ConfigPage_E::STU_DISCUSS,     "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_DISCUSS,     "turn_persons",     1, 10, nullptr },
+    /* 11 学生表情 */  { ConfigPage_E::STU_EXPRESSION,  "min_face_px",     32, 240, "px" },
+                        { ConfigPage_E::STU_EXPRESSION,  "max_angle",        1, 90, "deg" },
+                        { ConfigPage_E::STU_EXPRESSION,  "confidence",       1, 10, nullptr },
+    /* 13 学生人脸 */  { ConfigPage_E::FACE_DETECT,     "sensitivity",      1, 10, nullptr },
+                        { ConfigPage_E::FACE_DETECT,     "min_eye_span_px", 12, 225, "px" },
+    /* 14 教师指导 */  { ConfigPage_E::TEA_GUIDING,     "stay_s",           1, 10, "s" },
+                        { ConfigPage_E::TEA_GUIDING,     "min_duration_s",   1, 10, "s" },
+    /* 15 师生互动 */  { ConfigPage_E::TEA_INTERACT,    "confidence",       1, 10, nullptr },
+    /* 16 教师巡视 */  { ConfigPage_E::TEA_PATROL,      "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::TEA_PATROL,      "min_move_px",     30, 2000, "px" },
+    /* 17 教师站立 */  { ConfigPage_E::TEA_STAND,       "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::TEA_STAND,       "confidence",       1, 10, nullptr },
+    /* 18 教师抬头 */  { ConfigPage_E::TEA_HEAD_UP,     "angle",            1, 90, "deg" },
+                        { ConfigPage_E::TEA_HEAD_UP,     "sample_gap_s",     1, 10, "s" },
+                        { ConfigPage_E::TEA_HEAD_UP,     "confidence",       1, 10, nullptr },
+    /* 19 教师低头 */  { ConfigPage_E::TEA_HEAD_DOWN,   "angle",            1, 90, "deg" },
+                        { ConfigPage_E::TEA_HEAD_DOWN,   "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::TEA_HEAD_DOWN,   "confidence",       1, 10, nullptr },
+    /* 20 教师手机 */  { ConfigPage_E::TEA_PHONE,       "confidence",       1, 10, nullptr },
+                        { ConfigPage_E::TEA_PHONE,       "min_duration_s",   1, 10, "s" },
+    /* 21 教师讲授 */  { ConfigPage_E::TEA_TEACHING,    "confidence",       1, 10, nullptr },
+                        { ConfigPage_E::TEA_TEACHING,    "min_duration_s",   1, 10, "s" },
+    /* 22 教师板书 */  { ConfigPage_E::TEA_BOARD_WRITE, "confidence",       1, 10, nullptr },
+                        { ConfigPage_E::TEA_BOARD_WRITE, "min_duration_s",   1, 10, "s" },
+    /* 23 进入讲台 */  { ConfigPage_E::ENTER_PODIUM,    "min_stay_s",       1, 10, "s" },
+    /* 24 黑板 OCR */ { ConfigPage_E::BOARD_OCR,       "interval_s",       1, 10, "s" },
+    /* 25 学生上讲台 */{ ConfigPage_E::STU_PODIUM,      "min_stay_s",       1, 10, "s" },
+    /* 26 学生演示 */  { ConfigPage_E::STU_PRESENT,     "min_duration_s",   1, 10, "s" },
+                        { ConfigPage_E::STU_PRESENT,     "confidence",       1, 10, nullptr },
+};
+
+/* 取某一页某一字段的网页量程；没列出 = 该字段没有量程（bool/区域/字符串），不校验 */
+static bool webInputRangeOf(ConfigPage_E enPage, const char *pszPubKey,
+                            double &rdLo, double &rdHi, const char *&rpszUnit)
+{
+    for (size_t i = 0; i < sizeof(s_aWebInputRange) / sizeof(s_aWebInputRange[0]); ++i)
+    {
+        if (s_aWebInputRange[i].enPage == enPage &&
+            nullptr != s_aWebInputRange[i].pszPubKey &&
+            0 == strcmp(s_aWebInputRange[i].pszPubKey, pszPubKey))
+        {
+            rdLo = s_aWebInputRange[i].dLo;
+            rdHi = s_aWebInputRange[i].dHi;
+            rpszUnit = s_aWebInputRange[i].pszUnit;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* 网页 Get 的第二道量程（第 99 轮，D-19）：网页量程是这一页的输入契约 */
+void clampWebOut(cJSON *pOut, ConfigPage_E enPage, const char *pszPubKey)
+{
+    double dLo = 0.0;
+    double dHi = 0.0;
+    const char *pszUnit = nullptr;
+    if ((nullptr == pOut) || (nullptr == pszPubKey) ||
+        !webInputRangeOf(enPage, pszPubKey, dLo, dHi, pszUnit) || (dHi < 0.0))
+    {
+        return;
+    }
+    cJSON *pNode = cJSON_GetObjectItemCaseSensitive(pOut, pszPubKey);
+    if (!cJSON_IsNumber(pNode))
+    {
+        return;
+    }
+    const double dVal = pNode->valuedouble;
+    if (dVal < dLo)
+    {
+        cJSON_SetNumberValue(pNode, dLo);
+    }
+    else if (dVal > dHi)
+    {
+        cJSON_SetNumberValue(pNode, dHi);
+    }
+}
+
+/* 网页 Get 的取值边界：把越界值夹成"引擎真正会用的那个数" */
+typedef struct _WebFieldRange_
+{
+    const char *pszPath;   /* 配置键路径（字段表里的主路径；回退读取时用回退路径） */
+    double      dLo;
+    double      dHi;
+} CWebFieldRange_S;
+
+static const CWebFieldRange_S s_aWebFieldRange[] = {
+    { "rules.head_down_reading.key_score", 0.0f, 1.0f },
+    { "rules.stand_teacher.key_score", 0.0f, 1.0f },
+    { "rules.head_up_teacher.angle", 0.0f, 180.0f },
+    { "rules.head_up_teacher.key_score", 0.0f, 1.0f },
+    { "rules.head_down_teacher.ratio", 0.01f, 10.0f },
+    { "rules.head_down_teacher.key_score", 0.0f, 1.0f },
+    { "rules.phone_teacher.key_score", 0.0f, 1.0f },
+    { "rules.stand.key_score", 0.0f, 1.0f },
+    { "rules.raise_hand.key_score", 0.0f, 1.0f },
+    { "rules.raise_hand.hand_mode", 0, 2 },
+    { "rules.head_up.angle", 0.0f, 180.0f },
+    { "rules.head_up.key_score", 0.0f, 1.0f },
+    { "rules.head_down.ratio", 0.01f, 10.0f },
+    { "rules.head_down.key_score", 0.0f, 1.0f },
+    { "rules.turn_back.body_score", 0.0f, 1.0f },
+    { "rules.turn_back.face_score", 0.0f, 1.0f },
+    { "rules.phone.key_score", 0.0f, 1.0f },
+    { "rules.group.listen_min_persons", 1, 60 },   /* 上界 = CLASSROOM_MAX_PERSONS（classroom_define.h:21），本层不链那个头 */
+    { "rules.group.reading_min_persons", 1, 60 },   /* 上界 = CLASSROOM_MAX_PERSONS（classroom_define.h:21），本层不链那个头 */
+    { "rules.group.discuss_min_persons", 2, 60 },   /* 上界 = CLASSROOM_MAX_PERSONS（classroom_define.h:21），本层不链那个头 */
+    { "rules.group.discuss_turn_persons", 1, 60 },   /* 上界 = CLASSROOM_MAX_PERSONS（classroom_define.h:21），本层不链那个头 */
+    { "align.min_eye_span_px", 0.0f, 1024.0f },
+    { "rules.guiding.stay_ms", 0, 60000 },
+    { "rules.interact.key_score", 0.0f, 1.0f },
+    { "teacher.patrol_move_px", 30, 2000 },
+    { "rules.teaching.key_score", 0.0f, 1.0f },
+    { "rules.board_write.key_score", 0.0f, 1.0f },
+    { "board.scan_interval_ms", 0, 60000 },
+    { "rules.group.present.key_score", 0.0f, 1.0f },
+};
+
+static bool webFieldRangeOf(const char *pszPath, double &rdLo, double &rdHi)
+{
+    if (nullptr == pszPath)
+    {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(s_aWebFieldRange) / sizeof(s_aWebFieldRange[0]); ++i)
+    {
+        if (0 == strcmp(s_aWebFieldRange[i].pszPath, pszPath))
+        {
+            rdLo = s_aWebFieldRange[i].dLo;
+            rdHi = s_aWebFieldRange[i].dHi;
+            return true;
+        }
+    }
+    return false;
+}
+
+/* 把配置值夹到引擎真正会用的数（越界给边界）。无边界 ⇒ 原样返回 */
+static double clampToEngineRange(const char *pszPath, double dCfg)
+{
+    double dLo = 0.0;
+    double dHi = 0.0;
+    if (!webFieldRangeOf(pszPath, dLo, dHi))
+    {
+        return dCfg;
+    }
+    if (dCfg < dLo)
+    {
+        return dLo;
+    }
+    if (dCfg > dHi)
+    {
+        return dHi;
+    }
+    return dCfg;
+}
+
 void addConverted(cJSON *pOut, const char *pszPubKey, const cJSON *pVal,
-                  const CConfigPageField_S &stField)
+                  const CConfigPageField_S &stField, const char *pszEffPath)
 {
     if (nullptr == pOut || nullptr == pszPubKey || nullptr == pVal)
     {
@@ -782,7 +948,8 @@ void addConverted(cJSON *pOut, const char *pszPubKey, const cJSON *pVal,
         if (cJSON_IsNumber(pVal))
         {
             /* 不强行取整：毫秒→秒 的换算会把 1500ms 变成 1.5s */
-            double dPub = snapWire(wireFromConfig(pVal->valuedouble, stField));
+            const double dCfg = clampToEngineRange(pszEffPath, pVal->valuedouble);
+            double dPub = snapWire(wireFromConfig(dCfg, stField));
             const double dRound = std::floor(dPub + 0.5);
             if (std::fabs(dPub - dRound) < 1e-6)
             {
@@ -798,7 +965,8 @@ void addConverted(cJSON *pOut, const char *pszPubKey, const cJSON *pVal,
     case FLD_T_FLOAT:
         if (cJSON_IsNumber(pVal))
         {
-            Json::add(pOut, pszPubKey, snapWire(wireFromConfig(pVal->valuedouble, stField)));
+            const double dCfg = clampToEngineRange(pszEffPath, pVal->valuedouble);
+            Json::add(pOut, pszPubKey, snapWire(wireFromConfig(dCfg, stField)));
         }
         else
         {
@@ -1042,12 +1210,50 @@ const CPageRegionPath_S s_pageRegionPaths[] = {
     { ConfigPage_E::TEA_BOARD_WRITE,"behaviors.208.region_ids" },
     { ConfigPage_E::TEA_INTERACT,   "behaviors.209.region_ids" },
     { ConfigPage_E::TEA_PATROL,     "behaviors.210.region_ids" },
-    /* 讲台/黑板走角色：三页共用同一块几何（画一次、改一次） */
-    { ConfigPage_E::ENTER_PODIUM,   "region_roles.0.region_ids" },
-    { ConfigPage_E::STU_PODIUM,     "region_roles.0.region_ids" },
-    { ConfigPage_E::STU_PRESENT,    "region_roles.0.region_ids" },
+    /* 讲台三页不再共用同一块几何  */
+    { ConfigPage_E::ENTER_PODIUM,   "behaviors.211.region_ids" },
+    { ConfigPage_E::STU_PODIUM,     "behaviors.110.region_ids" },
+    { ConfigPage_E::STU_PRESENT,    "behaviors.111.region_ids" },
     { ConfigPage_E::BOARD_OCR,      "region_roles.1.region_ids" },
 };
+
+/* 上面的"只读回退"：该页自己的区域键还是空的时候，Get 用哪一块几何**显示**。
+   不写、只读——回退路径上的几何永远不因为这一页的保存而改变。 */
+const CPageRegionPath_S s_pageRegionFallback[] = {
+    /* 顺序就是运行期的覆盖顺序（classroom_config.cpp）：210 非空时覆盖讲台角色，
+       三页自己的键为空才继承；所以显示也必须先 210、后 region_roles[podium]。
+       旧版只列 role0，画了 210 后网页打开三页仍是旧讲台/整幅。 */
+    { ConfigPage_E::ENTER_PODIUM,   "behaviors.210.region_ids" },
+    /* 讲台/黑板走角色：三页共用同一块几何（画一次、改一次） */
+    { ConfigPage_E::ENTER_PODIUM,   "region_roles.0.region_ids" },
+    { ConfigPage_E::STU_PODIUM,     "behaviors.210.region_ids" },
+    { ConfigPage_E::STU_PODIUM,     "region_roles.0.region_ids" },
+    { ConfigPage_E::STU_PRESENT,    "behaviors.210.region_ids" },
+    { ConfigPage_E::STU_PRESENT,    "region_roles.0.region_ids" },
+};
+
+cJSON *strictNodeAt(cJSON *pRoot, const char *pszPath);
+
+/* 返回第一个**非空**的回退路径；全空返回 nullptr（调用方回整幅）。
+   用 strictNodeAt 而不是 nodeAt：后者在数字段配不上 id 时会退按下标，
+   region_roles 只有 role=1 时会把黑板行当成讲台行。 */
+const char *regionFallbackPath(ConfigPage_E enFeature, const cJSON *pRoot)
+{
+    cJSON *pMutable = const_cast<cJSON *>(pRoot);
+    for (size_t i = 0; i < sizeof(s_pageRegionFallback) / sizeof(s_pageRegionFallback[0]); ++i)
+    {
+        if (s_pageRegionFallback[i].enPage != enFeature)
+        {
+            continue;
+        }
+        const cJSON *pIds = strictNodeAt(pMutable, s_pageRegionFallback[i].pszPath);
+        if ((nullptr != pIds) && cJSON_IsArray(pIds) && (0 != cJSON_GetArraySize(pIds)))
+        {
+            return s_pageRegionFallback[i].pszPath;
+        }
+    }
+    return nullptr;
+}
 
 const char *regionIdsPath(ConfigPage_E enFeature)
 {
@@ -1347,8 +1553,16 @@ bool ensureArraySection(cJSON *pRoot, const char *pszIdsPath)
                     break;
                 }
             }
-            if ((nullptr == pChild) && (0 == strcmp(strArrayName.c_str(), "region_roles")))
+            if (nullptr == pChild)
             {
+                /* 只有编号表允许补行：behaviors 补 {id:N}、region_roles 补 {role:N}。
+                   讲台三页共用一块区域，配置里原本只有黑板时，画讲台要能新建 role=0；
+                   事件行尚未下发时，画该事件的区域也不能整页失败 */
+                const bool bRoleTable = (0 == strcmp(strArrayName.c_str(), "region_roles"));
+                if (!bRoleTable && (0 != strcmp(strArrayName.c_str(), "behaviors")))
+                {
+                    return false;
+                }
                 /* 只有角色表允许补行：三页共用一块讲台区域，若配置里原本只有黑板，
                    画讲台时要能新建 role=0 那一行 */
                 pChild = cJSON_CreateObject();
@@ -1356,7 +1570,7 @@ bool ensureArraySection(cJSON *pRoot, const char *pszIdsPath)
                 {
                     return false;
                 }
-                cJSON_AddNumberToObject(pChild, "role", nKey);
+                cJSON_AddNumberToObject(pChild, bRoleTable ? "role" : "id", nKey);
                 if (0 == cJSON_AddItemToArray(pCur, pChild))
                 {
                     cJSON_Delete(pChild);
@@ -1364,10 +1578,6 @@ bool ensureArraySection(cJSON *pRoot, const char *pszIdsPath)
                 }
                 pCur = pChild;
                 continue;
-            }
-            if (nullptr == pChild)
-            {
-                return false;   /* behaviors 缺行：不凭空造 */
             }
         }
         else if (cJSON_IsObject(pCur))
@@ -1408,46 +1618,117 @@ bool ensureArraySection(cJSON *pRoot, const char *pszIdsPath)
     return true;
 }
 
-/* 整份配置里所有 region_ids 引用方（消费者只有这四处：行为行、角色行、考勤、人脸） */
-void collectReferencedRegionIds(const cJSON *pRoot, std::set<int> &rsetIds)
+/* 行表归一：behaviors / region_roles 的历史对象形状 {"101":{...}} → 数组 [{id,...}]。
+   对象形状是本适配层早期用 nodeSet 在缺行时补出来的，现场配置里真实存在。配置解析器只认数组，不归一的后果是
+   "网页保存成功、运行期整段按默认值跑"；对象键就是行号（id/role），转换时补进行里。
+    只有**所有键都是数字、所有值都是对象**时才转换；任何一项不认识就原样保留——
+     一次保存把不认识的行丢掉，比不归一更糟。 */
+bool rowListToArray(cJSON *pRoot, const char *pszName, const char *pszNumKey)
 {
-    const auto fnAdd = [&rsetIds](const cJSON *pNode) {
-        if ((nullptr == pNode) || !cJSON_IsArray(pNode))
+    cJSON *pList = cJSON_GetObjectItemCaseSensitive(pRoot, pszName);
+    if ((nullptr == pList) || !cJSON_IsObject(pList) || (nullptr == pList->child))
+    {
+        return true;
+    }
+    for (const cJSON *pRow = pList->child; nullptr != pRow; pRow = pRow->next)
+    {
+        if (!cJSON_IsObject(pRow) || (nullptr == pRow->string) || ('\0' == pRow->string[0]) ||
+            (strspn(pRow->string, "0123456789") != strlen(pRow->string)))
+        {
+            return true;
+        }
+    }
+
+    cJSON *pArr = cJSON_CreateArray();
+    if (nullptr == pArr)
+    {
+        return false;
+    }
+    for (cJSON *pRow = pList->child; nullptr != pRow; pRow = pRow->next)
+    {
+        cJSON *pCopy = cJSON_Duplicate(pRow, 1);
+        if ((nullptr == pCopy) || !setNumber(pCopy, pszNumKey, atoi(pRow->string)) ||
+            (0 == cJSON_AddItemToArray(pArr, pCopy)))
+        {
+            cJSON_Delete(pCopy);
+            cJSON_Delete(pArr);
+            return false;
+        }
+    }
+    if (!nodeSet(pRoot, pszName, pArr))
+    {
+        cJSON_Delete(pArr);
+        return false;
+    }
+    return true;
+}
+
+void normalizeRowLists(cJSON *pRoot)
+{
+    (void)rowListToArray(pRoot, "behaviors", "id");
+    (void)rowListToArray(pRoot, "region_roles", "role");
+}
+
+/* 整份配置里所有 region_ids 引用方（消费者只有这四处：行为行、角色行、考勤、人脸）。
+   行表有数组与对象两种历史形状（见 rowListToArray），**两种都要扫**：
+   只看数组会让分配器看不见对象表里的引用，把正在用的 id 当孤儿复用。
+   返回值带计数：某块被两个消费者引用时，画其中一页不能原地改几何——
+   那会把另一页的框一起改掉。 */
+void addArrayRefs(const cJSON *pIds, std::map<int, int> &rmap)
+{
+    if ((nullptr == pIds) || !cJSON_IsArray(pIds))
         {
             return;
         }
-        for (const cJSON *pId = pNode->child; nullptr != pId; pId = pId->next)
+    for (const cJSON *pId = pIds->child; nullptr != pId; pId = pId->next)
         {
             if (cJSON_IsNumber(pId))
             {
-                rsetIds.insert(pId->valueint);
+            ++rmap[pId->valueint];
             }
         }
-    };
+}
+
+void addRowListRefs(const cJSON *pList, std::map<int, int> &rmap)
+{
+    if (nullptr == pList)
+    {
+        return;
+    }
+    if (cJSON_IsArray(pList))
+    {
+        for (const cJSON *pRow = pList->child; nullptr != pRow; pRow = pRow->next)
+        {
+            addArrayRefs(cJSON_GetObjectItemCaseSensitive(pRow, "region_ids"), rmap);
+        }
+        return;
+    }
+    if (cJSON_IsObject(pList))
+    {
+        for (const cJSON *pRow = pList->child; nullptr != pRow; pRow = pRow->next)
+        {
+            addArrayRefs(cJSON_GetObjectItemCaseSensitive(pRow, "region_ids"), rmap);
+        }
+    }
+}
+
+void collectRegionRefCounts(const cJSON *pRoot, std::map<int, int> &rmap)
+{
 
     const char *apszRowLists[] = { "behaviors", "region_roles" };
     for (const char *pszList : apszRowLists)
     {
-        const cJSON *pRows = cJSON_GetObjectItemCaseSensitive(pRoot, pszList);
-        if ((nullptr == pRows) || !cJSON_IsArray(pRows))
-        {
-            continue;
-        }
-        for (const cJSON *pRow = pRows->child; nullptr != pRow; pRow = pRow->next)
-        {
-            fnAdd(cJSON_GetObjectItemCaseSensitive(pRow, "region_ids"));
-        }
+        addRowListRefs(cJSON_GetObjectItemCaseSensitive(pRoot, pszList), rmap);
     }
 
     const char *apszSections[] = { "attendance", "gallery" };
     for (const char *pszSec : apszSections)
     {
         const cJSON *pSec = cJSON_GetObjectItemCaseSensitive(pRoot, pszSec);
-        if ((nullptr == pSec) || !cJSON_IsObject(pSec))
+        if ((nullptr != pSec) && cJSON_IsObject(pSec))
         {
-            continue;
+            addArrayRefs(cJSON_GetObjectItemCaseSensitive(pSec, "region_ids"), rmap);
         }
-        fnAdd(cJSON_GetObjectItemCaseSensitive(pSec, "region_ids"));
     }
 }
 
@@ -1455,8 +1736,8 @@ void collectReferencedRegionIds(const cJSON *pRoot, std::set<int> &rsetIds)
    现有最大 id + 1 */
 int allocRegionId(cJSON *pRoot, cJSON *pRegions, const std::vector<int> &vecTaken)
 {
-    std::set<int> setReferenced;
-    collectReferencedRegionIds(pRoot, setReferenced);
+    std::map<int, int> mapReferenced;
+    collectRegionRefCounts(pRoot, mapReferenced);
 
     for (cJSON *pItem = pRegions->child; nullptr != pItem; pItem = pItem->next)
     {
@@ -1466,7 +1747,7 @@ int allocRegionId(cJSON *pRoot, cJSON *pRegions, const std::vector<int> &vecTake
             continue;
         }
         const int nId = pId->valueint;
-        if ((0 == setReferenced.count(nId)) &&
+        if ((0 == mapReferenced.count(nId)) &&
             (vecTaken.end() == std::find(vecTaken.begin(), vecTaken.end(), nId)))
         {
             return nId;
@@ -1482,11 +1763,11 @@ int allocRegionId(cJSON *pRoot, cJSON *pRegions, const std::vector<int> &vecTake
             nNextId = pId->valueint + 1;
         }
     }
-    for (const int nId : setReferenced)
+    for (const auto &stPair : mapReferenced)
     {
-        if (nId >= nNextId)
+        if (stPair.first >= nNextId)
         {
-            nNextId = nId + 1;
+            nNextId = stPair.first + 1;
         }
     }
     for (const int nId : vecTaken)
@@ -1524,6 +1805,12 @@ bool applyPageRegions(cJSON *pBase, const char *pszIdsPath, const cJSON *pIn,
             }
         }
     }
+
+    /* 引用计数在本次改动**之前**取：某块被不止一处引用，画其中一页时
+       不能原地改它的几何，否则一保存就把别的页的框也改了。
+       这种页改配一块新 id，旧的共享块留给还没重画的页，逐页保存即逐页自愈。 */
+    std::map<int, int> mapRefCountsBefore;
+    collectRegionRefCounts(pBase, mapRefCountsBefore);
 
     cJSON *pRegions = cJSON_GetObjectItemCaseSensitive(pBase, "regions");
     if (nullptr == pRegions)
@@ -1578,9 +1865,22 @@ bool applyPageRegions(cJSON *pBase, const char *pszIdsPath, const cJSON *pIn,
             return false;
         }
 
-        const int nId = (static_cast<size_t>(i) < vecIds.size())
-                        ? vecIds[i]
-                        : allocRegionId(pBase, pRegions, vecNewIds);
+        int nId = 0;
+        if (static_cast<size_t>(i) < vecIds.size())
+        {
+            const int nOldId = vecIds[i];
+            const auto itRef = mapRefCountsBefore.find(nOldId);
+            /* 只被本页引用（计数恰好 1）才原地换几何；>1 说明别的消费者也在用，
+               换新 id 给它让路。计数为 0/缺失说明本页引着一块表里没有的 id，
+               原地续用不会伤及旁人。 */
+            const bool bSharedElsewhere =
+                (itRef != mapRefCountsBefore.end()) && (itRef->second > 1);
+            nId = bSharedElsewhere ? allocRegionId(pBase, pRegions, vecNewIds) : nOldId;
+        }
+        else
+        {
+            nId = allocRegionId(pBase, pRegions, vecNewIds);
+        }
         vecNewIds.push_back(nId);
 
         cJSON *pRect = cJSON_CreateObject();
@@ -1821,6 +2121,18 @@ std::string readConfigPage(const std::string &strConfigJson, ConfigPage_E enFeat
     for (const CConfigPageField_S &stField : vecFields)
     {
         cJSON *pVal = nodeAt(pRoot, stField.pszPath);
+        /* 这次读值实际用的路径（主路径，或跨页解耦的回退路径）。
+           越界夹取的边界要按它查 */
+        const char *pszEffPath = stField.pszPath;
+        /* 解耦：新键缺失（老配置升级上来）时回退读拆分前的旧键 */
+        if ((nullptr == pVal) && (nullptr != stField.pszFallbackPath))
+        {
+            pVal = nodeAt(pRoot, stField.pszFallbackPath);
+            if (nullptr != pVal)
+            {
+                pszEffPath = stField.pszFallbackPath;
+            }
+        }
         if (nullptr == pVal)
         {
             /* 键不存在（老配置没这个键）：有明确默认值的字段回默认，
@@ -1829,8 +2141,10 @@ std::string readConfigPage(const std::string &strConfigJson, ConfigPage_E enFeat
             if (stField.bHasDefault)
             {
                 cJSON *pSynth = cJSON_CreateNumber(stField.dDefault);
-                addConverted(pOut, stField.pszPubKey, pSynth, stField);
+                /* 缺键默认值：按主路径取边界（缺的就是主路径这个键） */
+                addConverted(pOut, stField.pszPubKey, pSynth, stField, stField.pszPath);
                 cJSON_Delete(pSynth);
+                clampWebOut(pOut, enFeature, stField.pszPubKey);
             }
             else
             {
@@ -1841,10 +2155,14 @@ std::string readConfigPage(const std::string &strConfigJson, ConfigPage_E enFeat
         if ((3 == stField.nConv) && cJSON_IsNumber(pVal))
         {
             /* 画布像素 → 网页的 1920 口径（canvas=1920 时原样） */
-            Json::add(pOut, stField.pszPubKey, pVal->valuedouble * 1920.0 / canvasWidthOf(pRoot));
+            const double dCfg = clampToEngineRange(pszEffPath, pVal->valuedouble);
+            Json::add(pOut, stField.pszPubKey, dCfg * 1920.0 / canvasWidthOf(pRoot));
+            clampWebOut(pOut, enFeature, stField.pszPubKey);
             continue;
         }
-        addConverted(pOut, stField.pszPubKey, pVal, stField);
+        /* 这次读值用的路径：先新后旧（跨页解耦的回退）*/
+        addConverted(pOut, stField.pszPubKey, pVal, stField, pszEffPath);
+        clampWebOut(pOut, enFeature, stField.pszPubKey);
     }
 
     /* 这一页有区域键：把 region_ids 指向的几何一并回给网页（1920x1080 口径）。
@@ -1852,7 +2170,20 @@ std::string readConfigPage(const std::string &strConfigJson, ConfigPage_E enFeat
     const char *pszIdsPath = regionIdsPath(enFeature);
     if (nullptr != pszIdsPath)
     {
-        appendPageRegions(pOut, pRoot, pszIdsPath);
+        /* 讲台三页（23/25/26）自己的 region_ids 为空/缺失时，显示讲台角色的几何——与配置层的继承一致，
+           且只读：回退几何永远不会因为这一页的保存而改变 */
+        const char *pszShow = pszIdsPath;
+        const cJSON *pOwnIds = strictNodeAt(pRoot, pszIdsPath);
+        if ((nullptr == pOwnIds) || !cJSON_IsArray(pOwnIds) ||
+            (0 == cJSON_GetArraySize(pOwnIds)))
+        {
+            const char *pszFallback = regionFallbackPath(enFeature, pRoot);
+            if (nullptr != pszFallback)
+            {
+                pszShow = pszFallback;
+            }
+        }
+        appendPageRegions(pOut, pRoot, pszShow);
     }
 
     char *pszText = cJSON_PrintUnformatted(pOut);
@@ -1864,6 +2195,94 @@ std::string readConfigPage(const std::string &strConfigJson, ConfigPage_E enFeat
     cJSON_Delete(pOut);
     Json::deinit(pRoot);
     return strOut;
+}
+
+/* 解耦：配置里「一个旧对象拆成多个事件对象」的对照表。
+   键是拆分前的旧对象，值是这次拆出来的各事件自己的对象 */
+static const struct CSplitObject_S
+{
+    const char *pszOld;
+    const char *pszNew;
+} s_aSplitObjects[] = {
+    { "rules.head_down", "rules.head_down_reading" },
+    { "rules.head_down", "rules.head_down_phone" },
+    { "rules.head_down", "rules.head_down_teacher" },
+    { "rules.head_down", "rules.head_down_phone_teacher" },
+    { "rules.head_up",   "rules.head_up_teacher" },
+    { "rules.stand",     "rules.stand_teacher" },
+    { "rules.phone",     "rules.phone_teacher" },
+    { "rules.phone",     "rules.phone_reading" },
+};
+
+/* pszPath 是否落在 pszPrefix 这个点上（相等或以 "prefix." 开头） */
+static bool pathUnder(const char *pszPath, const char *pszPrefix)
+{
+    const size_t nLen = strlen(pszPrefix);
+    if (0 != strncmp(pszPath, pszPrefix, nLen))
+    {
+        return false;
+    }
+    return ('\0' == pszPath[nLen]) || ('.' == pszPath[nLen]);
+}
+
+/* 把 src 里有、dst 里没有的叶子补进 dst（递归，已有的键一律不动） */
+static void mergeMissingLeaves(cJSON *pDst, const cJSON *pSrc)
+{
+    if ((nullptr == pDst) || (nullptr == pSrc) ||
+        !cJSON_IsObject(pDst) || !cJSON_IsObject(pSrc))
+    {
+        return;
+    }
+    for (const cJSON *pChild = pSrc->child; nullptr != pChild; pChild = pChild->next)
+    {
+        cJSON *pDstChild = cJSON_GetObjectItem(pDst, pChild->string);
+        if (nullptr == pDstChild)
+        {
+            cJSON *pCopy = deepCopy(pChild);
+            if ((nullptr != pCopy) && !cJSON_AddItemToObject(pDst, pChild->string, pCopy))
+            {
+                cJSON_Delete(pCopy);
+            }
+        }
+        else if (cJSON_IsObject(pDstChild) && cJSON_IsObject(pChild))
+        {
+            mergeMissingLeaves(pDstChild, pChild);
+        }
+    }
+}
+
+/* 解耦：把被改对象的各「事件副本」冻结成改前的值。
+   触发点：Set 写任一落在旧对象或某个新对象上的字段 */
+static void freezeSplitObjects(cJSON *pRoot, const char *pszTouchedPath)
+{
+    if ((nullptr == pRoot) || (nullptr == pszTouchedPath))
+    {
+        return;
+    }
+    for (const CSplitObject_S &stPair : s_aSplitObjects)
+    {
+        if (!pathUnder(pszTouchedPath, stPair.pszOld) &&
+            !pathUnder(pszTouchedPath, stPair.pszNew))
+        {
+            continue;
+        }
+        const cJSON *pOldObj = nodeAt(pRoot, stPair.pszOld);
+        if (nullptr == pOldObj)
+        {
+            continue;
+        }
+        cJSON *pNewObj = nodeAt(pRoot, stPair.pszNew);
+        if (nullptr == pNewObj)
+        {
+            cJSON *pCopy = deepCopy(pOldObj);
+            if ((nullptr == pCopy) || !nodeSet(pRoot, stPair.pszNew, pCopy))
+            {
+                cJSON_Delete(pCopy);   /* nodeSet 失败时所有权仍在调用方 */
+            }
+            continue;
+        }
+        mergeMissingLeaves(pNewObj, pOldObj);
+    }
 }
 
 bool mergeConfigPage(const std::string &strConfigJson, ConfigPage_E enFeature,
@@ -1893,11 +2312,46 @@ bool mergeConfigPage(const std::string &strConfigJson, ConfigPage_E enFeature,
         return false;
     }
 
+    /* 先把历史遗留的对象形状行表归一成数组（见 rowListToArray）。现场配置可能正是
+       对象表——不归一的话，这次保存写回去的仍是对象表，解析器继续"1 个键类型不符，保留默认"，而分配器（若只认
+       数组）会把正在用的 id 当孤儿复用，逐页画区域就全部塌成同一块。 */
+    normalizeRowLists(pBase);
+
     /* 只认本页声明的字段；一个都没命中说明网页与本页口径不一致，报错而不是静默成功 */
     int32_t nApplied = 0;
     for (const CConfigPageField_S &stField : vecFields)
     {
         cJSON *pPubVal = cJSON_GetObjectItem(pPart, stField.pszPubKey);
+        /* 网页量程校验 */
+        if ((nullptr != pPubVal) && cJSON_IsNumber(pPubVal))
+        {
+            double dLo = 0.0;
+            double dHi = 0.0;
+            const char *pszUnit = nullptr;
+            if (webInputRangeOf(enFeature, stField.pszPubKey, dLo, dHi, pszUnit))
+            {
+                const double dWire = pPubVal->valuedouble;
+                const bool bOut = (dWire < dLo) || (dHi >= 0.0 && dWire > dHi);
+                if (bOut)
+                {
+                    char szRange[64] = { 0 };
+                    if (dHi < 0.0)
+                    {
+                        snprintf(szRange, sizeof(szRange), "[%g,*)", dLo);
+                    }
+                    else
+                    {
+                        snprintf(szRange, sizeof(szRange), "[%g,%g]", dLo, dHi);
+                    }
+                    rstrErr = std::string(stField.pszPubKey) + " out of range " + szRange +
+                              (nullptr != pszUnit ? std::string(" (") + pszUnit + ")" : "") +
+                              ", value " + std::to_string(dWire);
+                    cJSON_Delete(pPart);
+                    Json::deinit(pBase);
+                    return false;
+                }
+            }
+        }
         if ((nullptr == pPubVal) || cJSON_IsNull(pPubVal))
         {
             /* 没送这个字段：不动它（这正是"只改一项"的语义） */
@@ -1940,22 +2394,9 @@ bool mergeConfigPage(const std::string &strConfigJson, ConfigPage_E enFeature,
             Json::deinit(pBase);
             return false;
         }
-        /* 网页量程上限（秒 → 配置量纲）：超过 10s 就夹回 10s 再落盘，负值归零 */
-        int32_t nCapSec = 0;
-        if (cJSON_IsNumber(pCfgVal) && webTimeCapOf(enFeature, stField.pszPubKey, nCapSec))
-        {
-            const double dMaxCfg = configFromWire(static_cast<double>(nCapSec), stField);
-            const double dHi = static_cast<double>(static_cast<int64_t>(dMaxCfg + 0.5));
-            const double dVal = pCfgVal->valuedouble;
-            if (dVal < 0.0)
-            {
-                cJSON_SetNumberValue(pCfgVal, 0.0);
-            }
-            else if (dVal > dHi)
-            {
-                cJSON_SetNumberValue(pCfgVal, dHi);
-            }
-        }
+        /* 解耦：写新键前先把同一旧键的其它依赖新键冻结成旧值 */
+        freezeSplitObjects(pBase, (nullptr != stField.pszFallbackPath) ? stField.pszFallbackPath
+                                                                      : stField.pszPath);
         if (!nodeSet(pBase, stField.pszPath, pCfgVal))
         {
             cJSON_Delete(pCfgVal);

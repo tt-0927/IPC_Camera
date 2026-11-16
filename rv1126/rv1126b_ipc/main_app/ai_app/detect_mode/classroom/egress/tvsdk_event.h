@@ -11,14 +11,16 @@
 
 #include <cstdint>
 
-#include "NetTVSDKServer.h"
+#include "event_linkage_types.h"
 #include "rule_engine.h"
 
 namespace Classroom
 {
-/* 课堂即时事件的 TVSDK 告警码（AI 段，见文件头）。平台侧契约的另一半 */
-#define CLASSROOM_TVSDK_ALARM_GUIDING  (NET_ALARM_BASE_AI + 0x60)    /* 207 教师指导（学生站定） */
-#define CLASSROOM_TVSDK_ALARM_INTERACT (NET_ALARM_BASE_AI + 0x61)    /* 209 师生互动（站立或举手） */
+/* 课堂即时事件的 TVSDK 告警码（AI 段，见文件头；平台侧契约的另一半）。
+ * 权威定义在 NetTVSDKServer.h，由CAP_TV3881TJY_CLASSROOM_CONFIG 守卫；本文件只引用、不本地重定义（单一真源）。
+ *   207 教师指导（学生机：学生站定）  → NET_ALARM_CLASSROOM_GUIDING   = 0x3060
+ *   209 师生互动（学生机：站立或举手）→ NET_ALARM_CLASSROOM_INTERACT  = 0x3061
+ * 事件类型 → 告警码的映射在 share 的 get_ai_object_alarm_type()（同守卫）。 */
 
 /**
  * @brief   : 该事件要不要即时上送
@@ -30,14 +32,21 @@ namespace Classroom
 bool isImmediateClassEvent(const CBehaviorEvent_S &stEvent);
 
 /**
- * @brief   : 把一条即时事件填成 TVSDK AI 目标告警
+ * @brief   : 课堂行为号 → share 事件类型（框架映射键）
+ * @param    {Behavior_E} enBehavior：课堂行为号
+ * @return   {Event::Type_E} 207/209 的两个课堂类型；其它返回 UNKNOWN（不进即时通道）
+ */
+Event::Type_E classEventType(Behavior_E enBehavior);
+
+/**
+ * @brief   : 把一条即时事件填成框架的触发上下文（**不填 SDK 结构体**，那是框架 pusher 的事）
  * @param    {const CBehaviorEvent_S&} stEvent：事件（u64EventSeq 已分配）
  * @param    {int64_t} llWallMs：墙钟毫秒（与报表同一锚点口径）
- * @param    {NET_AlarmAiObjectInfo_S&} rstInfo：OUT，先整体清零再按文件头填字段
+ * @param    {EventTriggerContext_S&} rstCtx：OUT，先整体重置再按文件头填字段
  * @return   {bool} false=不该上送（与 isImmediateClassEvent 同一判据）
- * @note    : 结构体约 2MB（两块 1MB 图片缓冲），调用方在堆上分配再传进来；
- *            本函数不分配、不取锁、不读时钟——纯映射
+ * @note    : 纯函数：不分配、不取锁、不读时钟、不碰 SDK——主机用例可直接调用。
+ *            调用方拿上下文去调 EventLinkageDict::push_tvsdk_event_alarm 即完成推送
  */
-bool fillClassEventAlarm(const CBehaviorEvent_S &stEvent, int64_t llWallMs,
-                         NET_AlarmAiObjectInfo_S &rstInfo);
+bool classEventContext(const CBehaviorEvent_S &stEvent, int64_t llWallMs,
+                       EventTriggerContext_S &rstCtx);
 }

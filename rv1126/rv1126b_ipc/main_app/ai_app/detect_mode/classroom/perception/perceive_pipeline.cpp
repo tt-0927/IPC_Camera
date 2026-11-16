@@ -451,7 +451,7 @@ void CPerceivePipeline::syncConfig(const ConfigPtr &spConf)
               "min_body=%d wait=%dms cap=%d expand=%.1f/%.1f/%.1f pose_budget=%dms "
               "face_min=%d face_interval=%dms align[order=%s crop=%d probe=%d resid=%.2f floor=%.1f eps=%d] "
               "feat=%d max=%d ttl=%dms phn=%d max=%d gap=%dms ttl=%dms box=%d "
-              "expr=%d ttl=%dms slots=%d p=%.2f m=%.2f slotmap=%s map=%s opt=%d%d%d%d%d",
+              "expr=%d min=%d ttl=%dms slots=%d p=%.2f m=%.2f slotmap=%s map=%s opt=%d%d%d%d%d",
               static_cast<long long>(stSnap.llVersion), stSnap.fDetectScoreThreshold,
               stSnap.fDetectNmsThreshold, stSnap.fPoseScoreThreshold, stSnap.nMinHeadPixel,
               stSnap.nMaxHeadPixel,
@@ -464,7 +464,7 @@ void CPerceivePipeline::syncConfig(const ConfigPtr &spConf)
               m_stFeatConf.bEnable ? 1 : 0, m_stFeatConf.nMaxPersons, m_stFeatConf.nTtlMs,
               m_stPhoneConf.bEnable ? 1 : 0, m_stPhoneConf.nMaxPersons, m_stPhoneConf.nMinIntervalMs,
               m_stPhoneConf.nTtlMs, m_stPhoneParam.nMinBoxEdge,
-              m_stExprConf.bEnable ? 1 : 0, m_stExprConf.nTtlMs,
+              m_stExprConf.bEnable ? 1 : 0, m_stExpr.param().nMinFacePx, m_stExprConf.nTtlMs,
               m_stExpr.param().nSlotNum, m_stExpr.param().fProbMin, m_stExpr.param().fMarginMin,
               expressionSlotMapState(m_stExpr.param()),
               expressionMapText(m_stExpr.param()).c_str(),
@@ -1820,7 +1820,11 @@ void CPerceivePipeline::runFaceFeatStage(const CFrame_S &stFrame, int32_t nRowNu
            偏转角在**这里**估而不是在表情函数里：五点（已按模板槽排好）只在这一层存在，
            表情那一路拿到的只有一张 warp 图，从图反推角度要再解一次五点，重复且口径不一致 */
         const float fYawDeg = faceYawDeg(astPermPt, CLASSROOM_FACE_LANDMARK_NUM);
-        runExpressionOfWarp(spWarp, nTrackId, llNowMs, fYawDeg);
+        /* 表情尺寸门用的框短边：与解码/考勤同一坐标系（分析画布像素）。取短边而不是高，
+           是因为侧脸的高会被下巴/额头拉长，短边才是"分辨率够不够"的保守量 */
+        const float fFaceShortPx = (stFace.stBox.width() < stFace.stBox.height())
+                                       ? stFace.stBox.width() : stFace.stBox.height();
+        runExpressionOfWarp(spWarp, nTrackId, llNowMs, fYawDeg, fFaceShortPx);
     }
 
     /* 比对一次做完而不是每张脸拿到就扫库：一次全库遍历是数百行 × 512 维的乘加，
@@ -1870,7 +1874,7 @@ void CPerceivePipeline::runFaceFeatStage(const CFrame_S &stFrame, int32_t nRowNu
 }
 
 void CPerceivePipeline::runExpressionOfWarp(const RgaBufPtr &rspBuf, int32_t nTrackId,
-                                            int64_t llNowMs, float fYawDeg)
+                                            int64_t llNowMs, float fYawDeg, float fFaceShortPx)
 {
     if (!m_stExprConf.bEnable)
     {
@@ -1891,6 +1895,12 @@ void CPerceivePipeline::runExpressionOfWarp(const RgaBufPtr &rspBuf, int32_t nTr
     {
         /* 没配到行就没有跟踪 ID，而平滑表按 ID 存。不记数：这不是失败，
            是这个人这一拍根本没进那条表（runFaceStage 里 u64FaceUnmatched 已经记过了） */
+        return;
+    }
+    /* 尺寸门：低于门限的脸不提交表情推理 */
+    if (!expressionFacePxOk(m_stExprConf.stParam.nMinFacePx, fFaceShortPx))
+    {
+        ++m_stStat.u64ExprSmallSkip;
         return;
     }
     /* 角度门（「允许人脸角度」）：超限时连推理都不提交——侧脸在 112 模板上
@@ -2658,7 +2668,7 @@ std::string CPerceivePipeline::statText() const
                               " |feat try=%llu ok=%llu nocrop=%llu noperm=%llu noalign=%llu"
                               " nopool=%llu nowarp=%llu busy=%llu nogal=%llu hit=%llu rgn=%llu"
                               " n=%d cost=%lldms warm=%llu %s"
-                              " |expr try=%llu fed=%llu busy=%llu szbad=%llu ang=%llu nobad=%d rows=%d %s"
+                              " |expr try=%llu fed=%llu busy=%llu szbad=%llu ang=%llu small=%llu nobad=%d rows=%d %s"
                               " |phone try=%llu yes=%llu no=%llu want=%d list=%d rows=%d cfull=%llu"
                               " skip=%llu/%llu/%llu"
                               " dec low=%llu small=%llu"
@@ -2746,6 +2756,7 @@ std::string CPerceivePipeline::statText() const
                               static_cast<unsigned long long>(m_stStat.u64ExprBusySkip),
                               static_cast<unsigned long long>(m_stStat.u64ExprSizeBad),
                               static_cast<unsigned long long>(m_stStat.u64ExprAngleSkip),
+                              static_cast<unsigned long long>(m_stStat.u64ExprSmallSkip),
                               m_stStat.nLastExprAngleBad,
                               m_stStat.nLastExprRow,
                               strExpr.c_str(),

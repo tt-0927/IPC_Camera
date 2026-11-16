@@ -45,8 +45,11 @@ typedef struct _SubjectFact_
     bool bInBoard = false;           /* 头框落在黑板角色区域内 */
     bool bInTeacherArea = false;     /* 上二者任一成立，归属用的就是这个 OR */
     bool bInStudentArea = false;     /* 学生席角色区域；没画该角色时按「讲台/黑板之外」处理 */
-    bool bStanding = false;          /* 仲裁用的站立。bStandKnown=false 时不可信 */
+    bool bStanding = false;          /* 学生口径的站立。bStandKnown=false 时不可信 */
     bool bStandKnown = false;
+    /* 教师口径的站立 */
+    bool bStandTeacher = false;
+    bool bStandTeacherKnown = false;
     bool bMoved = false;             /* 位移窗口内累计位移达 teacher.patrol_move_px */
     bool bMovedHold = false;         /* 走动保持：最近一次达门后 CLASSROOM_PATROL_HOLD_TIMES 个窗口内
                                         都算"在巡视"（只给 210 用；207 指导仍看瞬时 bMoved）。
